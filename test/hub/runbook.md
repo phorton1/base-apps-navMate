@@ -19,7 +19,7 @@ curl.exe -s "http://localhost:9883/api/test?op=suppress&val=1" | Out-Null
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+hub+module+reset" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
-curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/raymarine/apps/navMate/test/_fixtures/test.fsh" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh" | Out-Null
 Start-Sleep 3
 
 # Verify baseline

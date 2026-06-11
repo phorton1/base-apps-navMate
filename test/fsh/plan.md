@@ -31,7 +31,7 @@ The fsh module's baseline:
 2. `op=refresh`
 3. `op=suppress&val=1`
 4. `op=clear_e80` (with brief wait)
-5. `op=load_fsh&path=C:/base/apps/raymarine/apps/navMate/test/_fixtures/test.fsh`
+5. `op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh`
 6. `cmd=mark+fsh+module+reset`
 
 After setup: `/api/db` empty; `/api/nmdb` returns the full git-baseline DB; `/api/fsh` returns 50 waypoints / 4 groups / 3 routes / 123 tracks.

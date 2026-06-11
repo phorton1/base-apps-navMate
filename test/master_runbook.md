@@ -185,7 +185,7 @@ curl.exe -s "http://localhost:9883/api/test?op=clear_e80"
 
 # Load FSH fixture (absolute path required; suppress must already be enabled
 # to auto-discard the dirty-bit confirm dialog if the in-memory FSH is dirty)
-curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/raymarine/apps/navMate/test/_fixtures/test.fsh"
+curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh"
 
 # Mark log with module tag for since=mark queries
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+<module-name>+reset"

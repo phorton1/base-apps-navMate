@@ -24,7 +24,7 @@ The tracks module's baseline:
 2. `op=refresh`
 3. `op=suppress&val=1`
 4. `op=clear_e80` (with ProgressDialog wait)
-5. `op=load_fsh&path=C:/base/apps/raymarine/apps/navMate/test/_fixtures/test.fsh`
+5. `op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh`
 6. `cmd=mark+tracks+module+reset`
 7. **teensyBoat pre-check** -- if teensyBoat is unavailable at `http://localhost:9881`, the entire module records as `NOT_RUN (teensyBoat unavailable)` and stops.
 

@@ -41,7 +41,7 @@ Minimal -- no E80 content. Section A's first tests populate E80 organically.
 2. `op=refresh`
 3. `op=suppress&val=1`
 4. `op=clear_e80` + ProgressDialog wait
-5. `op=load_fsh&path=C:/base/apps/raymarine/apps/navMate/test/_fixtures/test.fsh`
+5. `op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh`
 6. `cmd=mark+hub+module+reset`
 
 After setup: `/api/db` empty; `/api/nmdb` reverted DB; `/api/fsh` test fixture (50 WPs / 4 groups / 3 routes / 123 tracks). hub.1 fires from this clean state.
