@@ -45,7 +45,7 @@ use n_utils qw(
 	@E80_ROUTE_COLOR_ABGR
 	abgrToE80Index
 	isExactE80Color);
-use apps::raymarine::NET::a_utils;
+use Pub::Ray::NET::a_utils;
 use nmResources qw(makeSymComboBox);
 use base 'Wx::Dialog';
 

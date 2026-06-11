@@ -16,9 +16,9 @@ use Wx::Event qw(
 	EVT_TEXT_ENTER);
 use Pub::Utils qw(display warning error);
 use Pub::WX::Window;
-use apps::raymarine::NET::a_defs;
-use apps::raymarine::NET::a_mon;
-use apps::raymarine::NET::c_RAYDP;
+use Pub::Ray::NET::a_defs;
+use Pub::Ray::NET::a_mon;
+use Pub::Ray::NET::c_RAYDP;
 use nmResources;
 use base qw(Wx::Panel Pub::WX::Window);
 

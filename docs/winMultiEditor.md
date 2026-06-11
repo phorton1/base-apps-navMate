@@ -14,12 +14,10 @@
 **winMultiEditor** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**[navMate](readme.md)**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
 ## Purpose
 

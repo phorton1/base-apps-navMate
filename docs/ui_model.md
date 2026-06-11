@@ -14,12 +14,10 @@
 **[winMultiEditor](winMultiEditor.md)** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**navMate**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
 ## Overview
 
@@ -356,7 +354,7 @@ E80-specific routing rules:
 - The `tracks` header accepts PASTE / PASTE_NEW of track-type clipboard items,
   and individual `track` nodes support Delete, Copy, Cut, and Push (E80 -> DB).
   The underlying transport is the TRACK writer-session protocol
-  ([NET/docs/notes/TRACK_writing.md](../../../NET/docs/notes/TRACK_writing.md),
+  ([NET/docs/notes/TRACK_writing.md](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/notes/TRACK_writing.md),
   confirmed live 2026-05-27).  PASTE_NEW pops a confirmation dialog warning
   that fresh-UUID writes are unusual.  Pasting at a non-tracks-header E80
   destination is rejected.

@@ -119,7 +119,7 @@ use Pub::Utils qw(display warning error);
 use n_defs;
 use navDB;
 use navFSH;
-use apps::raymarine::NET::c_RAYDP;
+use Pub::Ray::NET::c_RAYDP;
 use navMatchC;
 
 
@@ -1654,8 +1654,8 @@ sub enumerateE80Candidates
 {
 	my ($obj_type, $subj_bbox) = @_;
 	return [] if !$subj_bbox;
-	return [] if !$apps::raymarine::NET::c_RAYDP::raydp;
-	my $raydp = $apps::raymarine::NET::c_RAYDP::raydp;
+	return [] if !$Pub::Ray::NET::c_RAYDP::raydp;
+	my $raydp = $Pub::Ray::NET::c_RAYDP::raydp;
 
 	my $wpmgr     = $raydp->findImplementedService('WPMGR', 1);
 	my $track_mgr = $raydp->findImplementedService('TRACK', 1);

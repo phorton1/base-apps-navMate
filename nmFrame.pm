@@ -18,7 +18,7 @@ use Pub::Utils qw(display warning error _def);
 use Pub::WX::AppConfig;
 use Pub::WX::Frame;
 use Pub::WX::Dialogs;
-use apps::raymarine::NET::c_RAYDP;
+use Pub::Ray::NET::c_RAYDP;
 use navVisibility qw(saveViewState);
 use navSelection;
 use nmResources;
@@ -32,7 +32,7 @@ use winDatabase;
 use winE80;
 use winFSH;
 use winMonitor;
-use apps::raymarine::NET::winFILESYS;
+use Pub::Ray::NET::winFILESYS;
 use navOneTimeImport;
 use navKML;
 use winSymMapping;
@@ -189,10 +189,10 @@ sub onIdle
 		$this->{st_track}->Refresh();
 	}
 
-	my $wpmgr_busy    = $apps::raymarine::NET::d_WPMGR::query_in_progress // 0;
-	my $track_busy    = $apps::raymarine::NET::d_TRACK::query_in_progress // 0;
-	my $wpmgr_queried = $apps::raymarine::NET::d_WPMGR::query_completed   // 0;
-	my $track_queried = $apps::raymarine::NET::d_TRACK::query_completed    // 0;
+	my $wpmgr_busy    = $Pub::Ray::NET::d_WPMGR::query_in_progress // 0;
+	my $track_busy    = $Pub::Ray::NET::d_TRACK::query_in_progress // 0;
+	my $wpmgr_queried = $Pub::Ray::NET::d_WPMGR::query_completed   // 0;
+	my $track_queried = $Pub::Ray::NET::d_TRACK::query_completed    // 0;
 
 	# Session is stable once WPMGR has completed a real query and no service
 	# is currently downloading.  TRACK is optional: if absent, ignore it.
@@ -212,7 +212,7 @@ sub onIdle
 		{
 			if ($session_stable)
 			{
-				$this->{_e80_version} = apps::raymarine::NET::b_sock::getVersion();
+				$this->{_e80_version} = Pub::Ray::NET::b_sock::getVersion();
 				$e80->onSessionStart();
 			}
 			else
@@ -235,14 +235,14 @@ sub onIdle
 		}
 		else
 		{
-			my $v = apps::raymarine::NET::b_sock::getVersion();
+			my $v = Pub::Ray::NET::b_sock::getVersion();
 			if ($v != ($this->{_e80_version} // -1))
 			{
 				$this->{_e80_version}    = $v;
 				$this->{_e80_dirty_time} = time();
 			}
 			elsif ($this->{_e80_dirty_time} &&
-			       !apps::raymarine::NET::d_WPMGR::getPendingCommands() &&
+			       !Pub::Ray::NET::d_WPMGR::getPendingCommands() &&
 			       time() > $this->{_e80_dirty_time} + 0.20)
 			{
 				$this->{_e80_dirty_time} = 0;
@@ -863,8 +863,8 @@ sub _doRefreshE80Data
 		okDialog($parent, "E80 not connected - cannot refresh.", "Refresh E80");
 		return;
 	}
-	if ($apps::raymarine::NET::d_WPMGR::query_in_progress ||
-	    $apps::raymarine::NET::d_TRACK::query_in_progress)
+	if ($Pub::Ray::NET::d_WPMGR::query_in_progress ||
+	    $Pub::Ray::NET::d_TRACK::query_in_progress)
 	{
 		okDialog($parent, "A query is already in progress - please wait.", "Refresh E80");
 		return;

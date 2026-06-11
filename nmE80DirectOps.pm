@@ -25,8 +25,8 @@ use JSON::PP qw(decode_json);
 use Wx qw(:everything);
 use Pub::Utils qw(display getAppFrame);
 use Pub::WX::Dialogs;
-use apps::raymarine::NET::a_defs qw(%KNOWN_SERVER_IPS);
-use apps::raymarine::NET::c_RAYDP;
+use Pub::Ray::NET::a_defs qw(%KNOWN_SERVER_IPS);
+use Pub::Ray::NET::c_RAYDP;
 use e80Config;
 use e80ScreenGrab;
 
@@ -65,7 +65,7 @@ sub filesysDevices
     # Live E80 units advertising the RAYDP FILESYS service, as ({ip, device_id}, ...) sorted by
     # ip.  Every E80 advertises FILESYS, so this is the reliable target list.
 {
-    my $raydp = apps::raymarine::NET::c_RAYDP::getRayDP();
+    my $raydp = Pub::Ray::NET::c_RAYDP::getRayDP();
     return () if !$raydp;
     my $ports = $raydp->getServicePortsByAddr();
     return () if !$ports;

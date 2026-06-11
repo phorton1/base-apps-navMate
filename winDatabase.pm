@@ -40,7 +40,7 @@ use Pub::Utils qw(display warning error);
 use Pub::WX::AppConfig qw(readConfig writeConfig);
 use Pub::WX::Window;
 use Pub::WX::Menu;
-use apps::raymarine::NET::a_utils;
+use Pub::Ray::NET::a_utils;
 use navDB;
 use navVisibility qw(getDbVisible setDbVisible);
 use navOutline;

@@ -44,8 +44,8 @@ use Wx::Event qw(
 	EVT_SIZE);
 use Pub::Utils qw(display warning error);
 use Pub::WX::Window;
-use apps::raymarine::FSH::fshUtils qw(fshDateTimeToStr);
-use apps::raymarine::NET::c_RAYDP;
+use Pub::Ray::FSH::fshUtils qw(fshDateTimeToStr);
+use Pub::Ray::NET::c_RAYDP;
 use n_defs;
 use n_utils;
 use navOps qw(buildContextMenu onContextMenuCommand doClearE80DB);
@@ -804,7 +804,7 @@ sub _onSave
 	{
 		my $new_name = $this->{ed_name}->GetValue();
 		$track_mgr->queueTRACKCommand(
-			$apps::raymarine::NET::d_TRACK::API_GENERAL_CMD,
+			$Pub::Ray::NET::d_TRACK::API_GENERAL_CMD,
 			$uuid, "rename $new_name");
 	}
 	else

@@ -32,14 +32,14 @@ use threads::shared;
 use JSON::PP qw(encode_json decode_json);
 use Pub::Utils qw(display warning error $resource_dir);
 use Pub::HTTP::Response qw(json_response);
-use apps::raymarine::NET::h_server;
+use Pub::Ray::NET::h_server;
 use navPrefs qw(getPref setPref $PREF_HTTP_PORT $PREF_MAP_BROWSER);
 use nmResources qw(ensureLeafletNative ensureLeafletMask leafletNativePath leafletMaskPath);
 use nmDialogs qw($suppress_confirm $suppress_outcome $suppress_error_dialog);
 use navDB;
 use navFSH;
 use nmE80DirectOps;
-use base qw(apps::raymarine::NET::h_server);
+use base qw(Pub::Ray::NET::h_server);
 
 
 my $nm_server;

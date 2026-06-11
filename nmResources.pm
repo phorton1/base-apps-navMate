@@ -12,7 +12,7 @@ use File::Basename;
 use Wx qw(:everything);
 use Pub::WX::Resources;
 use Pub::WX::AppConfig;
-use apps::raymarine::NET::a_utils qw(@E80_SYMS);
+use Pub::Ray::NET::a_utils qw(@E80_SYMS);
 use Pub::Utils qw($resource_dir $temp_dir);
 
 

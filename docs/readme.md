@@ -14,12 +14,10 @@
 **[winMultiEditor](winMultiEditor.md)** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**navMate**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
 **navMate** is a desktop application for managing a mariner's complete navigation
 data - waypoints, groups, routes, and tracks - across a lifetime of voyaging, across
@@ -74,8 +72,12 @@ base, data model, and UI are the product. Everything else is a boundary adapter.
   organization (db, e80, tracks, fsh, hub), shared headers, fixtures, full-cycle
   orchestrator, and results archival.
 
-## Third-Party Libraries
+## Credits
 
+- **[wxPerl / wxWidgets](https://www.wxwidgets.org/)** - the cross-platform GUI
+  toolkit used for navMate's windows, panels, and dialogs.
+- **[SQLite](https://www.sqlite.org/)** (via `DBD::SQLite`) - the embedded
+  database engine that holds the navigation knowledge base.
 - **[Leaflet](https://leafletjs.com/)** (v1.9.4) - open-source JavaScript library
   for the interactive map canvas (BSD 2-Clause license). Tile imagery sourced
   separately from Google Maps and Esri.
@@ -95,6 +97,19 @@ Copyright (C) 2026 Patrick Horton
 navMate is free software, released under the
 [GNU General Public License v3](../LICENSE.TXT) or any later version.
 See [LICENSE.TXT](../LICENSE.TXT) or <https://www.gnu.org/licenses/> for details.
+
+## Please Also See
+
+- [**phorton1/base-apps-navMate**](https://github.com/phorton1/base-apps-navMate) -
+  this repository on GitHub
+
+- [**Ray Library**](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md) -
+  the reverse-engineered SeatalkHS protocols, FSH file format, and CSV
+  conversion library that navMate's E80 and FSH spokes are built on.
+
+- [**shark**](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md) -
+  the SeatalkHS engineering tool; the laboratory in which the protocols
+  were reverse engineered.
 
 ---
 

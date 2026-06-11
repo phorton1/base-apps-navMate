@@ -26,7 +26,7 @@ use Pub::WX::Dialogs;
 use navDB;
 use navFSH;
 use n_defs;
-use apps::raymarine::NET::a_defs qw($E80_MAX_NAME);
+use Pub::Ray::NET::a_defs qw($E80_MAX_NAME);
 
 
 BEGIN

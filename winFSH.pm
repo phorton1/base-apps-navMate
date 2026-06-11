@@ -43,8 +43,8 @@ use Wx::Event qw(
 	EVT_SIZE);
 use Pub::Utils qw(display warning error);
 use Pub::WX::Window;
-use apps::raymarine::FSH::fshUtils qw(fshDateTimeToStr $FSH_MAX_COMMENT);
-use apps::raymarine::NET::a_utils;
+use Pub::Ray::FSH::fshUtils qw(fshDateTimeToStr $FSH_MAX_COMMENT);
+use Pub::Ray::NET::a_utils;
 use navFSH;
 use navServer qw(addRenderFeatures removeRenderFeatures openMapBrowser isBrowserConnected);
 use navVisibility qw(getFSHVisible setFSHVisible clearAllFSHVisible getAllFSHVisibleUUIDs batchRemoveFSHVisible);

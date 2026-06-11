@@ -14,17 +14,15 @@
 **[winMultiEditor](winMultiEditor.md)** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**navMate**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
 ## Primary Statement
 
 **navMate is a lifelong, device-independent nautical knowledge management system.
-[RAYNET](../../../NET/docs/RAYNET.md)/E80 is the first transport. The knowledge base, data model, and UI are the
+[RAYNET](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/RAYNET.md)/E80 is the first transport. The knowledge base, data model, and UI are the
 product. Everything else is a boundary adapter.**
 
 ## Scope
@@ -119,7 +117,7 @@ by any device's limitations.
 navMate runs three UI surfaces simultaneously, each suited to different tasks:
 
 1. **Console window** - command/response and debug interface, always present.
-   Power-user access and development debugging surface. Pattern established in [shark](../../shark/docs/shark.md).
+   Power-user access and development debugging surface. Pattern established in [shark](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md).
 
 2. **wx panels** - native OS widgets: list boxes, status displays, quick controls.
    Better than a browser for anything requiring immediate local response. wx is not
@@ -133,8 +131,8 @@ These are not alternatives - all three run concurrently within the same process.
 
 ## Transport Abstraction
 
-The [RAYNET](../../../NET/docs/RAYNET.md) protocol implementation ([NET/](../../../NET/docs/readme.md) - a standalone Perl library used by both
-[shark](../../shark/docs/shark.md) and navMate) is the first transport layer. It is linked directly into the
+The [RAYNET](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/RAYNET.md) protocol implementation ([NET/](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/readme.md) - a standalone Perl library used by both
+[shark](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md) and navMate) is the first transport layer. It is linked directly into the
 navMate process - not a daemon, not a socket service.
 
 navMate's core (knowledge base, UI, data model) is transport-agnostic. The transport
@@ -158,7 +156,7 @@ Transport types differ in their session model:
 - **File transports** (KML, FSH) - activated per operation (open/export dialog);
   no persistent connection; no UUID-set reconciliation.
 
-The hard-won RAYNET knowledge (UUID semantics, [WPMGR](../../../NET/docs/WPMGR.md) wire protocol, sync patterns,
+The hard-won RAYNET knowledge (UUID semantics, [WPMGR](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/WPMGR.md) wire protocol, sync patterns,
 E80 behavioral quirks) informs the design of that abstraction rather than defining it.
 
 ## Local-First Data Model

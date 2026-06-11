@@ -12,7 +12,7 @@ use POSIX qw(strftime);
 use Pub::Utils;
 use Cava::Packager;
 use n_defs;
-use apps::raymarine::NET::a_utils qw(northEastToLatLon @E80_SYMS);
+use Pub::Ray::NET::a_utils qw(northEastToLatLon @E80_SYMS);
 
 
 BEGIN
@@ -45,7 +45,7 @@ BEGIN
 
 
 our $appName = 'navMate';
-our $app_dir = 'C:\base\apps\raymarine\apps\navMate';
+our $app_dir = 'C:\base\apps\navMate';
 
 # Cava resource root: dev = the in-repo _res folder; packaged = the bundled
 # resource dir.  _site and sym_catalog now live under it, as $resource_dir/site

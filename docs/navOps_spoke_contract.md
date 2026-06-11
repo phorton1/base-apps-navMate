@@ -14,12 +14,10 @@
 **[winMultiEditor](winMultiEditor.md)** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**navMate**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
 ## Overview
 
@@ -37,7 +35,7 @@ Two spokes exist as of Phase 3A:
 
 | Spoke | File | Source state | Sync model |
 |---|---|---|---|
-| E80  | `apps/navMate/navOpsE80.pm` | live WPMGR + TRACK service hashes (`apps/raymarine/NET/d_WPMGR.pm`, `d_TRACK.pm`) | asynchronous -- NET events, `$progress` shared hash, inner brackets via `apps/raymarine/NET/a_bracket.pm` |
+| E80  | `navOpsE80.pm` | live WPMGR + TRACK service hashes (`NET/d_WPMGR.pm`, `d_TRACK.pm`) | asynchronous -- NET events, `$progress` shared hash, inner brackets via `NET/a_bracket.pm` |
 | FSH  | `apps/navMate/navOpsFSH.pm` | in-memory `$navFSH::fsh_db` loaded from an `.fsh` archive on disk | synchronous -- direct hash mutation, no inner brackets, file save explicit via `Save FSH` menu |
 
 Phase 3B will add E80<->FSH cross-spoke operations as composed pipelines
@@ -116,7 +114,7 @@ at the boundary using a `_truncFor<Spoke>` helper that truncates with
 `warning(...)`. Both E80 and FSH happen to use the same limits today
 (name <= 15, comment <= 31; FSH's are declared locally in `fshUtils.pm`
 as `$FSH_MAX_NAME` / `$FSH_MAX_COMMENT`, numerically equal to
-`$E80_MAX_NAME` / `$E80_MAX_COMMENT` from `apps/raymarine/NET/a_defs.pm`).
+`$E80_MAX_NAME` / `$E80_MAX_COMMENT` from `NET/a_defs.pm`).
 
 Spokes also enforce per-type name uniqueness within the spoke's namespace.
 navMate's primary gate is the preflight in `navOps::_doPaste` /
@@ -338,7 +336,7 @@ The mechanical checklist:
   via their browser pane (`winE80.pm`, `winFSH.pm`).
 - [Implementation](implementation.md) -- module-level inventory; spoke modules
   are listed there.
-- `apps/raymarine/FSH/docs/readme.md` -- FSH binary format and parsing layer
+- [`FSH/docs/readme.md`](https://github.com/phorton1/base-Pub-Ray/blob/master/FSH/docs/readme.md) -- FSH binary format and parsing layer
   the FSH spoke builds on.
-- `apps/raymarine/NET/docs/readme.md` -- NET protocol services the E80 spoke
+- [`NET/docs/readme.md`](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/readme.md) -- NET protocol services the E80 spoke
   builds on.

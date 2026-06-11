@@ -9,7 +9,7 @@ use warnings;
 use threads;
 use threads::shared;
 use Pub::Utils qw(warning error getAppFrame);
-use apps::raymarine::NET::a_defs qw($E80_MAX_TRACK_POINTS $E80_MAX_TRACKS);
+use Pub::Ray::NET::a_defs qw($E80_MAX_TRACK_POINTS $E80_MAX_TRACKS);
 use navDB;
 use navFSH qw(fshToNavUUID navToFSHUUID);
 use n_defs;

@@ -13,9 +13,9 @@ use threads::shared;
 use Wx qw(:everything);
 use Pub::Utils qw(display warning error getAppFrame);
 use Pub::WX::Dialogs;
-use apps::raymarine::NET::a_defs qw($E80_MAX_NAME $E80_MAX_COMMENT);
-use apps::raymarine::NET::a_utils qw(latLonToNorthEast);
-use apps::raymarine::NET::d_TRACK_writer;
+use Pub::Ray::NET::a_defs qw($E80_MAX_NAME $E80_MAX_COMMENT);
+use Pub::Ray::NET::a_utils qw(latLonToNorthEast);
+use Pub::Ray::NET::d_TRACK_writer;
 use navClipboard qw(_pasteTracksToE80Allows);
 use n_defs;
 use n_utils;
@@ -529,7 +529,7 @@ sub _deleteE80Tracks
     for my $node (@$nodes)
     {
         $track->queueTRACKCommand(
-            $apps::raymarine::NET::d_TRACK::API_GENERAL_CMD,
+            $Pub::Ray::NET::d_TRACK::API_GENERAL_CMD,
             $node->{uuid}, 'erase', undef, $progress);
     }
 }
@@ -984,7 +984,7 @@ sub _pasteRouteToE80
 # Track-write helpers (DB / FSH -> E80 via TRACK writer-session)
 #----------------------------------------------------
 # These compose the per-track upload through
-# apps::raymarine::NET::d_TRACK_writer (NET/d_TRACK_writer.pm), which
+# Pub::Ray::NET::d_TRACK_writer (NET/d_TRACK_writer.pm), which
 # implements the protocol in NET/docs/notes/TRACK_writing.md.  One
 # TCP session per track upload.  No modify-in-place: E80 rejects
 # RECORD with an existing UUID, so PASTE requires UUID-not-on-E80
@@ -1142,7 +1142,7 @@ sub _writeTrackToE80
 
     display($dbg_e80_ops, 0, "_writeTrackToE80 name='$name' uuid=$uuid_hex points=".scalar(@wire_points));
 
-    my $writer = apps::raymarine::NET::d_TRACK_writer->new(
+    my $writer = Pub::Ray::NET::d_TRACK_writer->new(
         ip       => $track_svc->{ip},
         port     => $track_svc->{port},
         mta_rec  => $mta_rec,
@@ -1304,7 +1304,7 @@ sub _pasteAllToE80
                 return;
             }
             push @jobs, { item => $item, uuid => $uuid };
-            $total += apps::raymarine::NET::d_TRACK_writer::framesForTrack(_trackPointCount($item));
+            $total += Pub::Ray::NET::d_TRACK_writer::framesForTrack(_trackPointCount($item));
         }
         my $progress = _openE80Progress("Paste Tracks", $total,
             {cancel_label => 'Abort', cancel_msg => 'Aborted by user', workers => 1});
@@ -1703,7 +1703,7 @@ sub _pasteNewAllToE80
             display($dbg_e80_ops, 0, "_pasteNewAllToE80: minted fresh uuid=$uuid for '"
                 . ($item->{data}{name} // $item->{uuid} // '?') . "'");
             push @jobs, { item => $item, uuid => $uuid };
-            $total += apps::raymarine::NET::d_TRACK_writer::framesForTrack(_trackPointCount($item));
+            $total += Pub::Ray::NET::d_TRACK_writer::framesForTrack(_trackPointCount($item));
         }
         my $progress = _openE80Progress("Paste New Tracks", $total,
             {cancel_label => 'Abort', cancel_msg => 'Aborted by user', workers => 1});
@@ -2016,7 +2016,7 @@ sub _cutE80Track
     my $track = _track();
     return if !$track;
     $track->queueTRACKCommand(
-        $apps::raymarine::NET::d_TRACK::API_GENERAL_CMD,
+        $Pub::Ray::NET::d_TRACK::API_GENERAL_CMD,
         $uuid, 'erase');
 }
 
@@ -2260,7 +2260,7 @@ sub _clearE80_DB
     if ($track)
     {
         $track->queueTRACKCommand(
-            $apps::raymarine::NET::d_TRACK::API_GENERAL_CMD,
+            $Pub::Ray::NET::d_TRACK::API_GENERAL_CMD,
             $_, 'erase') for @track_uuids;
     }
 }

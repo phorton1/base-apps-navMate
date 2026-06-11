@@ -14,16 +14,14 @@
 **[winMultiEditor](winMultiEditor.md)** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**navMate**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
-navMate is built bottom-up: each layer is exercisable before the layers above it exist. The console window (inherited from the [shark](../../shark/docs/shark.md) pattern) provides a callable interface to lower layers before any wx panel or Leaflet canvas is present. Modules use a four-tier lexical prefix convention: `n_` (foundational), `nav` (portable logic), `nm` (wx components), `win` (wx panes). No module may import from a higher layer.
+navMate is built bottom-up: each layer is exercisable before the layers above it exist. The console window (inherited from the [shark](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md) pattern) provides a callable interface to lower layers before any wx panel or Leaflet canvas is present. Modules use a four-tier lexical prefix convention: `n_` (foundational), `nav` (portable logic), `nm` (wx components), `win` (wx panes). No module may import from a higher layer.
 
-navMate links the [NET](../../../NET/docs/readme.md) library directly into its process - not as a daemon or socket service. The NET layer provides the RAYNET protocol stack, WPMGR and TRACK services, and the HTTP server base. See the NET documentation for that layer's own module structure.
+navMate links the [NET](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/readme.md) library directly into its process - not as a daemon or socket service. The NET layer provides the RAYNET protocol stack, WPMGR and TRACK services, and the HTTP server base. See the NET documentation for that layer's own module structure.
 
 ## Foundation layer - n_, nav (non-wx)
 

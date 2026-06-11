@@ -13,20 +13,20 @@ use Pub::WX::Resources;
 use Pub::WX::AppConfig;
 use Pub::WX::Main;
 
-use apps::raymarine::NET::a_defs;
-use apps::raymarine::NET::a_mon;
-use apps::raymarine::NET::a_utils;
-use apps::raymarine::NET::a_parser;
-use apps::raymarine::NET::b_sock;
-use apps::raymarine::NET::b_records;
-use apps::raymarine::NET::c_RAYDP;
-use apps::raymarine::NET::d_WPMGR;
-use apps::raymarine::NET::d_TRACK;
-use apps::raymarine::NET::d_FILESYS;
-use apps::raymarine::NET::e_WPMGR;
-use apps::raymarine::NET::e_TRACK;
-use apps::raymarine::NET::e_FILESYS;
-use apps::raymarine::NET::e_wp_api;
+use Pub::Ray::NET::a_defs;
+use Pub::Ray::NET::a_mon;
+use Pub::Ray::NET::a_utils;
+use Pub::Ray::NET::a_parser;
+use Pub::Ray::NET::b_sock;
+use Pub::Ray::NET::b_records;
+use Pub::Ray::NET::c_RAYDP;
+use Pub::Ray::NET::d_WPMGR;
+use Pub::Ray::NET::d_TRACK;
+use Pub::Ray::NET::d_FILESYS;
+use Pub::Ray::NET::e_WPMGR;
+use Pub::Ray::NET::e_TRACK;
+use Pub::Ray::NET::e_FILESYS;
+use Pub::Ray::NET::e_wp_api;
 
 use n_defs;
 use n_utils;
@@ -37,7 +37,7 @@ use navVisibility;
 use navOutline;
 use navSelection;
 use navServer;
-use apps::raymarine::NET::s_serial;
+use Pub::Ray::NET::s_serial;
 use nmResources;
 use nmFrame;
 
@@ -60,7 +60,7 @@ sub _handleSerialCommand
 	dispatchNavMateCommand($lpart, $rpart);
 }
 
-my $serial = apps::raymarine::NET::s_serial->new(\&_handleSerialCommand);
+my $serial = Pub::Ray::NET::s_serial->new(\&_handleSerialCommand);
 
 loadOutline('db');
 loadOutline('fsh');
@@ -78,8 +78,8 @@ if ($db_rc > 0)
 }
 navServer::startNavMateServer();
 
-apps::raymarine::NET::a_defs::initServices(wpmgr => 1, track => 1, filesys => 1, auto_query => 1);
-apps::raymarine::NET::c_RAYDP->new();
+Pub::Ray::NET::a_defs::initServices(wpmgr => 1, track => 1, filesys => 1, auto_query => 1);
+Pub::Ray::NET::c_RAYDP->new();
 $raydp->start();
 
 $serial->start();

@@ -32,7 +32,7 @@ use n_defs;
 use n_utils;
 use nmDialogs qw(confirmDialog);
 use nmResources qw(symBitmap makeSymComboBox);
-use apps::raymarine::NET::a_utils;
+use Pub::Ray::NET::a_utils;
 
 
 BEGIN

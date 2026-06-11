@@ -14,12 +14,10 @@
 **[winMultiEditor](winMultiEditor.md)** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**navMate**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
 ## Core Objects - WRT
 
@@ -62,7 +60,7 @@ cannot serve as reliable identifiers across sync operations.
 navMate-created UUIDs use byte 1 = `0x4E` (`N` for navMate), which does not collide
 with E80-native UUIDs (byte 1 = `0xB2`) or RNS-created UUIDs (byte 1 = `0x82`).
 Bytes 4-5 hold a persistent counter from navMate's SQLite store; bytes 6-7 provide
-intra-tick uniqueness. The full UUID structure is documented in [WPMGR.md](../../../NET/docs/WPMGR.md).
+intra-tick uniqueness. The full UUID structure is documented in [WPMGR.md](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/WPMGR.md).
 
 **UUID collision risk after E80 factory reset.** When navMate imports objects from an
 E80 it preserves the original E80-native UUIDs (byte 1 = `0xB2`). If that E80 is
@@ -358,7 +356,7 @@ timestamp is used. `ts_source` records which case applies.
 
 **Track direction is a transport concern, not a schema concern.** Track upload
 to the E80 is supported by the TRACK writer-session protocol
-([NET/docs/notes/TRACK_writing.md](../../../NET/docs/notes/TRACK_writing.md),
+([NET/docs/notes/TRACK_writing.md](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/notes/TRACK_writing.md),
 confirmed live 2026-05-27); the navOps wiring is pending. The schema stores
 tracks without encoding assumptions about how they arrived.
 

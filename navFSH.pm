@@ -14,9 +14,9 @@ use warnings;
 use threads;
 use threads::shared;
 use Pub::Utils qw(display warning error getAppFrame);
-use apps::raymarine::FSH::fshUtils;
-use apps::raymarine::FSH::fshBlocks;
-use apps::raymarine::FSH::fshFile;
+use Pub::Ray::FSH::fshUtils;
+use Pub::Ray::FSH::fshBlocks;
+use Pub::Ray::FSH::fshFile;
 use nmResources;
 use navDB;
 
@@ -113,7 +113,7 @@ sub fshToNavUUID
 	return $u if !defined $u || $u eq '';
 	# strToUuid: dashed-upper string -> 8 raw bytes
 	# unpack H16: 8 bytes -> 16 lower-hex chars no dashes
-	return unpack('H16', apps::raymarine::FSH::fshUtils::strToUuid($u));
+	return unpack('H16', Pub::Ray::FSH::fshUtils::strToUuid($u));
 }
 
 
@@ -123,7 +123,7 @@ sub navToFSHUUID
 	return $u if !defined $u || $u eq '';
 	# pack H16: 16 hex chars (case-insensitive) -> 8 raw bytes
 	# uuidToStr: 8 bytes -> dashed-upper string
-	return apps::raymarine::FSH::fshUtils::uuidToStr(pack('H16', $u));
+	return Pub::Ray::FSH::fshUtils::uuidToStr(pack('H16', $u));
 }
 
 
@@ -133,7 +133,7 @@ sub loadFSH
     my ($filename) = @_;
     display($dbg_fsh,0,"navFSH::loadFSH($filename)");
 
-    my $fsh = apps::raymarine::FSH::fshFile->new($filename);
+    my $fsh = Pub::Ray::FSH::fshFile->new($filename);
     if (!$fsh)
     {
         error("navFSH::loadFSH could not parse $filename");
@@ -215,7 +215,7 @@ sub saveFSH
 		return 0;
 	}
 
-	my $fsh = apps::raymarine::FSH::fshFile->new();
+	my $fsh = Pub::Ray::FSH::fshFile->new();
 	my $ok  = 1;
 
 	for my $uuid (sort keys %{$fsh_db->{waypoints}})

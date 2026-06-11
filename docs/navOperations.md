@@ -14,12 +14,10 @@
 **[winMultiEditor](winMultiEditor.md)** --
 **[E80Config](e80_config.md)**
 
-Folders: **[Raymarine](../../../docs/readme.md)** --
-**[NET](../../../NET/docs/readme.md)** --
-**[FSH](../../../FSH/docs/readme.md)** --
-**[CSV](../../../CSV/docs/readme.md)** --
-**[shark](../../../apps/shark/docs/shark.md)** --
-**navMate**
+repos: **[phorton1](https://github.com/phorton1)** --
+**[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
+**[shark Tool](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md)** --
+**navMate App**
 
 ## Overview
 
@@ -384,7 +382,7 @@ the user proceeds, the DB color is overwritten with the palette-exact aabbggrr v
 that index.
 
 **Tracks (DB to E80).** Implemented via the TRACK writer-session protocol
-([NET/docs/notes/TRACK_writing.md](../../../NET/docs/notes/TRACK_writing.md),
+([NET/docs/notes/TRACK_writing.md](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/notes/TRACK_writing.md),
 confirmed live 2026-05-27).  PASTE preserves the source mta_uuid (preflight
 rejects on collision and the menu routes the user to PASTE_NEW).  PASTE_NEW
 mints a fresh navMate UUID per track and pops a confirmation dialog.  PUSH
@@ -707,7 +705,7 @@ insertion destination.
 **E80 Tracks header / track node** -- the tracks header IS a paste destination
 for track-type clipboard items (PASTE preserves the source mta_uuid; PASTE_NEW
 mints a fresh navMate UUID per the protocol in
-[`NET/docs/notes/TRACK_writing.md`](../../../NET/docs/notes/TRACK_writing.md)).
+[`NET/docs/notes/TRACK_writing.md`](https://github.com/phorton1/base-Pub-Ray/blob/master/NET/docs/notes/TRACK_writing.md)).
 Pasting at an individual track node is not supported (impl_error -- use the
 tracks header).  E80 Tracks header is also a valid Delete right-click target:
 Delete operates on all tracks in the folder (SS8.2).

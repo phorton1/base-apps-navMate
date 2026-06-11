@@ -52,7 +52,7 @@ use threads::shared;
 use Wx qw(:everything);
 use Pub::Utils qw(display warning error getAppFrame);
 use Pub::WX::Dialogs;
-use apps::raymarine::FSH::fshUtils qw($FSH_MAX_NAME $FSH_MAX_COMMENT latLonToNorthEast);
+use Pub::Ray::FSH::fshUtils qw($FSH_MAX_NAME $FSH_MAX_COMMENT latLonToNorthEast);
 use navFSH qw(fshToNavUUID navToFSHUUID);
 use n_defs;
 use n_utils;
