@@ -4,7 +4,7 @@ use File::Copy;
 use DBI;
 
 my $src = $ARGV[0] || 'C:/base_dist/buddy/cava20.cpkgproj';
-my $tmp = 'C:/base_data/temp/raymarine/_cpkg_copy.sqlite';
+my $tmp = 'C:/_temp/base-apps-navMate/_cpkg_copy.sqlite';
 
 copy($src, $tmp) or die "copy '$src' failed: $!";
 
