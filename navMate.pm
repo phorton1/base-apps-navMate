@@ -43,6 +43,8 @@ use nmFrame;
 
 use base 'Wx::App';
 
+setStandardTempDir($appName);
+setStandardDataDir($appName);
 $ini_file = "$temp_dir/$appName.ini";
 $appClientName = 'navMate';
 init_prefs();

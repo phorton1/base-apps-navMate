@@ -19,7 +19,6 @@ BEGIN
 {
 	use Exporter qw( import );
 	our @EXPORT = qw(
-		$appName
 		$app_dir
 		implementationError
 		makeUUID
@@ -44,7 +43,6 @@ BEGIN
 }
 
 
-our $appName = 'navMate';
 our $app_dir = 'C:\base\apps\navMate';
 
 # Cava resource root: dev = the in-repo _res folder; packaged = the bundled
