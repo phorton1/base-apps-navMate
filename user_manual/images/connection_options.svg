@@ -1,0 +1,725 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 1040 800"
+   font-family="Segoe UI, Verdana, Arial, sans-serif"
+   version="1.1"
+   id="svg174"
+   sodipodi:docname="connection_options.svg"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview176"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="1.0173077"
+     inkscape:cx="520.49149"
+     inkscape:cy="399.58412"
+     inkscape:window-width="1920"
+     inkscape:window-height="1057"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg174" />
+  <defs
+     id="defs8">
+    <marker
+       id="bluehead"
+       markerUnits="userSpaceOnUse"
+       markerWidth="20"
+       markerHeight="18"
+       refX="15"
+       refY="9"
+       orient="auto">
+      <path
+         d="M0,0 L20,9 L0,18 L6,9 Z"
+         fill="#0a5cff"
+         id="path2" />
+    </marker>
+    <marker
+       id="redhead"
+       markerUnits="userSpaceOnUse"
+       markerWidth="12"
+       markerHeight="12"
+       refX="9"
+       refY="6"
+       orient="auto">
+      <path
+         d="M0,0 L12,6 L0,12 L3,6 Z"
+         fill="#cc2222"
+         id="path5" />
+    </marker>
+  </defs>
+  <rect
+     x="0"
+     y="0"
+     width="1040"
+     height="800"
+     fill="#ffffff"
+     id="rect10" />
+  <rect
+     x="4"
+     y="4"
+     width="1032"
+     height="792"
+     rx="12"
+     fill="none"
+     stroke="#dddddd"
+     stroke-width="1.5"
+     id="rect12" />
+  <!-- title -->
+  <text
+     x="520"
+     y="40"
+     text-anchor="middle"
+     font-size="23"
+     font-weight="bold"
+     fill="#1a1a1a"
+     id="text14">Three Ways to Connect Your Computer to the E-Series Plotter</text>
+  <text
+     x="520"
+     y="64"
+     text-anchor="middle"
+     font-size="14"
+     fill="#555555"
+     id="text16">All three reach the same computer - pick the one that fits the gear you already have.</text>
+  <!-- dashed section separators -->
+  <line
+     x1="444"
+     y1="313"
+     x2="1015"
+     y2="313"
+     stroke="#aaaaaa"
+     stroke-width="2"
+     stroke-dasharray="11 8"
+     id="line18" />
+  <line
+     x1="444.983"
+     y1="532.25519"
+     x2="1015.983"
+     y2="532.25519"
+     stroke="#aaaaaa"
+     stroke-width="2"
+     stroke-dasharray="11, 8"
+     id="line20" />
+  <!-- legend (vertical middle of section 1, above the computer) -->
+  <g
+     id="g38">
+    <rect
+       x="70"
+       y="158"
+       width="220"
+       height="64"
+       rx="8"
+       fill="#fafafa"
+       stroke="#cccccc"
+       stroke-width="1"
+       id="rect22" />
+    <line
+       x1="88"
+       y1="176"
+       x2="122"
+       y2="176"
+       stroke="#1f1f1f"
+       stroke-width="3"
+       id="line24" />
+    <rect
+       x="80"
+       y="171"
+       width="10"
+       height="10"
+       fill="#ffffff"
+       stroke="#1f1f1f"
+       stroke-width="1.6"
+       id="rect26" />
+    <rect
+       x="120"
+       y="171"
+       width="10"
+       height="10"
+       fill="#ffffff"
+       stroke="#1f1f1f"
+       stroke-width="1.6"
+       id="rect28" />
+    <text
+       x="138"
+       y="180"
+       font-size="12"
+       fill="#333333"
+       id="text30">existing ethernet cable</text>
+    <line
+       x1="96"
+       y1="204"
+       x2="124"
+       y2="204"
+       stroke="#0a5cff"
+       stroke-width="3"
+       stroke-dasharray="7 5"
+       marker-end="url(#bluehead)"
+       id="line32" />
+    <rect
+       x="82"
+       y="199"
+       width="10"
+       height="10"
+       fill="#ffffff"
+       stroke="#0a5cff"
+       stroke-width="1.6"
+       id="rect34" />
+    <text
+       x="138"
+       y="208"
+       font-size="12"
+       fill="#333333"
+       id="text36">new ethernet cable</text>
+  </g>
+  <!-- ===================== COMPUTER (shared target, left) ===================== -->
+  <g
+     stroke="#1f1f1f"
+     id="g50">
+    <rect
+       x="95"
+       y="338"
+       width="180"
+       height="120"
+       rx="10"
+       fill="#ffffff"
+       stroke-width="3"
+       id="rect40" />
+    <rect
+       x="108"
+       y="351"
+       width="154"
+       height="94"
+       rx="4"
+       fill="#cfe8ff"
+       stroke-width="1.5"
+       id="rect42" />
+    <path
+       d="M95 458 L275 458 L302 488 L68 488 Z"
+       fill="#ececec"
+       stroke-width="3"
+       id="path44" />
+    <path
+       d="M68 488 L302 488 L302 498 L68 498 Z"
+       fill="#d2d2d2"
+       stroke-width="3"
+       id="path46" />
+    <rect
+       x="160"
+       y="466"
+       width="50"
+       height="7"
+       rx="2"
+       fill="#c9c9c9"
+       stroke-width="1"
+       id="rect48" />
+  </g>
+  <text
+     x="185"
+     y="524"
+     text-anchor="middle"
+     font-size="17"
+     font-weight="bold"
+     fill="#1a1a1a"
+     id="text52">Your computer</text>
+  <!-- ===================== BAND 1: No existing cable ===================== -->
+  <text
+     x="730"
+     y="112"
+     text-anchor="middle"
+     font-size="20"
+     font-weight="bold"
+     fill="#1a1a1a"
+     id="text54">No existing cable</text>
+  <g
+     stroke="#1f1f1f"
+     id="g68">
+    <rect
+       x="655"
+       y="148"
+       width="150"
+       height="96"
+       rx="9"
+       fill="#d8d8d8"
+       stroke-width="3"
+       id="rect56" />
+    <rect
+       x="665"
+       y="158"
+       width="104"
+       height="76"
+       rx="3"
+       fill="#c8e8d6"
+       stroke-width="1.5"
+       id="rect58" />
+    <rect
+       x="776"
+       y="162"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect60" />
+    <rect
+       x="776"
+       y="181"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect62" />
+    <rect
+       x="776"
+       y="200"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect64" />
+    <circle
+       cx="786"
+       cy="226"
+       r="7"
+       fill="#bdbdbd"
+       stroke-width="1.5"
+       id="circle66" />
+  </g>
+  <text
+     x="730"
+     y="264"
+     text-anchor="middle"
+     font-size="14"
+     fill="#1a1a1a"
+     id="text70">E-Series Plotter</text>
+  <path
+     d="m 636,196 c -26,19 -154.08201,22.61681 -206.94518,95.45557 -37.84894,52.15106 -52.00378,114.5104 -135.00378,114.5104"
+     fill="none"
+     stroke="#0a5cff"
+     stroke-width="4"
+     stroke-dasharray="9, 7"
+     marker-end="url(#bluehead)"
+     id="path72"
+     sodipodi:nodetypes="csc" />
+  <rect
+     x="636"
+     y="190"
+     width="14"
+     height="12"
+     rx="1.5"
+     fill="#ffffff"
+     stroke="#0a5cff"
+     stroke-width="2"
+     id="rect74" />
+  <text
+     x="610"
+     y="196"
+     text-anchor="end"
+     font-size="12.5"
+     font-style="italic"
+     fill="#555555"
+     id="text76">single new ethernet cable</text>
+  <!-- ===================== BAND 2: Existing router configuration ===================== -->
+  <text
+     x="730"
+     y="346"
+     text-anchor="middle"
+     font-size="20"
+     font-weight="bold"
+     fill="#1a1a1a"
+     id="text78">Existing router configuration</text>
+  <g
+     stroke="#1f1f1f"
+     id="g88">
+    <rect
+       x="546"
+       y="394"
+       width="108"
+       height="52"
+       rx="12"
+       fill="#d8d8d8"
+       stroke-width="3"
+       id="rect80" />
+    <circle
+       cx="566"
+       cy="432"
+       r="4"
+       fill="#5cb85c"
+       stroke-width="0.8"
+       id="circle82" />
+    <circle
+       cx="588"
+       cy="432"
+       r="4"
+       fill="#5cb85c"
+       stroke-width="0.8"
+       id="circle84" />
+    <circle
+       cx="610"
+       cy="432"
+       r="4"
+       fill="#5cb85c"
+       stroke-width="0.8"
+       id="circle86" />
+  </g>
+  <text
+     x="600"
+     y="466"
+     text-anchor="middle"
+     font-size="14"
+     fill="#1a1a1a"
+     id="text90">Existing Router</text>
+  <g
+     stroke="#1f1f1f"
+     id="g104">
+    <rect
+       x="770"
+       y="372"
+       width="150"
+       height="96"
+       rx="9"
+       fill="#d8d8d8"
+       stroke-width="3"
+       id="rect92" />
+    <rect
+       x="780"
+       y="382"
+       width="104"
+       height="76"
+       rx="3"
+       fill="#c8e8d6"
+       stroke-width="1.5"
+       id="rect94" />
+    <rect
+       x="891"
+       y="386"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect96" />
+    <rect
+       x="891"
+       y="405"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect98" />
+    <rect
+       x="891"
+       y="424"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect100" />
+    <circle
+       cx="901"
+       cy="450"
+       r="7"
+       fill="#bdbdbd"
+       stroke-width="1.5"
+       id="circle102" />
+  </g>
+  <text
+     x="845"
+     y="488"
+     text-anchor="middle"
+     font-size="14"
+     fill="#1a1a1a"
+     id="text106">E-Series Plotter</text>
+  <!-- existing cable: plotter <-> router -->
+  <line
+     x1="757"
+     y1="420"
+     x2="671"
+     y2="420"
+     stroke="#1f1f1f"
+     stroke-width="3.5"
+     id="line108" />
+  <rect
+     x="750"
+     y="414"
+     width="14"
+     height="12"
+     rx="1.5"
+     fill="#ffffff"
+     stroke="#1f1f1f"
+     stroke-width="2"
+     id="rect110" />
+  <rect
+     x="664"
+     y="414"
+     width="14"
+     height="12"
+     rx="1.5"
+     fill="#ffffff"
+     stroke="#1f1f1f"
+     stroke-width="2"
+     id="rect112" />
+  <!-- caption ABOVE the new-link line -->
+  <text
+     x="455"
+     y="414"
+     text-anchor="middle"
+     font-size="12.5"
+     font-style="italic"
+     fill="#555555"
+     id="text114">plug into existing router</text>
+  <!-- proposed new link: router -> computer -->
+  <path
+     d="M528 432 C450 432, 380 431, 297 430"
+     fill="none"
+     stroke="#0a5cff"
+     stroke-width="4"
+     stroke-dasharray="9 7"
+     marker-end="url(#bluehead)"
+     id="path116" />
+  <rect
+     x="528"
+     y="426"
+     width="14"
+     height="12"
+     rx="1.5"
+     fill="#ffffff"
+     stroke="#0a5cff"
+     stroke-width="2"
+     id="rect118" />
+  <!-- ===================== BAND 3: Crossover - needs a switch ===================== -->
+  <text
+     x="730.98297"
+     y="567.25519"
+     text-anchor="middle"
+     font-size="20px"
+     font-weight="bold"
+     fill="#1a1a1a"
+     id="text120">Crossover - needs a switch</text>
+  <!-- E80 (left of the crossover pair) -->
+  <g
+     stroke="#1f1f1f"
+     id="g134">
+    <rect
+       x="513"
+       y="642"
+       width="150"
+       height="96"
+       rx="9"
+       fill="#d8d8d8"
+       stroke-width="3"
+       id="rect122" />
+    <rect
+       x="523"
+       y="652"
+       width="104"
+       height="76"
+       rx="3"
+       fill="#c8e8d6"
+       stroke-width="1.5"
+       id="rect124" />
+    <rect
+       x="634"
+       y="656"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect126" />
+    <rect
+       x="634"
+       y="675"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect128" />
+    <rect
+       x="634"
+       y="694"
+       width="20"
+       height="13"
+       rx="2"
+       fill="#efefef"
+       stroke-width="1"
+       id="rect130" />
+    <circle
+       cx="644"
+       cy="720"
+       r="7"
+       fill="#bdbdbd"
+       stroke-width="1.5"
+       id="circle132" />
+  </g>
+  <text
+     x="588"
+     y="756"
+     text-anchor="middle"
+     font-size="14"
+     fill="#1a1a1a"
+     id="text136">E-Series Plotter</text>
+  <!-- other device (right of the crossover pair) -->
+  <g
+     stroke="#1f1f1f"
+     id="g150">
+    <rect
+       x="806"
+       y="648"
+       width="140"
+       height="84"
+       rx="8"
+       fill="#d8d8d8"
+       stroke-width="3"
+       id="rect138" />
+    <rect
+       x="800"
+       y="666"
+       width="8"
+       height="8"
+       fill="#d8d8d8"
+       stroke-width="2"
+       id="rect140" />
+    <rect
+       x="800"
+       y="708"
+       width="8"
+       height="8"
+       fill="#d8d8d8"
+       stroke-width="2"
+       id="rect142" />
+    <line
+       x1="828"
+       y1="672"
+       x2="923"
+       y2="672"
+       stroke="#9a9a9a"
+       stroke-width="2"
+       id="line144" />
+    <line
+       x1="828"
+       y1="688"
+       x2="923"
+       y2="688"
+       stroke="#9a9a9a"
+       stroke-width="2"
+       id="line146" />
+    <line
+       x1="828"
+       y1="704"
+       x2="923"
+       y2="704"
+       stroke="#9a9a9a"
+       stroke-width="2"
+       id="line148" />
+  </g>
+  <text
+     x="876"
+     y="752"
+     text-anchor="middle"
+     font-size="13"
+     fill="#1a1a1a"
+     id="text152">Plotter or other device</text>
+  <text
+     x="876"
+     y="770"
+     text-anchor="middle"
+     font-size="11"
+     fill="#555555"
+     id="text154">(e.g. DSM 300)</text>
+  <!-- ONE crossover cable connecting the two devices -->
+  <line
+     x1="681"
+     y1="690"
+     x2="791"
+     y2="690"
+     stroke="#1f1f1f"
+     stroke-width="3.5"
+     id="line156" />
+  <rect
+     x="667"
+     y="684"
+     width="14"
+     height="12"
+     rx="1.5"
+     fill="#ffffff"
+     stroke="#1f1f1f"
+     stroke-width="2"
+     id="rect158" />
+  <rect
+     x="791"
+     y="684"
+     width="14"
+     height="12"
+     rx="1.5"
+     fill="#ffffff"
+     stroke="#1f1f1f"
+     stroke-width="2"
+     id="rect160" />
+  <!-- REPLACE callout (word only) -->
+  <text
+     x="736"
+     y="714"
+     text-anchor="middle"
+     font-size="15"
+     font-weight="bold"
+     fill="#cc2222"
+     id="text162">REPLACE</text>
+  <!-- proposed new link: center of crossover -> computer -->
+  <path
+     d="M 736,662 C 738.06805,601.15312 565.2552,591.15312 480.17013,572.47637 392.26304,553.18017 380,456 297,456"
+     fill="none"
+     stroke="#0a5cff"
+     stroke-width="4"
+     stroke-dasharray="9, 7"
+     marker-end="url(#bluehead)"
+     id="path164"
+     sodipodi:nodetypes="csc" />
+  <rect
+     x="729"
+     y="662"
+     width="14"
+     height="12"
+     rx="1.5"
+     fill="#ffffff"
+     stroke="#0a5cff"
+     stroke-width="2"
+     id="rect166" />
+  <text
+     x="415"
+     y="592"
+     text-anchor="middle"
+     font-size="12.5"
+     font-style="italic"
+     fill="#555555"
+     id="text168">the crossover cable will</text>
+  <text
+     x="415"
+     y="610"
+     text-anchor="middle"
+     font-size="12.5"
+     font-style="italic"
+     fill="#555555"
+     id="text170">need to be replaced with</text>
+  <text
+     x="415"
+     y="628"
+     text-anchor="middle"
+     font-size="12.5"
+     font-style="italic"
+     fill="#555555"
+     id="text172">a new Switch configuration</text>
+</svg>

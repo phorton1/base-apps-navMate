@@ -2,28 +2,57 @@
 
 **[Home](readme.md)** --
 **Getting Started** --
+**[The Map](the_map.md)** --
+**[Organizing Data](organizing_your_data.md)** --
+**[Copy, Cut & Paste](copy_cut_paste.md)** --
+**[Multi-Editor](winMultiEditor.md)** --
+**[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Multi-Editor](winMultiEditor.md)**
+**[Connecting an E-Series](connecting_e80.md)** --
+**[Using Your E-Series](using_e80.md)**
 
-<!-- PLACEKEEPER -- to be written. Goal of this chapter: take a new user from a downloaded
-     installer to a live connection with their E80. -->
-
-This chapter covers everything you need to go from a fresh download to navMate talking to your
-Raymarine E80.
+This chapter gets navMate onto your computer and takes you on a first look around. You do
+**not** need a chartplotter connected for any of this -- navMate is fully useful on its own.
+Connecting an E-Series plotter comes later, in [its own chapter](connecting_e80.md).
 
 ## 1. Install navMate
 
-<!-- TODO: run the installer; what it installs; where your navigation data is kept (My Documents). -->
+Run the navMate installer and follow the prompts. Everything navMate needs is included -- you
+do not need to install Perl or any other software first.
 
-## 2. Connect your computer to the E80
+The first time it runs, navMate creates a folder for your data under your Windows **Documents**
+folder, at `Documents\phorton1\navMate`. Your entire knowledge base lives in a single database
+file there (`navMate.db`), which makes it easy to find and easy to back up: copy that one file
+and you have copied everything.
 
-<!-- TODO: the physical setup (a standard Ethernet cable, where it plugs into the E80), then the
-     network step. This is exactly what the in-app E80 Connection setup is designed to handle for
-     you: navMate listens for your E80 on the cable, reads its address, and configures your
-     computer's network adapter so the two can talk -- no manual IP settings to puzzle over. -->
+<!-- [SCREENSHOT] images/installer.png -- the navMate installer welcome page -->
 
-## 3. First run
+## 2. First run
 
-<!-- TODO: what you see on first launch; confirming the connection; finding your E80's waypoints. -->
+The first time navMate starts you will see:
 
-**Next:** [FSH Files](winFSH.md)
+- a **console window** -- text and status messages; you can mostly ignore it; and
+- the **database window** -- your navigation data shown as a tree.
+
+The **map** does not open on its own. It opens in your web browser as soon as you show
+something on it (see [The Map](the_map.md)), or whenever you choose **View -> Open Map**.
+
+On a brand-new install the database starts nearly empty. That is expected -- the next chapters
+show you how to fill it.
+
+<!-- [SCREENSHOT] images/first_run.png -- the database and console windows on first launch -->
+
+## 3. Try it without a plotter
+
+The quickest way to see navMate work is to bring in some data you already have:
+
+- If you use **Google Earth**, export a `.kml` file and choose **Database -> Import KML**.
+- If you have a **GPS file** (`.gpx`) from another device or app, right-click a folder in the
+  database tree and choose **Import GPS file**.
+- Or simply right-click and choose **New -> Waypoint** to drop a mark by hand.
+
+Tick the checkbox next to anything in the tree and it appears on the map. That is the
+whole loop -- organize on the left, see it on the right -- and it works with no boat, no plotter,
+and no network in sight.
+
+**Next:** [The Map](the_map.md)
