@@ -24,7 +24,7 @@ A three-piece system:
   S-57 / ENC / raster charts, AIS, real-time GPS, and a well-developed
   navigation UI that navMate does not attempt to duplicate.
 - **E80** -- on-boat plotter.  The actual chartplotter at the helm,
-  reached over Ethernet via the RAYNET protocol stack in `apps/raymarine/NET/`.
+  reached over Ethernet via the RAYNET protocol stack in `Pub/Ray/NET/`.
 
 The plugin is the bridge that lets navMate-managed objects live inside
 OpenCPN's UI, and lets user edits in OpenCPN flow back through navMate
@@ -63,7 +63,7 @@ delivers true bidirectional object sync.
 
 The moat is **not** the plugin itself -- anyone can write an OpenCPN
 plugin.  The moat is the multi-year RAYNET reverse-engineering work
-under `apps/raymarine/NET/`, which has no public OSS equivalent.
+under `Pub/Ray/NET/`, which has no public OSS equivalent.
 Raymarine never documented the E-Series Ethernet protocol.  The plugin
 is the user-facing artifact that makes that work actionable for
 non-developers.

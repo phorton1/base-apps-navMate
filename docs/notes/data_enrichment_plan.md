@@ -91,7 +91,7 @@ Deferred but important is that the /var/www/phorton.com repo contains gpx and km
 as well as the structure of the Mandala and Rhapsody Logs, and Sailing experiences
 before Mandala, and wants to grow to add potentially more pages regarding things that
 happened on Rhapsody after arriving in Bocas, as well as being updated, eventually
-to using the googleMaps (Google Cloud) API key used in /base/apps/raymarine/apps/navMate's
+to using the googleMaps (Google Cloud) API key used in /base/apps/navMate's
 leaflet.
 
 

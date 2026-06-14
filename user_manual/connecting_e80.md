@@ -38,11 +38,21 @@ of which end with your computer talking to the plotter:
 ## The network step
 
 A plotter and a computer will not talk until they are on the same network "address range," and
-setting that up by hand is fiddly. navMate's **E-Series connection setup** is designed to do it
-for you: it listens for your plotter on the cable, reads its address, and gets your computer's
-network adapter onto the matching range -- so there are no IP numbers to puzzle over.
+setting that up by hand is fiddly. navMate includes the **E-Series Network Wizard** to do it for
+you: it listens for your plotter on the cable, reads its address, and puts your computer's network
+adapter onto the matching range -- so there are no IP numbers to puzzle over.
 
-<!-- [SCREENSHOT] images/e80_connect_setup.png -- the in-app E-Series connection setup after it
+You can run the wizard whichever way is handiest:
+
+- At the end of **installation**, tick "Run the network wizard now" on the final screen.
+- Anytime, from the **Start menu or the desktop** shortcut for the network wizard.
+- From inside navMate, via **Utils -> E-Series Network Wizard**.
+
+Because it adjusts a Windows network setting, the wizard asks for administrator permission when
+it starts -- click **Yes** at the Windows prompt. Then just follow its steps: it searches for your
+plotter, sets up the connection, and tells you when it is done.
+
+<!-- [SCREENSHOT] images/e80_connect_setup.png -- the E-Series Network Wizard after it
      has found a plotter and is ready to configure the network -->
 
 ## Confirming the connection
