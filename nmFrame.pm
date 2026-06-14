@@ -72,6 +72,7 @@ sub new
 	EVT_MENU($this, $COMMAND_RESTORE_E80_CONFIG,	\&onCommand);
 	EVT_MENU($this, $COMMAND_CLEAR_E80_CONFIG,	\&onCommand);
 	EVT_MENU($this, $COMMAND_GRAB_E80_SCREEN,	\&onCommand);
+	EVT_MENU($this, $COMMAND_RUN_NET_WIZARD,	\&onCommand);
 	EVT_MENU($this, $COMMAND_REFRESH_DB,		\&onCommand);
 	EVT_MENU($this, $COMMAND_EXPORT_DB_TEXT,	\&onCommand);
 	EVT_MENU($this, $COMMAND_IMPORT_DB_TEXT,	\&onCommand);
@@ -376,6 +377,10 @@ sub onCommand
 	elsif ($id == $COMMAND_GRAB_E80_SCREEN)
 	{
 		nmE80DirectOps::doGrab($this);
+	}
+	elsif ($id == $COMMAND_RUN_NET_WIZARD)
+	{
+		_doRunNetWizard($this);
 	}
 	elsif ($id == $COMMAND_REFRESH_DB)
 	{
@@ -875,6 +880,37 @@ sub _doRefreshE80Data
 	return if !$dlg;
 	$wpmgr->queueRefresh($progress);
 	$track->queueRefresh($progress);
+}
+
+
+sub _doRunNetWizard
+	# Launch the standalone E-Series network wizard (netWizard).
+	# Packaged: ShellExecute the sibling netWizard.exe in {app}/bin,
+	# elevated via Start-Process -Verb RunAs (it also carries a
+	# requireAdministrator manifest).  Dev: run the .pm via perl --
+	# the wizard's Apply step self-annotates when not elevated.
+{
+	my ($this) = @_;
+	if ($Cava::Packager::PACKAGED)
+	{
+		my $bin = Cava::Packager::GetBinPath();
+		$bin =~ s{[\\/]+$}{};
+		my $exe = "$bin/netWizard.exe";
+		if (!-e $exe)
+		{
+			error("netWizard.exe not found at $exe");
+			return;
+		}
+		(my $bin_w = $bin) =~ s{/}{\\}g;
+		(my $exe_w = $exe) =~ s{/}{\\}g;
+		my $ps = "Start-Process -FilePath '$exe_w' -WorkingDirectory '$bin_w' -Verb RunAs";
+		system(1, "powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", $ps);
+	}
+	else
+	{
+		my $wiz = '/base/apps/navMate/_netWizard/netWizard.pm';
+		system(1, $^X, "-I/base", $wiz);
+	}
 }
 
 

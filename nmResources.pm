@@ -49,6 +49,7 @@ BEGIN
 		$COMMAND_RESTORE_E80_CONFIG
 		$COMMAND_CLEAR_E80_CONFIG
 		$COMMAND_GRAB_E80_SCREEN
+		$COMMAND_RUN_NET_WIZARD
 		$COMMAND_IMPORT_DB_TEXT
 		$COMMAND_EXPORT_DB_TEXT
 		$COMMAND_SAVE_OUTLINE
@@ -96,6 +97,7 @@ our $COMMAND_SAVE_E80_CONFIG	= 10051;
 our $COMMAND_RESTORE_E80_CONFIG	= 10052;
 our $COMMAND_CLEAR_E80_CONFIG	= 10053;
 our $COMMAND_GRAB_E80_SCREEN	= 10054;
+our $COMMAND_RUN_NET_WIZARD		= 10055;
 our $COMMAND_IMPORT_DB_TEXT		= 10061;
 our $COMMAND_EXPORT_DB_TEXT		= 10062;
 our $COMMAND_SAVE_OUTLINE		= 10071;
@@ -154,6 +156,7 @@ my $command_data = {
 	$COMMAND_RESTORE_E80_CONFIG	=> ['Restore Configuration...',	'Restore a saved E80 display configuration from a folder'],
 	$COMMAND_CLEAR_E80_CONFIG	=> ['Clear Configuration',	'Reset the E80 display configuration to factory defaults'],
 	$COMMAND_GRAB_E80_SCREEN	=> ['Grab Screen...',		'Capture the live E80 screen to a PNG image'],
+	$COMMAND_RUN_NET_WIZARD		=> ['E-Series Network Wizard',	'Run the network wizard to connect this computer to your E-Series network'],
 	$COMMAND_IMPORT_DB_TEXT		=> ['Import from Text',		'Replace navMate database from a text backup file'],
 	$COMMAND_EXPORT_DB_TEXT		=> ['Export to Text',		'Export navMate database to a text backup file'],
 	$COMMAND_SAVE_OUTLINE		=> ['Save Outline',			'Save database tree expansion state to nmDBOutline.json'],
@@ -244,6 +247,8 @@ my $fsh_menu = [
 my $utils_menu = [
 	$COMMAND_SYM_MAPPING,
 	$COMMAND_FORCE_SYM_RESET,
+	$ID_SEPARATOR,
+	$COMMAND_RUN_NET_WIZARD,
 ];
 
 
