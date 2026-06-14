@@ -15,7 +15,7 @@ Once your computer and plotter are connected ([previous chapter](connecting_e80.
 window** -- open it with **View -> E80** -- shows a live view of what is on the plotter: its
 waypoints, groups, routes, and tracks, right next to your database window.
 
-<!-- [SCREENSHOT] images/win_e80.png -- the E80 window beside the database window, with a group
+**TODO: Screenshot** <!-- [SCREENSHOT] images/win_e80.png -- the E80 window beside the database window, with a group
      selected on each side -->
 
 ## The trip cycle

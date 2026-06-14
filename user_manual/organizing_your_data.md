@@ -15,7 +15,7 @@ The **database window** is where navMate really earns its keep. It shows your en
 navigation knowledge base as a tree of folders that you build and arrange however makes
 sense to you.
 
-<!-- [SCREENSHOT] images/database_window.png -- the database tree on the left with a few
+**TODO: Screenshot** <!-- [SCREENSHOT] images/database_window.png -- the database tree on the left with a few
      folders expanded, and the editor panel on the right showing a selected waypoint -->
 
 ## The four kinds of things

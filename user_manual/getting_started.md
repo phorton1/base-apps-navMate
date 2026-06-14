@@ -25,7 +25,7 @@ folder, at `Documents\phorton1\navMate`. Your entire knowledge base lives in a s
 file there (`navMate.db`), which makes it easy to find and easy to back up: copy that one file
 and you have copied everything.
 
-<!-- [SCREENSHOT] images/installer.png -- the navMate installer welcome page -->
+**TODO: Screenshot** <!-- [SCREENSHOT] images/installer.png -- the navMate installer welcome page -->
 
 ## 2. First run
 
@@ -40,7 +40,7 @@ something on it (see [The Map](the_map.md)), or whenever you choose **View -> Op
 On a brand-new install the database starts nearly empty. That is expected -- the next chapters
 show you how to fill it.
 
-<!-- [SCREENSHOT] images/first_run.png -- the database and console windows on first launch -->
+**TODO: Screenshot** <!-- [SCREENSHOT] images/first_run.png -- the database and console windows on first launch -->
 
 ## 3. Try it without a plotter
 

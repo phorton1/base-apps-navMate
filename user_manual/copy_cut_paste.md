@@ -15,7 +15,7 @@ navMate lets you reorganize your data with the same **copy, cut, and paste** you
 everywhere else. Right-click almost anything in a tree and you get a menu of the operations
 that make sense for it.
 
-<!-- [SCREENSHOT] images/context_menu.png -- the right-click menu on a waypoint showing
+**TODO: Screenshot** <!-- [SCREENSHOT] images/context_menu.png -- the right-click menu on a waypoint showing
      Copy / Cut / Paste / New / Delete -->
 
 ## The basics

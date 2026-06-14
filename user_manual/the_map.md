@@ -14,7 +14,7 @@
 navMate shows your navigation data on a **map** -- an interactive, satellite-imagery
 view that opens in your web browser right alongside the application windows.
 
-<!-- [SCREENSHOT] images/map.png -- the map with waypoints, a dashed route, and a
+**TODO: Screenshot** <!-- [SCREENSHOT] images/map.png -- the map with waypoints, a dashed route, and a
      track shown over satellite imagery -->
 
 ## Opening the map

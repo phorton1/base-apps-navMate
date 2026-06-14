@@ -52,7 +52,7 @@ Because it adjusts a Windows network setting, the wizard asks for administrator 
 it starts -- click **Yes** at the Windows prompt. Then just follow its steps: it searches for your
 plotter, sets up the connection, and tells you when it is done.
 
-<!-- [SCREENSHOT] images/e80_connect_setup.png -- the E-Series Network Wizard after it
+**TODO: Screenshot** <!-- [SCREENSHOT] images/e80_connect_setup.png -- the E-Series Network Wizard after it
      has found a plotter and is ready to configure the network -->
 
 ## Confirming the connection
