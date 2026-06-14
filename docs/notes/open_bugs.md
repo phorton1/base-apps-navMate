@@ -7,6 +7,15 @@ context - entries here provide the additional detail that doesn't belong there.
 
 ---
 
+### [delete_multiple_branches]
+
+After selecting multiple branches in the database, the context menu "Delete"
+command only deletes one branch (probably the last one selected) rather than
+all the selected branches as expected.
+
+
+---
+
 ### [wx thread freeze]
 
 **Symptom:** navMate wx UI becomes completely unresponsive - window cannot

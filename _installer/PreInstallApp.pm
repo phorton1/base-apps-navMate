@@ -97,6 +97,20 @@ sub processLine
 			"OutputManifestFile=innosetup.manifest";
 	}
 
+	# First-time install: seed the user's data dir.  onlyifdoesntexist => fresh
+	# machines only, never clobber an existing hub; uninsneveruninstall => never
+	# removed on uninstall.  Target is the user's OWN Documents (user-writable, no
+	# admin).  Sourced from _installer/examples (installer payload, NOT _res -- the
+	# app never reads these at runtime).
+	if ($line eq '[Files]')
+	{
+		my $ex = 'C:\\base\\apps\\navMate\\_installer\\examples';
+		return $line."\n".
+			"; added by PreInstallApp.pm -- seed user data on a fresh install\n".
+			qq(Source: "$ex\\example.db"; DestDir: "{userdocs}\\phorton1\\navMate"; DestName: "navMate.db"; Flags: onlyifdoesntexist uninsneveruninstall\n).
+			qq(Source: "$ex\\*"; DestDir: "{userdocs}\\phorton1\\navMate\\examples"; Flags: ignoreversion uninsneveruninstall);
+	}
+
 	# Append the optional post-install "run the network wizard" checkbox.
 	# The installer runs elevated (PrivilegesRequired=admin), so this launches
 	# the (requireAdministrator) wizard already elevated -- no extra UAC prompt.

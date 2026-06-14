@@ -124,6 +124,13 @@ standard dirs plus the per-environment prefs file. `$Cava::Packager::PACKAGED` i
     remoteip=10.0.0.0/8` -- scoped to the RAYNET /8 so the programs are unreachable on any
     non-10.x network, and so the "allow access" prompt never appears. A matching
     `[UninstallRun]` removes them on uninstall.
+  - **First-run data seed:** two `[Files]` entries populate the user's OWN data dir
+    (`{userdocs}\phorton1\navMate`, the `setStandardDataDir` model): `_installer\examples\example.db`
+    -> `navMate.db` with `onlyifdoesntexist` (fresh installs only, never clobbers an existing hub)
+    + `uninsneveruninstall`, and `_installer\examples\*` -> `{userdocs}\phorton1\navMate\examples`
+    (the user's writable demo copy). The examples are INSTALLER payload, compiled into the installer
+    at ISCC time -- deliberately NOT in `_res` (the app never reads them at runtime). The app keeps
+    "no navMate.db -> create empty", so deleting the db stays the user's reset gesture.
 - **Shortcuts:** `installer.config` `desktopicons` drives the Start-Menu + Desktop
   shortcuts for the app and the wizard.
 - **Artifacts:** SFX = `navmate-mswin-x86-<ver>.exe` (run-in-place); the installer's base

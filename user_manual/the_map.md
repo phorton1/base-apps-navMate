@@ -14,8 +14,7 @@
 navMate shows your navigation data on a **map** -- an interactive, satellite-imagery
 view that opens in your web browser right alongside the application windows.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/map.png -- the map with waypoints, a dashed route, and a
-     track shown over satellite imagery -->
+![The navMate map view, showing the Navigation folder's waypoints and routes over satellite imagery](images/map.jpg)
 
 ## Opening the map
 
@@ -31,11 +30,32 @@ when you are connected.
 - **Waypoints** appear as small symbols -- the same anchor, hazard, fish, and marker icons
   your E-Series uses. A waypoint set up as a *label* shows its name as text; a *sounding*
   shows its depth.
-- **Routes** are drawn as dashed lines connecting their waypoints in order.
+- **Routes** are drawn as solid colored lines connecting their waypoints in the order you'll travel them.
 - **Tracks** -- the breadcrumb trail of where the boat actually went -- are drawn as solid
   colored lines.
 
 Folders are not drawn on the map; only the waypoints, routes, and tracks inside them are.
+
+## Getting around the map screen
+
+The map has a few on-screen controls:
+
+- **Zoom** with the + / - buttons (top-left) or the mouse wheel.
+- **Base imagery** -- the small control at the **top-right** switches the underlying
+  satellite/terrain map.
+- A **Display Panel** at the top-left controls what is drawn:
+  - **Auto-zoom** (on by default) re-frames the map to fit whatever you've just shown --
+    double-clicked, ticked, or sent over with **Show on Map**. Turn it off to keep your view
+    put while you toggle things.
+  - **Clear** empties the map and unticks every display checkbox in the app at once.
+  - the kind toggles show or hide whole categories of marks: the waypoint icons (**WPs**) and
+    their names (**WP names**), the names on route points (**RP names**), and the text-label
+    (**Labels**) and depth-sounding (**Soundings**) marks.
+  - **DATABASE / E80 / FSH** show or hide everything from each data store -- handy for comparing
+    what's on the plotter against what's in your database.
+- A **coordinates readout** in the lower-left shows the latitude/longitude under the pointer.
+- **Hover for details** -- rest the pointer on any mark, route, or track and a panel at the
+  upper-right shows its info from the database (the `WP: Popa4` card in the picture above).
 
 ## Showing and hiding things
 
