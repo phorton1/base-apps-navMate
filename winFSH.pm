@@ -952,48 +952,10 @@ sub resolveMapDestination
 }
 
 
-sub onLeafletWaypointSave
-{
-	my ($this, $edit) = @_;
-	my $op = $edit->{op} // '';
-	if ($op eq 'create')
-	{
-		return navOps::mapCreateFSHWaypoint(
-			name       => $edit->{name},
-			lat        => $edit->{lat},
-			lon        => $edit->{lon},
-			sym        => $edit->{sym},
-			group_uuid => $edit->{group_uuid});
-	}
-	elsif ($op eq 'update')
-	{
-		my $res = navOps::mapModifyFSHWaypoint(
-			uuid => $edit->{uuid},
-			name => $edit->{name},
-			sym  => $edit->{sym},
-			lat  => $edit->{lat},
-			lon  => $edit->{lon});
-		if ($res->{ok} && $res->{wp} && getFSHVisible($res->{uuid}))
-		{
-			removeRenderFeatures('fsh', [$res->{uuid}]);
-			addRenderFeatures([$this->_buildWpFeature($res->{uuid}, $res->{wp})], 1);   # quiet
-		}
-		$this->_repushRoutesByUUID($res->{routes}) if $res->{ok};   # Move: routes follow
-		$this->refresh() if $res->{ok};
-		return $res;
-	}
-	elsif ($op eq 'delete')
-	{
-		my $res = navOps::mapDeleteFSHWaypoint(uuid => $edit->{uuid});
-		if ($res->{ok})
-		{
-			removeRenderFeatures('fsh', [$res->{uuid}]);
-			$this->refresh();
-		}
-		return $res;
-	}
-	return { ok => 0, msg => "unknown op '$op'" };
-}
+# Map waypoint create/edit/delete is handled pane-free in navLeaflet.pm now
+# (it works whether or not this window is open); navLeaflet refreshes this
+# pane's tree afterwards via the frame.  resolveMapDestination is still the FSH
+# window's job for the client's Create-Waypoint affordance.
 
 
 sub _wpDataSource    { 'fsh' }

@@ -669,8 +669,10 @@ waypoint is referenced by any route; the check is an app-side preflight: DB
 (`op = create | update | delete` -- Move and Edit both ride `update` -- plus
 `store`, a client `seq`, and the fields).
 `navServer` queues it; `nmFrame::onIdle` -> `navLeaflet::dispatchWaypointSave`
-routes by `store` to the pane's `onLeafletWaypointSave`, which runs the
-**app-side preflight + write** and returns a result hash. That hash is published
+performs the **app-side preflight + write + map render itself**, pane-free, so
+an edit works whether or not the source window is open (a waypoint stays
+clickable on the map after its window is closed); the source pane's tree is
+refreshed afterwards only if it happens to be open. The result hash is published
 via `setWaypointResult`; the browser polls `GET /waypoint/result`, matches its
 `seq`, and on rejection shows a red toast while keeping the dialog open. **All**
 validation -- E80/FSH name uniqueness, route-delete safety, E80-connected --

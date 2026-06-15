@@ -1169,48 +1169,11 @@ sub resolveMapDestination
 }
 
 
-sub onLeafletWaypointSave
-{
-	my ($this, $edit) = @_;
-	my $op = $edit->{op} // '';
-	if ($op eq 'create')
-	{
-		return navOps::mapCreateE80Waypoint(
-			name       => $edit->{name},
-			lat        => $edit->{lat},
-			lon        => $edit->{lon},
-			sym        => $edit->{sym},
-			group_uuid => $edit->{group_uuid});
-	}
-	elsif ($op eq 'update')
-	{
-		my $res = navOps::mapModifyE80Waypoint(
-			uuid => $edit->{uuid},
-			name => $edit->{name},
-			sym  => $edit->{sym},
-			lat  => $edit->{lat},
-			lon  => $edit->{lon});
-		if ($res->{ok} && $res->{wp} && getE80Visible($res->{uuid}))
-		{
-			removeRenderFeatures('e80', [$res->{uuid}]);
-			addRenderFeatures([$this->_buildWpFeature($res->{uuid}, $res->{wp})], 1);   # quiet
-		}
-		$this->_repushRoutesByUUID($res->{routes}) if $res->{ok};   # Move: routes follow
-		$this->refresh() if $res->{ok};
-		return $res;
-	}
-	elsif ($op eq 'delete')
-	{
-		my $res = navOps::mapDeleteE80Waypoint(uuid => $edit->{uuid});
-		if ($res->{ok})
-		{
-			removeRenderFeatures('e80', [$res->{uuid}]);
-			$this->refresh();
-		}
-		return $res;
-	}
-	return { ok => 0, msg => "unknown op '$op'" };
-}
+# Map waypoint create/edit/delete is handled pane-free in navLeaflet.pm now
+# (it works whether or not this window is open); navLeaflet refreshes this
+# pane's tree afterwards via the frame.  resolveMapDestination (above) is still
+# the E80 window's job -- it answers "where would a new waypoint go" from the
+# tree selection for the client's Create-Waypoint affordance.
 
 
 sub _wpDataSource    { 'e80' }

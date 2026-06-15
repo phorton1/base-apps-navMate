@@ -59,6 +59,14 @@ function hideCtxMenu() {
     ctxMenuDiv.style.display = 'none';
 }
 
+function positionCtxMenu(x, y) {
+    ctxMenuDiv.style.display = 'block';
+    const cw = ctxMenuDiv.offsetWidth;
+    const ch = ctxMenuDiv.offsetHeight;
+    ctxMenuDiv.style.left = (x + cw > window.innerWidth  ? x - cw : x) + 'px';
+    ctxMenuDiv.style.top  = (y + ch > window.innerHeight ? y - ch : y) + 'px';
+}
+
 function showCtxMenu(x, y, mode) {
     const editBtn     = document.getElementById('nm-ctx-edit');
     const joinBtn     = document.getElementById('nm-ctx-join');
@@ -69,9 +77,20 @@ function showCtxMenu(x, y, mode) {
     const moveWpBtn   = document.getElementById('nm-ctx-move-wp');
     const show = function(b, on) { if (b) b.style.display = on ? 'block' : 'none'; };
     if (mode === 'map') {
+        // The map (empty-space) menu offers only Create Route / Create Waypoint,
+        // and both need a destination selected in an open Database/E80/FSH window
+        // (GET /api/dest).  With no destination there is nothing to offer, so the
+        // menu does not appear at all -- you cannot Create where nothing can hold it.
         show(editBtn, false); show(joinBtn, false);
-        show(createBtn, true); show(createWpBtn, true); show(editWpBtn, false); show(deleteWpBtn, false);
-        show(moveWpBtn, false);
+        show(editWpBtn, false); show(deleteWpBtn, false); show(moveWpBtn, false);
+        show(createBtn, false); show(createWpBtn, false);
+        fetch('/api/dest').then(function(r) { return r.json(); }).then(function(dest) {
+            if (!dest || !dest.ok) { hideCtxMenu(); return; }
+            show(createWpBtn, true);                          // any valid dest can hold a waypoint
+            show(createBtn, (dest.store || 'db') === 'db');   // route create is database-only
+            positionCtxMenu(x, y);
+        }).catch(function() { hideCtxMenu(); });
+        return;
     } else if (mode === 'waypoint') {
         // Every right-clickable marker is a Waypoint record, so all are movable --
         // including those whose wp_type is "route_pt" (that is only a display/symbol
@@ -90,11 +109,7 @@ function showCtxMenu(x, y, mode) {
         show(createBtn, false); show(createWpBtn, false); show(editWpBtn, false); show(deleteWpBtn, false);
         show(moveWpBtn, false);
     }
-    ctxMenuDiv.style.display = 'block';
-    const cw = ctxMenuDiv.offsetWidth;
-    const ch = ctxMenuDiv.offsetHeight;
-    ctxMenuDiv.style.left = (x + cw > window.innerWidth  ? x - cw : x) + 'px';
-    ctxMenuDiv.style.top  = (y + ch > window.innerHeight ? y - ch : y) + 'px';
+    positionCtxMenu(x, y);
 }
 
 // ---- Edit bar ----
