@@ -1293,7 +1293,7 @@ sub _onSave
 	{
 		$dbh->do("UPDATE collections SET name=?, comment=? WHERE uuid=?",
 			[$this->{ed_name}->GetValue(),
-			 $this->{ed_comment}->GetValue() || undef,
+			 $this->{ed_comment}->GetValue(),
 			 $uuid]);
 	}
 	elsif ($type eq 'object' && $obj_type eq 'waypoint')
@@ -1322,7 +1322,7 @@ sub _onSave
 		my $w = getWaypoint($dbh, $uuid);
 		updateWaypoint($dbh, $uuid,
 			name       => $this->{ed_name}->GetValue(),
-			comment    => $this->{ed_comment}->GetValue() || undef,
+			comment    => $this->{ed_comment}->GetValue(),
 			lat        => $lat,
 			lon        => $lon,
 			wp_type    => $wp_type,
@@ -1338,7 +1338,7 @@ sub _onSave
 		updateRoute($dbh, $uuid,
 			$this->{ed_name}->GetValue(),
 			$this->{_edit_color},
-			$this->{ed_comment}->GetValue() || undef);
+			$this->{ed_comment}->GetValue());
 	}
 	elsif ($type eq 'object' && $obj_type eq 'track')
 	{
