@@ -182,6 +182,15 @@ map.on('contextmenu', function(e) {
     showCtxMenu(e.originalEvent.clientX, e.originalEvent.clientY, 'map');
 });
 
+// Dismiss the context menu on any click/drag outside it.  Capture phase so
+// Leaflet feature handlers that stopPropagation() can't swallow the event;
+// the contains() guard lets clicks on the menu's own buttons through.
+document.addEventListener('mousedown', function(e) {
+    if (ctxMenuDiv.style.display === 'none') return;
+    if (ctxMenuDiv.contains(e.target)) return;
+    hideCtxMenu();
+}, true);
+
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
     hideCtxMenu();
