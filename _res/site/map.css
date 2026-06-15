@@ -74,6 +74,14 @@ html, body { margin: 0; padding: 0; height: 100%; }
     cursor: default;
     pointer-events: none;
 }
+/* Center the label text on its coordinate (both axes) rather than
+   flowing right/down from it.  translate percentages are relative to
+   the span's own rendered box, so this self-centers at any text width
+   with no JS measurement. */
+.nm-label > span {
+    display: inline-block;
+    transform: translate(-50%, -50%);
+}
 
 /* Sounding waypoints: depth number */
 .nm-sounding {
@@ -83,10 +91,10 @@ html, body { margin: 0; padding: 0; height: 100%; }
     cursor: default;
     pointer-events: none;
 }
-.nm-sounding-shallow {
-    color: red;
-    font-weight: bold;
-    font-size: 13px;
+/* Center the sounding text on its coordinate (both axes); see .nm-label. */
+.nm-sounding > span {
+    display: inline-block;
+    transform: translate(-50%, -50%);
 }
 
 /* WP / RP name overlay labels (toggled by checkboxes) */

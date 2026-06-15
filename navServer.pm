@@ -45,6 +45,8 @@ use base qw(Pub::Ray::NET::h_server);
 my $nm_server;
 
 my $map_version           :shared = 0;
+my $reveal_version        :shared = 0;   # map_version of the last "reveal" push;
+                                         # restores/creates push quiet (don't advance it)
 my $last_poll_time        :shared = 0;
 my %features_by_key       :shared;   # keyed "$source:$uuid" -- see addRenderFeatures
 my $clear_version         :shared = 0;
@@ -52,6 +54,9 @@ my $test_pending          :shared = '';
 my $clear_map_pending     :shared = 0;
 my $track_edit_pending    :shared = '';
 my $route_edit_pending    :shared = '';
+my $waypoint_save_pending :shared = '';
+my $waypoint_result       :shared = '';   # JSON {seq,ok,msg}: last waypoint-save outcome
+my $dest_selection        :shared = '';   # JSON: map-create destination, published each onIdle
 
 
 BEGIN
@@ -70,6 +75,9 @@ BEGIN
 		pollClearMapPending
 		pollTrackEditPending
 		pollRouteEditPending
+		pollWaypointSavePending
+		setMapDestSelection
+		setWaypointResult
 	);
 }
 
@@ -102,7 +110,7 @@ sub addRenderFeatures
 	# storage key "$source:$uuid" from that, so add() callers do not need an
 	# explicit source argument.
 {
-	my ($features_ref) = @_;
+	my ($features_ref, $quiet) = @_;
 	return if !@$features_ref;
 	my %encoded;
 	for my $f (@$features_ref)
@@ -116,6 +124,10 @@ sub addRenderFeatures
 	lock($map_version);
 	$features_by_key{$_} = $encoded{$_} for keys %encoded;
 	$map_version++;
+	# A "reveal" (show-on-map / find) advances the zoom counter so the client
+	# fits to it; a "quiet" push (restore on startup, create/edit at a clicked
+	# point) does not, leaving the user's view untouched.
+	$reveal_version = $map_version if !$quiet;
 }
 
 
@@ -206,6 +218,38 @@ sub pollRouteEditPending
 }
 
 
+sub pollWaypointSavePending
+{
+	lock($waypoint_save_pending);
+	return '' if !$waypoint_save_pending;
+	my $edit = $waypoint_save_pending;
+	$waypoint_save_pending = '';
+	return $edit;
+}
+
+
+# Published from the wx main thread each onIdle (it owns the tree).  The HTTP
+# thread cannot read the wx selection directly, so /api/dest just hands back
+# this last-published JSON synchronously.  See nmFrame::onIdle + navLeaflet.
+sub setMapDestSelection
+{
+	my ($json) = @_;
+	lock($dest_selection);
+	$dest_selection = $json // '';
+}
+
+
+# Published from the main thread after a /waypoint/save is applied.  The browser
+# polls /waypoint/result and matches on the seq it sent, so it learns the
+# synchronous outcome (preflight verdict / db|fsh write result).
+sub setWaypointResult
+{
+	my ($json) = @_;
+	lock($waypoint_result);
+	$waypoint_result = $json // '';
+}
+
+
 #---------------------------------
 # HTTP server
 #---------------------------------
@@ -246,10 +290,11 @@ sub handle_request
 		# state machine + fetch timeouts).  $last_poll_time is still updated
 		# so isBrowserConnected() can answer "have I been polled recently?"
 		# for openMapBrowser() decisions.
-		my $cv;
+		my ($cv, $rv);
 		{ lock($map_version); $cv = $map_version + 0; }
+		$rv = $reveal_version + 0;
 		$last_poll_time = time();
-		return json_response($request,{ version => $cv });
+		return json_response($request,{ version => $cv, reveal => $rv });
 	}
 	elsif ($uri eq '/geojson')
 	{
@@ -372,6 +417,33 @@ sub handle_request
 		return json_response($request, { error => 'missing or invalid JSON body' }) if !$h;
 		{ lock($route_edit_pending); $route_edit_pending = encode_json($h); }
 		return json_response($request, { ok => 1, queued => 1 });
+	}
+	elsif ($uri eq '/waypoint/save')
+	{
+		my $h = $request->getPostJSON();
+		return json_response($request, { error => 'missing or invalid JSON body' }) if !$h;
+		{ lock($waypoint_save_pending); $waypoint_save_pending = encode_json($h); }
+		return json_response($request, { ok => 1, queued => 1 });
+	}
+	elsif ($uri eq '/waypoint/result')
+	{
+		# Last waypoint-save outcome { seq, ok, msg }; the browser matches on
+		# the seq it POSTed.  Empty before the first save completes.
+		my $j;
+		{ lock($waypoint_result); $j = $waypoint_result; }
+		my $h = ($j && length $j) ? eval { decode_json($j) } : undef;
+		return json_response($request, $h // { seq => 0 });
+	}
+	elsif ($uri eq '/api/dest')
+	{
+		# The map-create destination resolved from the DB-tree selection,
+		# published by the wx main thread (setMapDestSelection).  Synchronous
+		# readback: { ok, count, reason, collection_uuid, anchor_uuid,
+		# anchor_type, dest_name }.  Defaults to ok=0 before first publish.
+		my $j;
+		{ lock($dest_selection); $j = $dest_selection; }
+		my $h = ($j && length $j) ? eval { decode_json($j) } : undef;
+		return json_response($request, $h // { ok => 0, count => 0, reason => 'unknown' });
 	}
 
 	if ($uri =~ m{^/sym/(native|mask)/(\d{2})\.png$})

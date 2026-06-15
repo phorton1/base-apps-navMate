@@ -513,7 +513,7 @@ async function renderAll(geojson)
     // FEATURE IDENTITY IS COMPOSITE.  prevRenderedUuids is keyed
     // "source:uuid".  See top-of-file comment.
 {
-    if (editMode || joinMode) return;
+    if (editMode || joinMode || moveMode) return;
     const my_gen = ++_render_generation;
     clearHandles();
     if (editSubject) { editSubject = null; hideCtxMenu(); }
@@ -562,17 +562,16 @@ async function renderAll(geojson)
                         className:  'nm-label',
                         html: '<span style="color:' + abgrToCSS(props.color) + '">' + escHtml(displayName) + '</span>',
                         iconSize:   [0, 0],
-                        iconAnchor: [0, 8],
+                        iconAnchor: [0, 0],
                     })
                 });
             } else if (wpType === WP_TYPE_SOUNDING) {
-                const shallow = props.depth_cm > 0 && props.depth_cm < 183;
                 m = L.marker([lat, lon], {
                     icon: L.divIcon({
-                        className:  'nm-sounding' + (shallow ? ' nm-sounding-shallow' : ''),
-                        html:       props.name || '',
+                        className:  'nm-sounding',
+                        html:       '<span style="color:' + abgrToCSS(props.color) + '">' + escHtml(props.name || '') + '</span>',
                         iconSize:   [0, 0],
-                        iconAnchor: [0, 8],
+                        iconAnchor: [0, 0],
                     })
                 });
             } else if (isWPs()) {
@@ -594,6 +593,19 @@ async function renderAll(geojson)
             }
 
             if (m) {
+                // Right-click a waypoint marker -> Edit Waypoint (no tree
+                // selection needed; the clicked marker is the target).  Works on
+                // db, e80 and fsh; the dialog is store-aware.  A route point is
+                // editable only because being displayed as an individual marker
+                // is what makes it "fair game".
+                if (dsrc === 'db' || dsrc === 'e80' || dsrc === 'fsh') {
+                    m.on('contextmenu', function(e) {
+                        L.DomEvent.stopPropagation(e);
+                        if (moveMode) { exitMoveMode(); return; }
+                        if (editMode || joinMode || appendMode) return;
+                        showWaypointMenu(props, e.originalEvent.clientX, e.originalEvent.clientY, lat, lon);
+                    });
+                }
                 m.on('mouseover', () => {
                     if (isNavWp) m.getElement()?.classList.add('nm-wp-hover');
                     showInfo(props);
@@ -655,7 +667,7 @@ async function renderAll(geojson)
                     const idx = nearestPointIdx(coords, e.latlng);
                     const d = depths[idx];
                     const dStr = d ? (d / 30.48).toFixed(1) + ' ft' : '--';
-                    showInfo(props, 'point ' + (idx + 1) + ' / ' + total + ' — ' + dStr);
+                    showInfo(props, 'point ' + (idx + 1) + ' / ' + total + ' - ' + dStr);
                 });
                 line.on('mouseout', () => {
                     if (editSubject && editSubject.layer === line) return;
@@ -740,7 +752,10 @@ async function renderAll(geojson)
     if (my_gen !== _render_generation) return;
     prevRenderedUuids = currentKeys;
 
-    if (isAutoZoom() && newLatLngs.length) {
+    // Only auto-zoom when a "reveal" advanced the counter; quiet pushes
+    // (startup/restore, create/edit at a clicked point) leave the view alone.
+    if (isAutoZoom() && newLatLngs.length && _polled_reveal > _last_zoomed_reveal) {
+        _last_zoomed_reveal = _polled_reveal;
         if (newLatLngs.length === 1) {
             map.setView(newLatLngs[0], 15);
         } else {
@@ -783,6 +798,8 @@ const _RENDER_CHUNK_SIZE  = 50;      // features per chunk between renderAll yie
 let _polled_version        = -1;
 let _rendering_version     = null;          // non-null while a /geojson fetch+render is in flight
 let _last_rendered_version = -1;
+let _polled_reveal         = 0;             // reveal counter from /poll (advances on reveals only)
+let _last_zoomed_reveal    = 0;             // reveal value at our last auto-zoom
 let _connection_state      = 'connected';   // 'connected' | 'disconnected'
 
 
@@ -828,6 +845,7 @@ function _pollVersion()
                 _connection_state = 'connected';
             }
             _polled_version = data.version;
+            _polled_reveal  = data.reveal || 0;
         })
         .catch(function() {
             if (_connection_state === 'connected') {

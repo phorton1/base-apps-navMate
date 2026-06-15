@@ -226,7 +226,7 @@ panel classes that compose the wx UI.
 No module may import from a higher layer. `navMate.pm` is the application entry
 point and sits above all layers.
 
-`_site/` holds the Leaflet applet HTML/JS, served by `navServer.pm`'s embedded HTTP
+`_res/site/` holds the Leaflet applet HTML/JS, served by `navServer.pm`'s embedded HTTP
 server. Not a Perl module.
 
 See [Implementation](implementation.md) for the full module inventory organized by

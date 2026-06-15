@@ -606,6 +606,114 @@ sub _newE80Waypoint
 }
 
 
+# Leaflet map-create entry (NEW, additive -- not on any existing navOps path).
+# Creates one waypoint on the E80 from explicit data (no dialog).  Preflighted
+# (connected + truncation-aware unique-name) so the wire write is guaranteed
+# barring a bug; returns { ok => 1 } or { ok => 0, msg => ... } for the toast.
+# Name is already <= $E80_MAX_NAME (enforced client-side), so no truncation.
+sub mapCreateE80Waypoint
+{
+    my (%a) = @_;
+    my $wpmgr = _wpmgr();
+    return { ok => 0, msg => 'Connect an E80 first' } if !$wpmgr;
+
+    my $name = $a{name} // '';
+    return { ok => 0, msg => 'Waypoint needs a name' } if $name eq '';
+    if (my $c = _checkE80NameConflict($wpmgr, $name, {}, 'waypoints'))
+    {
+        return { ok => 0, msg => "A waypoint named '$name' already exists on the E80" };
+    }
+
+    my $uuid = _newNavUUID();
+    return { ok => 0, msg => 'Could not allocate a uuid' } if !$uuid;
+
+    $wpmgr->createWaypoint({
+        name    => $name,
+        uuid    => $uuid,
+        lat     => ($a{lat} // 0) + 0,
+        lon     => ($a{lon} // 0) + 0,
+        sym     => (defined $a{sym} ? $a{sym} + 0 : (symForWpType($WP_TYPE_NAV) // 0)),
+        ts      => time(),
+        comment => '',
+    });
+    my $group_uuid = $a{group_uuid} // '';
+    if ($group_uuid && $wpmgr->{groups}{$group_uuid})
+    {
+        my $group = $wpmgr->{groups}{$group_uuid};
+        my @new   = (@{$group->{uuids} // []}, $uuid);
+        $wpmgr->modifyGroup({ uuid => $group_uuid, members => \@new });
+    }
+    navVisibility::setE80Visible($uuid, 1);   # new waypoint starts visible
+    return { ok => 1, uuid => $uuid };
+}
+
+
+# Leaflet map-edit entry.  Patches name + sym, and (for a Map "Move Waypoint")
+# lat + lon, on an existing E80 waypoint; modifyWaypoint preserves any field not
+# given and recomputes north/east when lat/lon change.  Uniqueness is preflighted
+# only on a rename.  'routes' lists the routes referencing this waypoint so the
+# caller can re-push their polylines.  Returns { ok, uuid, wp, routes } or a msg.
+sub mapModifyE80Waypoint
+{
+    my (%a) = @_;
+    my $wpmgr = _wpmgr();
+    return { ok => 0, msg => 'Connect an E80 first' } if !$wpmgr;
+
+    my $uuid = $a{uuid} // '';
+    my $wp   = $uuid ? $wpmgr->{waypoints}{$uuid} : undef;
+    return { ok => 0, msg => 'That waypoint is no longer on the E80' } if !$wp;
+
+    my $name = $a{name} // '';
+    return { ok => 0, msg => 'Waypoint needs a name' } if $name eq '';
+    if (lc($name) ne lc($wp->{name} // ''))   # a rename must stay unique
+    {
+        if (my $c = _checkE80NameConflict($wpmgr, $name, {}, 'waypoints'))
+        {
+            return { ok => 0, msg => "A waypoint named '$name' already exists on the E80" };
+        }
+    }
+
+    # lat/lon together = a Move (decimal degrees; modifyWaypoint scales + redoes
+    # north/east).  Map "Move Waypoint" always sends both, never one alone.
+    $wpmgr->modifyWaypoint({
+        uuid => $uuid,
+        name => $name,
+        (defined $a{sym} ? (sym => $a{sym} + 0) : ()),
+        ((defined $a{lat} && defined $a{lon}) ? (lat => $a{lat} + 0, lon => $a{lon} + 0) : ()),
+    });
+    # Only a move (lat/lon) shifts route geometry; a name/sym edit leaves the
+    # referencing routes unchanged, so don't bother re-pushing them.
+    my @routes = (defined $a{lat} && defined $a{lon}) ? _e80WPRoutes($wpmgr, $uuid) : ();
+    return { ok => 1, uuid => $uuid, wp => $wpmgr->{waypoints}{$uuid}, routes => \@routes };
+}
+
+
+# Leaflet map-delete entry (NEW, additive).  Removes a standalone E80 waypoint;
+# DISALLOWED (rejected, not cascaded) if any route references it.  _e80DeleteWP
+# detaches it from its group, then deletes.  Returns { ok, uuid } or a msg.
+sub mapDeleteE80Waypoint
+{
+    my (%a) = @_;
+    my $wpmgr = _wpmgr();
+    return { ok => 0, msg => 'Connect an E80 first' } if !$wpmgr;
+
+    my $uuid = $a{uuid} // '';
+    my $wp   = $uuid ? $wpmgr->{waypoints}{$uuid} : undef;
+    return { ok => 0, msg => 'That waypoint is no longer on the E80' } if !$wp;
+
+    my @routes = _e80WPRoutes($wpmgr, $uuid);
+    if (@routes)
+    {
+        return { ok => 0, msg => "'" . ($wp->{name} // 'Waypoint')
+            . "' is used by a route -- remove it from the route first" };
+    }
+
+    _e80DeleteWP($wpmgr, $uuid);
+    navVisibility::setE80Visible($uuid, 0);
+    return { ok => 1, uuid => $uuid };
+}
+
+
 sub _newE80Group
 {
     my ($node, $tree) = @_;

@@ -82,6 +82,17 @@ sub _groupMemberWpts    { error("winTreeBase: _groupMemberWpts is abstract");   
 sub _groupHasComment    { error("winTreeBase: _groupHasComment is abstract");    return }
 
 
+# Map-create destination from this pane's current tree selection.  Published each
+# onIdle (navLeaflet::publishMapDest -> /api/dest) for the ACTIVE pane, and the
+# leaflet Create dialog captures it at open.  Overridden by winDatabase / winE80 /
+# winFSH; the default says "this pane is not a map-create destination".
+sub resolveMapDestination
+{
+    my ($this) = @_;
+    return { ok => 0, count => 0, reason => 'unsupported' };
+}
+
+
 sub _groupMemberUUIDs
 {
     my ($this, $data) = @_;
@@ -1288,6 +1299,28 @@ sub _applyNodeVisibility
     my $err = $@;
     navVisibility::endVisibilityBatch();
     error("_applyNodeVisibility: $err") if $err;
+}
+
+
+sub _repushRoutesByUUID
+    # A Map "Move Waypoint" changes a waypoint's geometry; any visible route
+    # that references it is reference-built (E80 resolves uuids against live
+    # waypoints; FSH we propagate the move into the embedded copies first), so
+    # re-push those routes to make their polylines follow.  $route_uuids comes
+    # from navOps (mapModify*Waypoint).  addRenderFeatures upserts by source:uuid.
+{
+    my ($this, $route_uuids) = @_;
+    return if !$route_uuids || !@$route_uuids;
+    my $all_routes = $this->_allRoutes();
+    my @features;
+    for my $r_uuid (@$route_uuids)
+    {
+        next if !$this->_getVisible($r_uuid);
+        my $r = $all_routes->{$r_uuid} or next;
+        my $f = _buildRouteFeature($this, $r_uuid, $r);
+        push @features, $f if $f;
+    }
+    addRenderFeatures(\@features) if @features;
 }
 
 

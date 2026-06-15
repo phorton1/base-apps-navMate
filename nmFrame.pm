@@ -161,6 +161,23 @@ sub onIdle
 		dispatchTrackEdit($this, $track_edit) if $track_edit;
 		my $route_edit = pollRouteEditPending();
 		dispatchRouteEdit($this, $route_edit) if $route_edit;
+		my $wp_save = pollWaypointSavePending();
+		dispatchWaypointSave($this, $wp_save) if $wp_save;
+		# Publish the map-create destination (DB-tree selection) for /api/dest.
+		publishMapDest($this);
+
+		# One-time DB->map restore: the server render set is empty at startup,
+		# but the db visible flags persist (view state).  Push them once, quiet
+		# (no auto-zoom), so the map reflects the checkboxes after a restart.
+		if (!$this->{_did_db_resync})
+		{
+			my @dbs = $this->_findDatabasePanes();
+			if (@dbs)
+			{
+				$_->resyncDbToLeaflet() for @dbs;
+				$this->{_did_db_resync} = 1;
+			}
+		}
 	}
 
 	nmE80DirectOps::onIdle($this);

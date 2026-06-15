@@ -1137,6 +1137,82 @@ sub _onShowHideE80Map
 # winTreeBase abstract overrides
 #---------------------------------
 
+sub resolveMapDestination
+	# winTreeBase override: a new E80 waypoint goes into the selected My
+	# Waypoints folder or an existing Group (E80 folders sort lexically, so no
+	# paste-after / anchor).  See navLeaflet::publishMapDest.
+{
+	my ($this) = @_;
+	my $tree = $this->{tree};
+	return { ok => 0, count => 0, reason => 'no_tree', store => 'e80' } if !$tree;
+	my @sel = $tree->GetSelections();
+	return { ok => 0, count => scalar(@sel), reason => (@sel ? 'multi' : 'none'), store => 'e80' }
+		if @sel != 1;
+	my $d = $tree->GetItemData($sel[0]);
+	return { ok => 0, count => 1, reason => 'bad', store => 'e80' } if !$d;
+	my $node = $d->GetData();
+	return { ok => 0, count => 1, reason => 'bad', store => 'e80' } if ref $node ne 'HASH';
+
+	my $type = $node->{type} // '';
+	if ($type eq 'my_waypoints')
+	{
+		return { ok => 1, count => 1, store => 'e80', store_label => 'E80',
+		         group_uuid => '', dest_name => 'My Waypoints' };
+	}
+	elsif ($type eq 'group')
+	{
+		return { ok => 1, count => 1, store => 'e80', store_label => 'E80',
+		         group_uuid => ($node->{uuid} // ''),
+		         dest_name  => (($node->{data} // {})->{name} // 'Group') };
+	}
+	return { ok => 0, count => 1, reason => 'bad_folder', store => 'e80' };
+}
+
+
+sub onLeafletWaypointSave
+{
+	my ($this, $edit) = @_;
+	my $op = $edit->{op} // '';
+	if ($op eq 'create')
+	{
+		return navOps::mapCreateE80Waypoint(
+			name       => $edit->{name},
+			lat        => $edit->{lat},
+			lon        => $edit->{lon},
+			sym        => $edit->{sym},
+			group_uuid => $edit->{group_uuid});
+	}
+	elsif ($op eq 'update')
+	{
+		my $res = navOps::mapModifyE80Waypoint(
+			uuid => $edit->{uuid},
+			name => $edit->{name},
+			sym  => $edit->{sym},
+			lat  => $edit->{lat},
+			lon  => $edit->{lon});
+		if ($res->{ok} && $res->{wp} && getE80Visible($res->{uuid}))
+		{
+			removeRenderFeatures('e80', [$res->{uuid}]);
+			addRenderFeatures([$this->_buildWpFeature($res->{uuid}, $res->{wp})], 1);   # quiet
+		}
+		$this->_repushRoutesByUUID($res->{routes}) if $res->{ok};   # Move: routes follow
+		$this->refresh() if $res->{ok};
+		return $res;
+	}
+	elsif ($op eq 'delete')
+	{
+		my $res = navOps::mapDeleteE80Waypoint(uuid => $edit->{uuid});
+		if ($res->{ok})
+		{
+			removeRenderFeatures('e80', [$res->{uuid}]);
+			$this->refresh();
+		}
+		return $res;
+	}
+	return { ok => 0, msg => "unknown op '$op'" };
+}
+
+
 sub _wpDataSource    { 'e80' }
 sub _groupHasComment { 1 }
 

@@ -189,6 +189,21 @@ sub _truncForFSH
 }
 
 
+sub _fshSetWpLatLon
+	# Set an FSH waypoint record's position from decimal lat/lon and keep the
+	# denormalized Mercator north/east in sync -- the FSH writer trusts the
+	# record's north/east verbatim (_encodeCommonWaypoint).  Mirrors the per-point
+	# idiom in _pasteTrackToFSH.  Works on a standalone wp or a route's embedded copy.
+{
+	my ($wp, $lat, $lon) = @_;
+	$wp->{lat}   = $lat + 0;
+	$wp->{lon}   = $lon + 0;
+	my $ne       = latLonToNorthEast($lat, $lon);
+	$wp->{north} = $ne->{north} // 0;
+	$wp->{east}  = $ne->{east}  // 0;
+}
+
+
 sub _buildFSHWpRecord
 	# Construct a shared FSH waypoint record from clipboard-shape data.
 	# $clip carries navMate-form UUID, decimal lat/lon, and the canonical
@@ -209,8 +224,7 @@ sub _buildFSHWpRecord
 	$rec->{uuid}     = $fsh_uuid;
 	$rec->{name}     = $name;
 	$rec->{comment}  = $comment;
-	$rec->{lat}      = ($clip->{lat} // 0) + 0;
-	$rec->{lon}      = ($clip->{lon} // 0) + 0;
+	_fshSetWpLatLon($rec, $clip->{lat} // 0, $clip->{lon} // 0);   # lat/lon + north/east
 	$rec->{sym}      = $clip->{sym}    // 0;
 	$rec->{depth}    = $clip->{depth}  // $clip->{depth_cm} // 0;
 	$rec->{temp_k}   = $clip->{temp_k} // 0;
@@ -219,8 +233,6 @@ sub _buildFSHWpRecord
 	# FSH binary-format fields the writer needs:
 	$rec->{name_len} = length($name);
 	$rec->{cmt_len}  = length($comment);
-	$rec->{north}    = 0;
-	$rec->{east}     = 0;
 	$rec->{k1_0x12}  = chr(0) x 12;
 	$rec->{k2_0}     = 0;
 	$rec->{k3_0}     = 0;
@@ -599,6 +611,145 @@ sub _newFSHWaypoint
 		$db->{waypoints}{$rec->{uuid}} = $rec;
 	}
 	_refreshFSH();
+}
+
+
+# Leaflet map-create entry (NEW, additive -- not on any existing navOps path).
+# Creates one waypoint in the in-memory FSH db from explicit data (no dialog).
+# Preflighted unique-name; returns { ok => 1 } or { ok => 0, msg => ... }.
+# Name is already <= the FSH limit (enforced client-side), so no truncation.
+sub mapCreateFSHWaypoint
+{
+	my (%a) = @_;
+	my $db = _fshDb();
+	return { ok => 0, msg => 'No FSH file is loaded' } if !$db;
+
+	my $name = $a{name} // '';
+	return { ok => 0, msg => 'Waypoint needs a name' } if $name eq '';
+	my %pending_names;
+	if (my $c = _checkFSHNameConflict($db, $name, \%pending_names, 'waypoints'))
+	{
+		return { ok => 0, msg => "FSH already has a waypoint named '$name'" };
+	}
+
+	my $uuid = _newNavUUID();
+	return { ok => 0, msg => 'Could not allocate a uuid' } if !$uuid;
+
+	my $rec = _buildFSHWpRecord({
+		uuid    => $uuid,
+		name    => $name,
+		comment => '',
+		lat     => ($a{lat} // 0) + 0,
+		lon     => ($a{lon} // 0) + 0,
+		sym     => (defined $a{sym} ? $a{sym} + 0 : (symForWpType($WP_TYPE_NAV) // 0)),
+		date    => 0,
+		time    => 0,
+	});
+
+	my $group_uuid = $a{group_uuid} // '';
+	if ($group_uuid && $db->{groups}{$group_uuid})
+	{
+		my $grp = $db->{groups}{$group_uuid};
+		my @new = (@{$grp->{wpts} // []}, $rec);
+		$grp->{wpts} = shared_clone(\@new);
+	}
+	else
+	{
+		$db->{waypoints}{$rec->{uuid}} = $rec;
+	}
+	navVisibility::setFSHVisible($uuid, 1);   # new waypoint starts visible
+	_refreshFSH();
+	return { ok => 1, uuid => $uuid };
+}
+
+
+# Leaflet map-edit entry.  Patches name + sym, and (for a Map "Move Waypoint")
+# lat + lon (with north/east) on an existing FSH waypoint (in My Waypoints or a
+# group); other fields preserved.  A move also propagates into each referencing
+# route's embedded copy ('routes' lists them so the caller re-pushes their
+# polylines).  Uniqueness is preflighted only on a rename.
+# Returns { ok, uuid, wp, routes } or a msg.
+sub mapModifyFSHWaypoint
+{
+	my (%a) = @_;
+	my $db = _fshDb();
+	return { ok => 0, msg => 'No FSH file is loaded' } if !$db;
+
+	my $uuid = $a{uuid} // '';
+	my $wp   = $uuid ? $db->{waypoints}{$uuid} : undef;
+	if (!$wp && $uuid)
+	{
+		GROUP: for my $g (values %{$db->{groups} // {}})
+		{
+			for my $w (@{$g->{wpts} // []})
+			{
+				if (($w->{uuid} // '') eq $uuid) { $wp = $w; last GROUP; }
+			}
+		}
+	}
+	return { ok => 0, msg => 'That waypoint is no longer in the FSH file' } if !$wp;
+
+	my $name = $a{name} // '';
+	return { ok => 0, msg => 'Waypoint needs a name' } if $name eq '';
+	if (lc($name) ne lc($wp->{name} // ''))   # a rename must stay unique
+	{
+		if (my $c = _checkFSHNameConflict($db, $name, {}, 'waypoints'))
+		{
+			return { ok => 0, msg => "FSH already has a waypoint named '$name'" };
+		}
+	}
+
+	$wp->{name} = $name;
+	$wp->{sym}  = (defined $a{sym} ? $a{sym} + 0 : ($wp->{sym} // 0));
+
+	# Map "Move Waypoint": set lat/lon (+ north/east), then propagate the new
+	# position into every route's embedded copy of this waypoint -- FSH routes
+	# carry denormalized waypoint records, not uuid references, so they would not
+	# follow on their own.
+	my @routes;
+	if (defined $a{lat} && defined $a{lon})
+	{
+		_fshSetWpLatLon($wp, $a{lat}, $a{lon});
+		@routes = _fshWPRoutes($db, $uuid);
+		for my $r_uuid (@routes)
+		{
+			for my $rwp (@{$db->{routes}{$r_uuid}{wpts} // []})
+			{
+				_fshSetWpLatLon($rwp, $a{lat}, $a{lon})
+					if ($rwp->{uuid} // '') eq $uuid;
+			}
+		}
+	}
+	return { ok => 1, uuid => $uuid, wp => $wp, routes => \@routes };
+}
+
+
+# Leaflet map-delete entry (NEW, additive).  Removes a standalone FSH waypoint
+# (from My Waypoints or any group); DISALLOWED if a route references it.
+# Returns { ok, uuid } or a msg.  The pane removes the map feature + refreshes.
+sub mapDeleteFSHWaypoint
+{
+	my (%a) = @_;
+	my $db = _fshDb();
+	return { ok => 0, msg => 'No FSH file is loaded' } if !$db;
+
+	my $uuid = $a{uuid} // '';
+	return { ok => 0, msg => 'Waypoint not found' } if !$uuid;
+
+	my @routes = _fshWPRoutes($db, $uuid);
+	if (@routes)
+	{
+		return { ok => 0, msg => "That waypoint is used by a route -- remove it from the route first" };
+	}
+
+	delete $db->{waypoints}{$uuid};
+	for my $grp (values %{$db->{groups} // {}})
+	{
+		my @new_wpts = grep { ($_->{uuid} // '') ne $uuid } @{$grp->{wpts} // []};
+		$grp->{wpts} = shared_clone(\@new_wpts);
+	}
+	navVisibility::setFSHVisible($uuid, 0);
+	return { ok => 1, uuid => $uuid };
 }
 
 

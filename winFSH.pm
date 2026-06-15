@@ -835,8 +835,7 @@ sub _onSave
 		{
 			$wp_rec->{name}    = $name;
 			$wp_rec->{comment} = $comment;
-			$wp_rec->{lat}     = $lat;
-			$wp_rec->{lon}     = $lon;
+			navOps::_fshSetWpLatLon($wp_rec, $lat, $lon);   # lat/lon + north/east
 			$wp_rec->{sym}     = $sym;
 			$wp_rec->{depth}   = $depth_cm;
 			$wp_rec->{temp_k}    = $temp_k100;
@@ -920,6 +919,82 @@ sub _onSave
 #---------------------------------
 # winTreeBase abstract overrides
 #---------------------------------
+
+sub resolveMapDestination
+	# winTreeBase override: a new FSH waypoint goes into the selected My
+	# Waypoints folder or an existing Group (FSH folders sort lexically, so no
+	# paste-after / anchor).  See navLeaflet::publishMapDest.
+{
+	my ($this) = @_;
+	my $tree = $this->{tree};
+	return { ok => 0, count => 0, reason => 'no_tree', store => 'fsh' } if !$tree;
+	my @sel = $tree->GetSelections();
+	return { ok => 0, count => scalar(@sel), reason => (@sel ? 'multi' : 'none'), store => 'fsh' }
+		if @sel != 1;
+	my $d = $tree->GetItemData($sel[0]);
+	return { ok => 0, count => 1, reason => 'bad', store => 'fsh' } if !$d;
+	my $node = $d->GetData();
+	return { ok => 0, count => 1, reason => 'bad', store => 'fsh' } if ref $node ne 'HASH';
+
+	my $type = $node->{type} // '';
+	if ($type eq 'my_waypoints')
+	{
+		return { ok => 1, count => 1, store => 'fsh', store_label => 'FSH',
+		         group_uuid => '', dest_name => 'My Waypoints' };
+	}
+	elsif ($type eq 'group')
+	{
+		return { ok => 1, count => 1, store => 'fsh', store_label => 'FSH',
+		         group_uuid => ($node->{uuid} // ''),
+		         dest_name  => (($node->{data} // {})->{name} // 'Group') };
+	}
+	return { ok => 0, count => 1, reason => 'bad_folder', store => 'fsh' };
+}
+
+
+sub onLeafletWaypointSave
+{
+	my ($this, $edit) = @_;
+	my $op = $edit->{op} // '';
+	if ($op eq 'create')
+	{
+		return navOps::mapCreateFSHWaypoint(
+			name       => $edit->{name},
+			lat        => $edit->{lat},
+			lon        => $edit->{lon},
+			sym        => $edit->{sym},
+			group_uuid => $edit->{group_uuid});
+	}
+	elsif ($op eq 'update')
+	{
+		my $res = navOps::mapModifyFSHWaypoint(
+			uuid => $edit->{uuid},
+			name => $edit->{name},
+			sym  => $edit->{sym},
+			lat  => $edit->{lat},
+			lon  => $edit->{lon});
+		if ($res->{ok} && $res->{wp} && getFSHVisible($res->{uuid}))
+		{
+			removeRenderFeatures('fsh', [$res->{uuid}]);
+			addRenderFeatures([$this->_buildWpFeature($res->{uuid}, $res->{wp})], 1);   # quiet
+		}
+		$this->_repushRoutesByUUID($res->{routes}) if $res->{ok};   # Move: routes follow
+		$this->refresh() if $res->{ok};
+		return $res;
+	}
+	elsif ($op eq 'delete')
+	{
+		my $res = navOps::mapDeleteFSHWaypoint(uuid => $edit->{uuid});
+		if ($res->{ok})
+		{
+			removeRenderFeatures('fsh', [$res->{uuid}]);
+			$this->refresh();
+		}
+		return $res;
+	}
+	return { ok => 0, msg => "unknown op '$op'" };
+}
+
 
 sub _wpDataSource    { 'fsh' }
 sub _groupHasComment { 0 }

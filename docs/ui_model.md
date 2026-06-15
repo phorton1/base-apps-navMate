@@ -591,10 +591,10 @@ operation is a re-send of the current source state.
 ## Leaflet Canvas
 
 The Leaflet canvas is the geographic surface. It runs as a static HTML/JS page
-(`apps/navMate/_site/map.html` + `map.js` / `map.css` / `nmEdit.js` / `nmEdit.css`)
+(`apps/navMate/_res/site/map.html` + `map.js` / `map.css` / `nmEdit.js` / `nmEdit.css`)
 served by `navServer.pm` over HTTP on `localhost:9883`; the browser polls the
 server for GeoJSON features and the server pushes incremental adds/removes as
-the user toggles visibility.
+the user toggles visibility or edits waypoints on the map.
 
 ### Rendering
 
@@ -611,6 +611,72 @@ the user toggles visibility.
   when selected for editing
 
 Collections are not rendered in Leaflet; they exist only in the tree panels.
+
+### Map Waypoint Editing
+
+A right-click context menu on the canvas lets the user **create, edit, move, and
+delete waypoints directly on the map**, in any of the three stores (database,
+E80, FSH) -- the first navMate surface that *authors* navigation data in place
+rather than importing it. The UI lives in `nmEdit.js` / `nmEdit.css` (a
+store-aware overlay dialog); the app side rides `navLeaflet.pm` and additive
+`navOps::mapCreate* / mapModify* / mapDelete*` entries that reuse the existing
+WPMGR / FSH-db machinery without touching any existing navOps path.
+
+**Create** -- right-click empty map -> **Create Waypoint** drops a new waypoint
+at the clicked lat/lon. The destination is the single selected node in the
+**focused** tree pane (`$frame->getCurrentPane`), resolved by the
+`winTreeBase::resolveMapDestination` virtual (overridden per pane) and published
+each idle to `GET /api/dest`:
+
+| Store | Valid destination               | Placement                                          |
+|-------|---------------------------------|----------------------------------------------------|
+| DB    | one collection, or one leaf     | into the collection / paste-after the leaf         |
+| E80   | the `my_waypoints` node / group | into that folder (lexical sort -- no paste-after)  |
+| FSH   | the `my_waypoints` node / group | into that folder                                   |
+
+Zero or 2+ selected (or an invalid node) yields a guidance toast instead of the
+dialog. The dialog is store-aware: DB shows name / wp_type (drives sym) / sym /
+color; E80 and FSH show name (15-char, client-enforced) + sym only (no color,
+no wp_type). The sym picker is a custom icon-plus-name dropdown; the color
+picker mirrors the app's E80-palette-plus-custom double picker.
+
+**Edit** -- right-click a waypoint marker -> **Edit Waypoint** opens the same
+dialog pre-filled (no tree selection needed; the marker is the target). It
+changes only name + sym -- E80 `modifyWaypoint` is a patch, FSH mutates the
+record in place, DB uses `updateWaypoint` -- so lat/lon/comment/etc. are
+preserved.
+
+**Move** -- right-click a waypoint marker -> **Move Waypoint** enters a deliberate
+per-waypoint mode (no accidental drag): a ghost copy of the marker plus a dashed
+leash from the original spot track the cursor; a left-click drops the proposed
+position (re-click repositions) and a bottom bar confirms. The record is unchanged
+until **Confirm Move**, which rides the same `op=update` channel carrying `lat`/`lon`
+(plus the unchanged name/sym), so the write paths match Edit (DB `updateWaypoint`,
+E80 `modifyWaypoint`, FSH record mutation). A position change also re-derives the
+spoke's denormalized Mercator north/east, and any route that references the moved
+waypoint follows it -- DB and E80 resolve the reference live, FSH propagates the
+new position into its embedded route-member copies. Offered for **every** waypoint
+marker, including `wp_type = route_pt` (a display/symbol type, *not* a structural
+route point); only true route_pt references -- route-edit vertices -- stay
+off-limits.
+
+**Delete** -- right-click a waypoint marker -> **Delete Waypoint**, gated by a
+leaflet-side confirm overlay. **Disallowed** (rejected, not cascaded) when the
+waypoint is referenced by any route; the check is an app-side preflight: DB
+`getWaypointRouteRefCount`, E80 `_e80WPRoutes`, FSH `_fshWPRoutes`.
+
+**Request / result flow.** Every one of these `POST /waypoint/save`
+(`op = create | update | delete` -- Move and Edit both ride `update` -- plus
+`store`, a client `seq`, and the fields).
+`navServer` queues it; `nmFrame::onIdle` -> `navLeaflet::dispatchWaypointSave`
+routes by `store` to the pane's `onLeafletWaypointSave`, which runs the
+**app-side preflight + write** and returns a result hash. That hash is published
+via `setWaypointResult`; the browser polls `GET /waypoint/result`, matches its
+`seq`, and on rejection shows a red toast while keeping the dialog open. **All**
+validation -- E80/FSH name uniqueness, route-delete safety, E80-connected --
+lives in the app, never the browser. E80 device writes are preflighted so the
+wire op is expected to succeed: the in-memory record is patched immediately and
+the marker repaints, with the device catching up asynchronously.
 
 ### Track and Route Editing
 
@@ -648,14 +714,26 @@ The persisted JSON file holds three top-level keys (`db_visibility`,
 (`loadViewState`) and saved on clean frame close (`saveViewState` in
 `nmFrame::onCloseFrame`).
 
-Browser reconnect is handled entirely on the client (see `_site/map.js`
+Browser reconnect is handled entirely on the client (see `_res/site/map.js`
 top-of-file comment): on fetch timeout or `visibilitychange`, the client
 resets `_last_rendered_version` and the next successful poll triggers a
 full `/geojson` resync.  The server has no reconnect notion -- it just
-answers `/poll` and `/geojson`.  After a DB swap (revert), the DB pane
-calls `resyncDbToLeaflet` to evict its previous contributions and
-re-publish from the new DB state, scoped to source `'db'` so FSH and E80
-features are unaffected.
+answers `/poll` and `/geojson`.  The DB pane calls `resyncDbToLeaflet` to
+evict its previous contributions and re-publish from current DB state,
+scoped to source `'db'` so FSH and E80 features are unaffected; this runs
+both after a DB swap (revert) and **once at startup** (`nmFrame::onIdle`),
+since the server render set is empty on a fresh start while the DB visible
+flags persist in `navMate.json`.  (Spoke render-restore on E80 reconnect /
+FSH load is not yet wired.)
+
+**Reveal vs. restore zoom.**  The client auto-zooms (`isAutoZoom()`
+fit-to-new-features) only on a **reveal** -- a deliberate Show-on-Map / Find --
+not on a **quiet** push.  The server carries a `reveal` counter alongside the
+render `version` in `/poll`; reveal pushes advance it, quiet pushes (startup /
+revert restore, and waypoint create / edit at a clicked point) do not, and
+`map.js` zooms only when the reveal counter advanced since its last zoom.  This
+keeps staggered restores and in-place map edits from yanking the user's view,
+without having to define when "startup" is complete.
 
 ---
 

@@ -93,7 +93,7 @@ sub _refreshLoadedSubtree
 
 sub _pushObjToLeaflet
 {
-	my ($dbh, $this, $obj, $accumulator) = @_;
+	my ($dbh, $this, $obj, $accumulator, $quiet) = @_;
 	my $uuid     = $obj->{uuid};
 	my $obj_type = $obj->{obj_type};
 	my @features;
@@ -176,7 +176,7 @@ sub _pushObjToLeaflet
 				coordinates => [map { [$_->{lon}+0, $_->{lat}+0] } @$pts] },
 		};
 	}
-	if ($accumulator) { push @$accumulator, @features } else { addRenderFeatures(\@features) if @features }
+	if ($accumulator) { push @$accumulator, @features } else { addRenderFeatures(\@features, $quiet) if @features }
 }
 
 
@@ -436,6 +436,189 @@ sub onLeafletRouteEdit
 }
 
 
+# Resolve the map-create destination from the current DB-tree selection.
+# Published every onIdle via navLeaflet::publishMapDest -> /api/dest, and the
+# map dialog captures the result at open time.  Exactly ONE node must be
+# selected:
+#   - a collection             -> create INTO it (append)
+#   - a leaf object (wp/rt/tk)  -> PASTE-AFTER it, in its holding collection
+#   - route_point / root / 0 or 2+ selected -> ok=0 (caller shows a message)
+sub resolveMapDestination
+{
+	my ($this) = @_;
+	my $tree = $this->{tree};
+	return { ok => 0, count => 0, reason => 'no_tree' } if !$tree;
+	my @sel = $tree->GetSelections();
+	return { ok => 0, count => scalar(@sel), reason => (@sel ? 'multi' : 'none') }
+		if @sel != 1;
+
+	my $d = $tree->GetItemData($sel[0]);
+	return { ok => 0, count => 1, reason => 'bad' } if !$d;
+	my $node = $d->GetData();
+	return { ok => 0, count => 1, reason => 'bad' } if ref $node ne 'HASH';
+
+	my $type = $node->{type} // '';
+	my $data = $node->{data} // {};
+
+	if ($type eq 'object')
+	{
+		my $coll = $data->{collection_uuid} // '';
+		return { ok => 0, count => 1, reason => 'bad' } if !$coll;
+		return {
+			ok              => 1,
+			count           => 1,
+			store           => 'db',
+			store_label     => 'Database',
+			collection_uuid => $coll,
+			anchor_uuid     => ($data->{uuid}     // ''),
+			anchor_type     => ($data->{obj_type} // ''),
+			dest_name       => ($data->{name}     // ''),
+		};
+	}
+	elsif ($type eq 'route_point' || $type eq 'root')
+	{
+		return { ok => 0, count => 1, reason => $type };
+	}
+	else   # a collection (branch / group): create INTO it, appended
+	{
+		my $coll = $data->{uuid} // '';
+		return { ok => 0, count => 1, reason => 'bad' } if !$coll;
+		return {
+			ok              => 1,
+			count           => 1,
+			store           => 'db',
+			store_label     => 'Database',
+			collection_uuid => $coll,
+			anchor_uuid     => '',
+			anchor_type     => '',
+			dest_name       => ($data->{name} // ''),
+		};
+	}
+}
+
+
+# Apply the map-create waypoint dialog (POST /waypoint/save).  op=create makes a
+# new waypoint at the clicked lat/lon in the resolved collection (paste-after the
+# anchor leaf if one was selected); op=update rewrites name/wp_type/sym/color on
+# an existing db waypoint, preserving its position/geometry/provenance.
+sub onLeafletWaypointSave
+{
+	my ($this, $edit) = @_;
+	my $op = $edit->{op} // '';
+	display(0,0,"winDatabase::onLeafletWaypointSave op=$op");
+	my $dbh = connectDB();
+	return { ok => 0, msg => 'Database not available' } if !$dbh;
+
+	my $result = { ok => 1 };
+	if ($op eq 'create')
+	{
+		my $coll_uuid = $edit->{collection_uuid} // '';
+		if (!$coll_uuid)
+		{
+			disconnectDB($dbh);
+			return { ok => 0, msg => 'No destination collection selected' };
+		}
+
+		# paste-after position within the (mixed-type) collection if a leaf was
+		# the selected anchor; otherwise append (insertWaypoint's fallback).
+		my $position;
+		my $anchor_uuid = $edit->{anchor_uuid} // '';
+		my %atable = (waypoint => 'waypoints', route => 'routes', track => 'tracks');
+		my $atable  = $atable{$edit->{anchor_type} // ''};
+		if ($anchor_uuid && $atable)
+		{
+			my $anchor_pos = getPositionByAnchor($dbh, $anchor_uuid, $atable);
+			if (defined $anchor_pos)
+			{
+				my $next_pos = _nextCollItemPos($dbh, $coll_uuid, $anchor_pos);
+				$position = defined($next_pos) ? ($anchor_pos + $next_pos) / 2 : $anchor_pos + 1;
+			}
+		}
+
+		my $uuid = insertWaypoint($dbh,
+			name            => $edit->{name} // '',
+			lat             => ($edit->{lat} // 0) + 0,
+			lon             => ($edit->{lon} // 0) + 0,
+			wp_type         => (defined $edit->{wp_type} ? $edit->{wp_type} + 0 : $WP_TYPE_NAV),
+			(defined $edit->{sym} ? (sym => $edit->{sym} + 0) : ()),
+			color           => $edit->{color},        # undef -> _normalizeColor -> white
+			depth_cm        => 0,
+			created_ts      => time(),
+			ts_source       => 'nav',
+			source          => 'navMate',
+			collection_uuid => $coll_uuid,
+			(defined $position ? (position => $position) : ()));
+
+		setDbVisible($uuid, 1);    # new waypoint starts visible (checkbox on)
+		_pushObjToLeaflet($dbh, $this, { uuid => $uuid, obj_type => 'waypoint' }, undef, 1);
+		$this->refresh();
+	}
+	elsif ($op eq 'update')
+	{
+		my $uuid = $edit->{uuid} // '';
+		my $wp   = $uuid ? getWaypoint($dbh, $uuid) : undef;
+		if (!$wp)
+		{
+			disconnectDB($dbh);
+			return { ok => 0, msg => "Waypoint not found ($uuid)" };
+		}
+		updateWaypoint($dbh, $uuid,
+			name       => (defined $edit->{name}    ? $edit->{name}        : $wp->{name}),
+			comment    => $wp->{comment},
+			lat        => (defined $edit->{lat}     ? $edit->{lat} + 0     : $wp->{lat}),
+			lon        => (defined $edit->{lon}     ? $edit->{lon} + 0     : $wp->{lon}),
+			wp_type    => (defined $edit->{wp_type} ? $edit->{wp_type} + 0 : $wp->{wp_type}),
+			sym        => (defined $edit->{sym}     ? $edit->{sym} + 0     : $wp->{sym}),
+			color      => (defined $edit->{color}   ? $edit->{color}       : $wp->{color}),
+			depth_cm   => $wp->{depth_cm},
+			temp_k     => $wp->{temp_k},
+			created_ts => $wp->{created_ts},
+			ts_source  => $wp->{ts_source},
+			source     => $wp->{source});
+
+		_pushObjToLeaflet($dbh, $this, { uuid => $uuid, obj_type => 'waypoint' }, undef, 1);
+		# Map "Move Waypoint" changes geometry, so any rendered route that
+		# references this waypoint must be re-pushed to follow it (DB routes are
+		# reference-built; a name/sym/color edit never needed this).
+		if (defined $edit->{lat} || defined $edit->{lon})
+		{
+			for my $r (@{getWaypointRoutes($dbh, $uuid)})
+			{
+				next if !$rendered_uuids{$r->{route_uuid}};
+				_pushObjToLeaflet($dbh, $this, { uuid => $r->{route_uuid}, obj_type => 'route' }, undef, 1);
+			}
+		}
+		$this->refresh();
+	}
+	elsif ($op eq 'delete')
+	{
+		my $uuid = $edit->{uuid} // '';
+		my $wp   = $uuid ? getWaypoint($dbh, $uuid) : undef;
+		if (!$wp)
+		{
+			disconnectDB($dbh);
+			return { ok => 0, msg => "Waypoint not found ($uuid)" };
+		}
+		if (getWaypointRouteRefCount($dbh, $uuid) > 0)
+		{
+			disconnectDB($dbh);
+			return { ok => 0, msg => "'" . ($wp->{name} // 'Waypoint')
+				. "' is used by a route -- remove it from the route first" };
+		}
+		deleteWaypoint($dbh, $uuid);
+		setDbVisible($uuid, 0);
+		$this->_pullFromLeaflet($uuid);
+		$this->refresh();
+	}
+	else
+	{
+		$result = { ok => 0, msg => "unknown op '$op'" };
+	}
+	disconnectDB($dbh);
+	return $result;
+}
+
+
 sub _nextCollItemPos
 {
 	my ($dbh, $collection_uuid, $after_pos) = @_;
@@ -601,7 +784,7 @@ sub resyncDbToLeaflet
 		};
 	}
 	disconnectDB($dbh);
-	addRenderFeatures(\@features) if @features;
+	addRenderFeatures(\@features, 1) if @features;   # restore is quiet (no auto-zoom)
 }
 
 
