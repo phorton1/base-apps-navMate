@@ -1,7 +1,7 @@
 
 
 ;
-; TABLE collections(38)
+; TABLE collections(40)
 ;
 
 INSERT OR REPLACE INTO collections (uuid,name,parent_uuid,node_type,comment,position,source,created_ts,modified_ts) VALUES
@@ -10,7 +10,7 @@ INSERT OR REPLACE INTO collections (uuid,name,parent_uuid,node_type,comment,posi
 ('a74e90d60300a434','Bocas','e54ede600200feee','group','',1,'onetimeImport',1777930784,1777930784),
 ('ac4e2c500600b9aa','Routes','424e51840100072e','branch','',2,'onetimeImport',1777930784,1777930784),
 ('244e8e100800400a','Popa','ac4e2c500600b9aa','group','',2,'onetimeImport',1777930784,1777930784),
-('104e199a1500e646','DeLaLuna','ac4e2c500600b9aa','group','',4,'onetimeImport',1777930784,1781462290),
+('104e199a1500e646','DeLaLuna','ac4e2c500600b9aa','group','',4,'onetimeImport',1777930784,1781529618),
 ('204ecbd24500a678','Agua','ac4e2c500600b9aa','group','',6,'onetimeImport',1777930784,1777930784),
 ('1e4e4ff0060381d0','RhapsodyLogs','','branch','',7,'onetimeImport',1777930784,1777930784),
 ('214e7db00703a184','Part 1 - Before Trip','1e4e4ff0060381d0','branch','',1,'onetimeImport',1777930784,1777930784),
@@ -42,7 +42,9 @@ INSERT OR REPLACE INTO collections (uuid,name,parent_uuid,node_type,comment,posi
 ('7b4e67081f04ef08','Tracks','e94ee46c0d0446ca','branch','',2,'onetimeImport',1777930784,1777930784),
 ('234e412e3104296e','MandalaLogs','','branch','',8,'onetimeImport',1777930784,1777930784),
 ('c54e1f023204896e','Places','234e412e3104296e','group','',1,'onetimeImport',1777930784,1777930784),
-('984e7898480427f6','Tracks','234e412e3104296e','branch','',2,'onetimeImport',1777930784,1777930784);
+('984e7898480427f6','Tracks','234e412e3104296e','branch','',2,'onetimeImport',1777930784,1777930784),
+('f04e7998620655e2','gdbs','','branch','',0.5,'',1779442794,1779442794),
+('954e27fccb06b0be','Soundings','e54ede600200feee','group','',1.5,'',1781527142,1781529306);
 
 
 
@@ -51,8 +53,8 @@ INSERT OR REPLACE INTO collections (uuid,name,parent_uuid,node_type,comment,posi
 ;
 
 INSERT OR REPLACE INTO key_values (key,value) VALUES
-('schema_version','12.0'),
-('uuid_counter','1738'),
+('schema_version','13.0'),
+('uuid_counter','1758'),
 ('fsh_uuid_counter','0'),
 ('wp_mapped_syms','{"6":25,"3":3,"7":23,"2":11,"8":9,"1":4,"4":7,"0":2,"5":14}');
 
@@ -139,7 +141,7 @@ INSERT OR REPLACE INTO route_waypoints (route_uuid,wp_uuid,position) VALUES
 
 INSERT OR REPLACE INTO routes (uuid,name,comment,color,collection_uuid,db_version,e80_version,kml_version,position,source,created_ts,modified_ts) VALUES
 ('f34efdd6070022e8','Popa','','ff0055ff','ac4e2c500600b9aa',1,0,0,1,'onetimeImport',1777930784,1777930784),
-('3b4e87f21400d81c','DeLaLuna','','FFFFFF00','ac4e2c500600b9aa',1,0,0,3,'onetimeImport',1777930784,1781462276),
+('3b4e87f21400d81c','DeLaLuna','','FFFFFF00','ac4e2c500600b9aa',1,0,0,3,'onetimeImport',1777930784,1781529604),
 ('d64e8c7e4400a186','Agua','','ffffff00','ac4e2c500600b9aa',1,0,0,5,'onetimeImport',1777930784,1777930784);
 
 
@@ -54506,11 +54508,11 @@ INSERT OR REPLACE INTO tracks (uuid,name,comment,color,ts_start,ts_end,ts_source
 
 
 ;
-; TABLE waypoints(282)
+; TABLE waypoints(302)
 ;
 
 INSERT OR REPLACE INTO waypoints (uuid,name,comment,lat,lon,wp_type,sym,color,depth_cm,temp_k,created_ts,ts_source,source,collection_uuid,db_version,e80_version,kml_version,position,modified_ts) VALUES
-('124e0eb404000564','Fishfarm','',9.087717,-82.121233,3,3,'ff00ffff',0,0,1777930784,'import','onetimeImport','a74e90d60300a434',1,0,0,1,1779548849),
+('124e0eb404000564','Fishfarm','',9.087717,-82.121233,4,7,'FF00FFFF',0,0,1777930784,'import','onetimeImport','a74e90d60300a434',1,0,0,1,1781526944),
 ('9d4e232a0500dd90','StarfishBeach','',9.40383024410522,-82.3267839348486,3,3,'ff00ff00',0,0,1777930784,'import','onetimeImport','a74e90d60300a434',1,0,0,2,1779548849),
 ('314e56cc09005332','Popa0','',9.334083,-82.24205,1,4,'ff0055ff',0,0,1777930784,'import','onetimeImport','244e8e100800400a',1,0,0,1,1777930784),
 ('8d4e68fa0a0073ee','Popa1','',9.27212,-82.204624,1,4,'ff0055ff',0,0,1777930784,'import','onetimeImport','244e8e100800400a',1,0,0,2,1777930784),
@@ -54791,5 +54793,25 @@ INSERT OR REPLACE INTO waypoints (uuid,name,comment,lat,lon,wp_type,sym,color,de
 ('884e47d26b05e1fe','CoronadoBridge~','',32.6884475316458,-117.154303783491,3,3,'FFFFFFFF',0,0,1778830181,'import','recoverTildes','c54e1f023204896e',1,0,0,33,1779548849),
 ('5a4e35946c050a9c','SanDiegoBay~','',32.7174635561923,-117.205519294343,3,3,'FFFFFFFF',0,0,1778830181,'import','recoverTildes','c54e1f023204896e',1,0,0,34,1779548849),
 ('3c4e66386d05b1ee','Anthonys~','',32.7194262508128,-117.173616721423,3,3,'FFFFFFFF',0,0,1778830181,'import','recoverTildes','c54e1f023204896e',1,0,0,35,1779548849),
-('de4e69b26e054cdc','PointConception~','',34.4472850422474,-120.455541780518,3,3,'FFFFFFFF',0,0,1778830181,'import','recoverTildes','c54e1f023204896e',1,0,0,36,1779548849);
+('de4e69b26e054cdc','PointConception~','',34.4472850422474,-120.455541780518,3,3,'FFFFFFFF',0,0,1778830181,'import','recoverTildes','c54e1f023204896e',1,0,0,36,1779548849),
+('80b2c48a5600f10e','SouthAnchorage','',9.332674,-82.247292,0,6,'FF00FF00',4294967295,0,1781526897,'e80','','a74e90d60300a434',0,0,0,0.5,1781527054),
+('904e5d8ecc06a41e','19','',9.142825,-82.151723,2,11,'FFFFFFFF',579,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,1,1777930784),
+('6f4eb7b4cd06d13c','16','',9.143097,-82.151997,2,11,'FFFFFFFF',487,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,2,1777930784),
+('5a4eaafece062762','15','',9.143465,-82.152229,2,11,'FFFFFFFF',457,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,3,1777930784),
+('504ec974cf069702','11','',9.143822,-82.152458,2,11,'FFFFFFFF',335,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,4,1777930784),
+('c54e3288d0064f92','5','',9.144083,-82.152194,2,11,'FFFFFFFF',152,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,5,1777930784),
+('634e97f8d1061ce2','11','',9.14349,-82.151222,2,11,'FFFFFFFF',335,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,6,1777930784),
+('4d4e7c44d2062a2a','6','',9.143877,-82.151781,2,11,'FFFFFFFF',182,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,7,1777930784),
+('7d4ed3bed3062692','20','',9.143107,-82.150917,2,11,'FFFFFFFF',609,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,8,1777930784),
+('da4e36d0d406bfa2','9','',9.142764,-82.150432,2,11,'FFFFFFFF',274,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,9,1777930784),
+('b94e4772d506fe56','17','',9.142801,-82.150121,2,11,'FFFFFFFF',518,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,10,1777930784),
+('bd4e47d6d6067902','7','',9.143332,-82.150205,2,11,'FFFFFFFF',213,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,11,1777930784),
+('7d4e081ed706f77e','19','',9.143747,-82.150405,2,11,'FFFFFFFF',579,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,12,1777930784),
+('f54eb8b4d80658ca','27','',9.144021,-82.150686,2,11,'FFFFFFFF',822,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,13,1777930784),
+('d74e6334d906bf44','28','',9.144234,-82.15091,2,11,'FFFFFFFF',853,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,14,1777930784),
+('e94e7460da06e856','25','',9.144634,-82.151442,2,11,'FFFFFFFF',762,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,15,1777930784),
+('3a4ef526db06fbfa','28','',9.144954,-82.151887,2,11,'FFFFFFFF',853,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,16,1777930784),
+('e44ed5dadc069b74','16','',9.145492,-82.15115,2,11,'FFFFFFFF',487,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,17,1777930784),
+('2e4e37c8dd060cf2','25','',9.143914,-82.150048,2,11,'FFFFFFFF',762,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,18,1777930784),
+('914eed3ade06b86c','15','',9.143667,-82.150066,2,11,'FFFFFFFF',457,0,1777930784,'import','onetimeImport','954e27fccb06b0be',0,0,0,19,1777930784);
 
