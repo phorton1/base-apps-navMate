@@ -201,3 +201,64 @@ These two depend on a separate hardcoded port and on CUSTOM E80 FIRMWARE running
 device; they are "advanced / requires custom firmware" features, not baseline for a public
 install. (The firewall is no longer a manual step -- the installer pre-authorizes inbound
 access for all three exes.)
+
+
+## Release cycle
+
+Turning a built installer into a public GitHub Release plus a posterity record of exactly
+what produced it. A release = the SAME tag string `navMate<version>` (e.g. `navMate0.9.5`,
+matching the existing `buddy1.0.5` / `cm0.2.0.x` tags) stamped across the FIVE repos a build
+is made of, ONE GitHub Release on the navMate repo, and one appended entry in
+`apps/navMate/releases/readme.md`.
+
+**The five-repo provenance freeze.** The identical tag in every repo means
+`git checkout navMate<ver>` in each reconstructs the exact source a release was built from.
+
+| repo              | path                   | GitHub (visibility)         | gets                     |
+| ----------------- | ---------------------- | --------------------------- | ------------------------ |
+| navMate           | `C:\base\apps\navMate` | base-apps-navMate (public)  | tag + the GitHub Release |
+| Pub               | `C:\base\Pub`          | base-Pub (public)           | tag (provenance only)    |
+| Pub::Ray          | `C:\base\Pub\Ray`      | base-Pub-Ray (public)       | tag (provenance only)    |
+| base_dist/navMate | `C:\base_dist\navMate` | base_dist-navMate (private) | tag (provenance only)    |
+| Perl              | `C:\Perl`              | Perl (private)              | tag (provenance only)    |
+
+`C:\base` itself and the CM / `My::` tree are NOT part of navMate's freeze. Only navMate gets
+an actual Release (asset + notes); the other four get the bare provenance tag.
+
+**Procedure** (manual -- the source of truth a `\base\bat\claude\release\` helper will later
+automate):
+
+1. Finish all work and **commit the four source repos clean** (navMate, Pub, Pub::Ray, Perl).
+2. Bump the version + Scan-and-Build in Cava (see Build procedure). This dirties ONLY
+   `base_dist/navMate` (the auto-bumped version fields).
+3. **Commit `base_dist/navMate`** -- the recipe that produced THIS exe.
+4. Install the built exe and smoke-test (wizard launch paths + the seeded db).
+5. **Commit nothing to the five repos between steps 2 and 6** -- else the tag will not pin
+   what actually shipped.
+6. All five now clean: in each repo `git tag navMate<ver> && git push origin navMate<ver>`,
+   noting each HEAD SHA.
+7. Append the entry to `releases/readme.md` (SHAs from step 6; tool versions from Toolchain)
+   and commit it in the navMate repo.
+8. `gh release create navMate<ver> <installer.exe> --title "navMate <ver>" --notes-file
+   <notes> --draft --prerelease`; review the draft on GitHub, then publish.
+9. **Download the asset from GitHub and re-test** -- the only step that proves the uploaded
+   asset is intact and installs from the hosted copy.
+
+**gh.** Tagging is plain `git` -- `gh` (the GitHub CLI, separate from git) is needed only for
+step 8. One-time setup: install `gh`, `gh auth login`, verify with `gh auth status` +
+`gh release list -R phorton1/base-apps-navMate` (an empty list still proves auth + repo access).
+
+**Pre-release / the 1.0.0 line.** Every `0.9.x` release is marked GitHub **pre-release**
+(`--prerelease`) with a not-guaranteed disclaimer and is throwaway (deleted at 1.0.0). A
+pre-release is excluded from `.../releases/latest`, so during 0.9.x the storefront Download
+points at the `/releases` PAGE (the click-through surfaces the disclaimer), not at
+`latest/download/<asset>`. **1.0.0** is the first official release and the contract line:
+after it releases are permanent, the db schema becomes a backward-compat commitment, and the
+Download button graduates to one-click `latest/download`.
+
+**The release log (`apps/navMate/releases/readme.md`).** A release LOG, not a changelog: one
+terse row per release (date | version | notes) plus a small auto-captured provenance block
+(the five SHAs + tool versions). Committed in the public repo so the provenance OUTLIVES the
+deleted 0.9.x pre-releases. The installer exe is NOT committed (it is the Release asset) --
+only text lives here. No changelog is maintained: every release is tagged in every repo, so
+`git log navMate<old>..navMate<new>` reconstructs the changes on demand.
