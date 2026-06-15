@@ -14,7 +14,14 @@
 navMate shows your navigation data on a **map** -- an interactive, satellite-imagery
 view that opens in your web browser right alongside the application windows.
 
-![The navMate map view, showing the Navigation folder's waypoints and routes over satellite imagery](images/map.jpg)
+- **Waypoints** appear as small symbols -- the same anchor, hazard, fish, and marker icons
+  your E-Series uses. A waypoint set up as a *label* shows its name as text; a *sounding*
+  shows its depth.
+- **Routes** are drawn as solid colored lines connecting their waypoints in the order you'll travel them.
+- **Tracks** -- the breadcrumb trail of where the boat actually went -- are drawn as solid
+  colored lines.
+
+Folders are not drawn on the map; only the waypoints, routes, and tracks inside them are.
 
 ## Opening the map
 
@@ -25,18 +32,9 @@ any time with **View -> Open Map**. It runs locally on your own computer -- navM
 need an internet connection to work, though the satellite imagery itself is fetched online
 when you are connected.
 
+![The navMate map with a fleet of recorded tracks shown; the pointer rests on the white 2008-02-03 Las Hadas to Zihuatanejo track and its info card shows the run's start and end times](images/the_map-intro.jpg)
+
 ## What you see on the map
-
-- **Waypoints** appear as small symbols -- the same anchor, hazard, fish, and marker icons
-  your E-Series uses. A waypoint set up as a *label* shows its name as text; a *sounding*
-  shows its depth.
-- **Routes** are drawn as solid colored lines connecting their waypoints in the order you'll travel them.
-- **Tracks** -- the breadcrumb trail of where the boat actually went -- are drawn as solid
-  colored lines.
-
-Folders are not drawn on the map; only the waypoints, routes, and tracks inside them are.
-
-## Getting around the map screen
 
 The map has a few on-screen controls:
 
@@ -55,7 +53,14 @@ The map has a few on-screen controls:
     what's on the plotter against what's in your database.
 - A **coordinates readout** in the lower-left shows the latitude/longitude under the pointer.
 - **Hover for details** -- rest the pointer on any mark, route, or track and a panel at the
-  upper-right shows its info from the database (the `WP: Popa4` card in the picture above).
+  upper-right shows its details from the database.
+
+In the map above, the pointer is resting on the **2008-02-03-LasHadas2Zihuatenejo** track --
+which is why it is drawn in white (a hovered track or route highlights so you can pick it out
+of a crowded screen) and why its card is open at the upper-right. The card reads the whole
+trip straight from the database: a 500-point passage that started at 06:30 UTC on
+3 February 2008 and ended at 13:30 the next day -- a 31-hour overnight run down the Mexican
+coast, recorded breadcrumb by breadcrumb.
 
 ## Showing and hiding things
 
