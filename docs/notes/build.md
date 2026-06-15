@@ -17,6 +17,10 @@ history. Internal dev doc: not wired into the docs nav headers.
   generated `innosetup.iss` into the user-facing installer exe.
 - **Dev Perl: `C:\Perl`** (ActivePerl 5.12.4) -- the SAME version Cava bundles, so every
   XS module that works in dev is ABI-compatible with the packaged build.
+- **GitHub CLI (`gh`) 2.94.0** -- `C:\Program Files\GitHub CLI\gh.exe`, installed 2026-06-15
+  via `winget install --id GitHub.cli`. Authed as `phorton1` (browser/device flow; token in
+  the OS keyring, so no recurring 2FA). Used by the Release cycle ONLY -- to create the GitHub
+  Release and upload the installer asset (see that section).
 
 
 ## Project layout (`C:\base_dist\navMate`)
@@ -245,7 +249,7 @@ automate):
    asset is intact and installs from the hosted copy.
 
 **gh.** Tagging is plain `git` -- `gh` (the GitHub CLI, separate from git) is needed only for
-step 8. One-time setup: install `gh`, `gh auth login`, verify with `gh auth status` +
+step 8. It is already installed + authed (see Toolchain); re-verify anytime with `gh auth status` +
 `gh release list -R phorton1/base-apps-navMate` (an empty list still proves auth + repo access).
 
 **Pre-release / the 1.0.0 line.** Every `0.9.x` release is marked GitHub **pre-release**
