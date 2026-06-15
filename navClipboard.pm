@@ -301,7 +301,7 @@ sub _pasteRuleAllows
 		{
 			my $rec = getCollection($dbh, $ruuid);
 			disconnectDB($dbh);
-			if ($rec && !defined $rec->{parent_uuid})
+			if ($rec && !$rec->{parent_uuid})
 			{
 				return (0, 'root_branch_before_after',
 				        'Cannot paste before/after a root-level branch -- use Paste to add items to it',

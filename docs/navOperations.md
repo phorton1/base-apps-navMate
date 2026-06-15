@@ -1291,6 +1291,14 @@ once in the DB they are ordinary records, and PASTE_NEW copies them like any oth
 
 ### 12.4 Version field management
 
+**STATUS (schema 13.0): NOT IMPLEMENTED -- deferred design.** This section is the spec
+for a future sync-versioning feature; the maintenance logic below was never wired, and
+schema 13.0 retired the one incidental `db_version` increment that did exist. The
+version columns are now inert `INTEGER NOT NULL DEFAULT 0` reserved slots (see
+[data_model.md](data_model.md), Version Columns). When this is built, "never synced"
+becomes `0` rather than NULL, matching the no-NULLs schema; the NULL semantics below
+predate 13.0.
+
 Every item in the navMate database carries two version fields: `db_version` (incremented
 each time the DB record is modified) and `e80_version` (the `db_version` value that was
 current at the time the item was last successfully written to the E80). These fields are

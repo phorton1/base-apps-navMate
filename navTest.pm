@@ -321,7 +321,6 @@ sub _doCreateBranch
 {
 	my ($main_win, $cmd) = @_;
 	my $parent_uuid = $cmd->{parent_uuid};
-	$parent_uuid    = undef if defined $parent_uuid && $parent_uuid eq '';
 	my $name        = $cmd->{name} // '';
 	if ($name eq '')
 	{

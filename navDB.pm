@@ -112,50 +112,50 @@ my $db_def = {
 	collections => [
 		"uuid        TEXT PRIMARY KEY",
 		"name        TEXT NOT NULL",
-		"parent_uuid TEXT",
-		"node_type   TEXT NOT NULL DEFAULT 'branch'",
-		"comment     TEXT DEFAULT ''",
+		"parent_uuid TEXT    NOT NULL DEFAULT ''",
+		"node_type   TEXT    NOT NULL DEFAULT 'branch'",
+		"comment     TEXT    NOT NULL DEFAULT ''",
 		"position    REAL    NOT NULL DEFAULT 0",
-		"source      TEXT",
-		"created_ts  INTEGER NOT NULL",
-		"modified_ts INTEGER",
+		"source      TEXT    NOT NULL DEFAULT ''",
+		"created_ts  INTEGER NOT NULL DEFAULT 0",
+		"modified_ts INTEGER NOT NULL DEFAULT 0",
 	],
 
 	waypoints => [
 		"uuid            TEXT PRIMARY KEY",
 		"name            TEXT NOT NULL",
-		"comment         TEXT DEFAULT ''",
+		"comment         TEXT    NOT NULL DEFAULT ''",
 		"lat             REAL NOT NULL",
 		"lon             REAL NOT NULL",
 		"wp_type         INTEGER NOT NULL DEFAULT 0",
 		"sym             INTEGER NOT NULL DEFAULT 0",
-		"color           TEXT",
-		"depth_cm        INTEGER DEFAULT 0",
-		"temp_k          INTEGER DEFAULT NULL",
-		"created_ts      INTEGER NOT NULL",
-		"ts_source       TEXT NOT NULL",
-		"source          TEXT",
+		"color           TEXT    NOT NULL DEFAULT ''",
+		"depth_cm        INTEGER NOT NULL DEFAULT 0",
+		"temp_k          INTEGER NOT NULL DEFAULT 0",
+		"created_ts      INTEGER NOT NULL DEFAULT 0",
+		"ts_source       TEXT    NOT NULL DEFAULT ''",
+		"source          TEXT    NOT NULL DEFAULT ''",
 		"collection_uuid TEXT NOT NULL",
-		"db_version      INTEGER NOT NULL DEFAULT 1",
-		"e80_version     INTEGER",
-		"kml_version     INTEGER",
+		"db_version      INTEGER NOT NULL DEFAULT 0",
+		"e80_version     INTEGER NOT NULL DEFAULT 0",
+		"kml_version     INTEGER NOT NULL DEFAULT 0",
 		"position        REAL    NOT NULL DEFAULT 0",
-		"modified_ts     INTEGER",
+		"modified_ts     INTEGER NOT NULL DEFAULT 0",
 	],
 
 	routes => [
 		"uuid            TEXT PRIMARY KEY",
 		"name            TEXT NOT NULL",
-		"comment         TEXT DEFAULT ''",
-		"color           TEXT DEFAULT NULL",
+		"comment         TEXT    NOT NULL DEFAULT ''",
+		"color           TEXT    NOT NULL DEFAULT ''",
 		"collection_uuid TEXT NOT NULL",
-		"db_version      INTEGER NOT NULL DEFAULT 1",
-		"e80_version     INTEGER",
-		"kml_version     INTEGER",
+		"db_version      INTEGER NOT NULL DEFAULT 0",
+		"e80_version     INTEGER NOT NULL DEFAULT 0",
+		"kml_version     INTEGER NOT NULL DEFAULT 0",
 		"position        REAL    NOT NULL DEFAULT 0",
-		"source          TEXT",
-		"created_ts      INTEGER NOT NULL",
-		"modified_ts     INTEGER",
+		"source          TEXT    NOT NULL DEFAULT ''",
+		"created_ts      INTEGER NOT NULL DEFAULT 0",
+		"modified_ts     INTEGER NOT NULL DEFAULT 0",
 	],
 
 	route_waypoints => [
@@ -168,21 +168,21 @@ my $db_def = {
 	tracks => [
 		"uuid            TEXT PRIMARY KEY",
 		"name            TEXT NOT NULL",
-		"comment         TEXT DEFAULT ''",
-		"color           TEXT DEFAULT NULL",
-		"ts_start        INTEGER NOT NULL",
-		"ts_end          INTEGER",
-		"ts_source       TEXT NOT NULL",
-		"point_count     INTEGER",
+		"comment         TEXT    NOT NULL DEFAULT ''",
+		"color           TEXT    NOT NULL DEFAULT ''",
+		"ts_start        INTEGER NOT NULL DEFAULT 0",
+		"ts_end          INTEGER NOT NULL DEFAULT 0",
+		"ts_source       TEXT    NOT NULL DEFAULT ''",
+		"point_count     INTEGER NOT NULL DEFAULT 0",
 		"collection_uuid TEXT NOT NULL",
-		"db_version      INTEGER NOT NULL DEFAULT 1",
-		"e80_version     INTEGER",
-		"kml_version     INTEGER",
+		"db_version      INTEGER NOT NULL DEFAULT 0",
+		"e80_version     INTEGER NOT NULL DEFAULT 0",
+		"kml_version     INTEGER NOT NULL DEFAULT 0",
 		"position        REAL    NOT NULL DEFAULT 0",
-		"companion_uuid  TEXT",
-		"source          TEXT",
-		"created_ts      INTEGER NOT NULL",
-		"modified_ts     INTEGER",
+		"companion_uuid  TEXT    NOT NULL DEFAULT ''",
+		"source          TEXT    NOT NULL DEFAULT ''",
+		"created_ts      INTEGER NOT NULL DEFAULT 0",
+		"modified_ts     INTEGER NOT NULL DEFAULT 0",
 	],
 
 	track_points => [
@@ -190,9 +190,9 @@ my $db_def = {
 		"position   INTEGER NOT NULL",
 		"lat        REAL NOT NULL",
 		"lon        REAL NOT NULL",
-		"depth_cm   INTEGER",
-		"temp_k     INTEGER",
-		"ts         INTEGER",
+		"depth_cm   INTEGER NOT NULL DEFAULT 0",
+		"temp_k     INTEGER NOT NULL DEFAULT 0",
+		"ts         INTEGER NOT NULL DEFAULT 0",
 		"PRIMARY KEY (track_uuid, position)",
 	],
 
@@ -272,7 +272,7 @@ sub openDB
 		$dbh->do("UPDATE collections SET position = (
 			SELECT COUNT(*) FROM collections c2
 			WHERE (c2.parent_uuid = collections.parent_uuid
-				OR (c2.parent_uuid IS NULL AND collections.parent_uuid IS NULL))
+				OR (c2.parent_uuid='' AND collections.parent_uuid=''))
 			AND c2.rowid <= collections.rowid
 		)", []);
 		$dbh->do("UPDATE waypoints SET position = (
@@ -442,6 +442,14 @@ sub openDB
 		warning(0,0,"navDB::openDB migration to 12.0 complete");
 	}
 
+	if ($stored eq '12.0')
+	{
+		warning(0,0,"navDB::openDB migrating schema 12.0 -> 13.0 (no-NULLs hardening)");
+		_migrateTo13($dbh);
+		$stored = '13.0';
+		warning(0,0,"navDB::openDB migration to 13.0 complete");
+	}
+
 	# Provenance triggers: auto-populate created_ts and modified_ts.
 	# Idempotent (CREATE TRIGGER IF NOT EXISTS); runs every openDB so
 	# fresh DBs and migrated DBs both end up with the triggers active.
@@ -598,16 +606,22 @@ sub _createTables
 # _createTriggers
 #---------------------------------
 # Provenance triggers on the four WGRT tables.  Each table gets:
-#   <table>_insert_ts  - AFTER INSERT, sets created_ts (if not provided)
-#                        and modified_ts (= created_ts) using NEW.* and
-#                        COALESCE so explicit values win.
-#   <table>_update_ts  - AFTER UPDATE, touches modified_ts to current
-#                        time UNLESS the UPDATE itself already changed
-#                        modified_ts (WHEN OLD.modified_ts IS NEW.modified_ts
-#                        guards against trigger overriding an explicit set).
+#   <table>_insert_ts  - AFTER INSERT, backfills created_ts and modified_ts
+#                        from the 0-sentinel (CASE ... > 0), so an explicit
+#                        value wins but a 0 / omitted column becomes a real
+#                        timestamp.  collections also normalizes the node_type
+#                        '' sentinel to 'branch'.
+#   <table>_update_ts  - AFTER UPDATE, touches modified_ts to current time
+#                        UNLESS the UPDATE itself set it to a real value.
+#                        Fires when modified_ts is unchanged OR was set to 0
+#                        (the "refresh me" sentinel), so pass-0-on-update and
+#                        a normal edit both land a fresh mtime.
 #
-# Idempotent via CREATE TRIGGER IF NOT EXISTS.  Recursion safety relies
-# on SQLite's default PRAGMA recursive_triggers = OFF.
+# 0 (not NULL) is the universal "fill me in" signal: every column is NOT NULL,
+# so insert_record's force-0 feeds these triggers instead of defeating them.
+# Idempotent via CREATE TRIGGER IF NOT EXISTS (the 13.0 migration drops the
+# old bodies first).  Recursion safety relies on SQLite's default
+# PRAGMA recursive_triggers = OFF.
 
 sub _createTriggers
 {
@@ -615,13 +629,21 @@ sub _createTriggers
 
 	for my $table (qw(waypoints routes tracks collections))
 	{
+		# collections also normalizes the node_type sentinel ('' -> 'branch'),
+		# so even a sparse / insert_record write lands a valid node_type.
+		my $node_set = $table eq 'collections'
+			? ",\n           node_type   = CASE WHEN NEW.node_type = '' THEN 'branch' ELSE NEW.node_type END"
+			: '';
+
 		$dbh->do(<<SQL, []);
 CREATE TRIGGER IF NOT EXISTS ${table}_insert_ts AFTER INSERT ON $table
 FOR EACH ROW
 BEGIN
     UPDATE $table
-       SET created_ts  = COALESCE(NEW.created_ts, strftime('%s','now')),
-           modified_ts = COALESCE(NEW.modified_ts, NEW.created_ts, strftime('%s','now'))
+       SET created_ts  = CASE WHEN NEW.created_ts  > 0 THEN NEW.created_ts  ELSE strftime('%s','now') END,
+           modified_ts = CASE WHEN NEW.modified_ts > 0 THEN NEW.modified_ts
+                              WHEN NEW.created_ts  > 0 THEN NEW.created_ts
+                              ELSE strftime('%s','now') END$node_set
      WHERE uuid = NEW.uuid;
 END
 SQL
@@ -629,7 +651,7 @@ SQL
 		$dbh->do(<<SQL, []);
 CREATE TRIGGER IF NOT EXISTS ${table}_update_ts AFTER UPDATE ON $table
 FOR EACH ROW
-WHEN OLD.modified_ts IS NEW.modified_ts
+WHEN OLD.modified_ts IS NEW.modified_ts OR NEW.modified_ts = 0
 BEGIN
     UPDATE $table
        SET modified_ts = strftime('%s','now')
@@ -637,6 +659,121 @@ BEGIN
 END
 SQL
 	}
+
+	return 1;
+}
+
+
+#---------------------------------
+# _migrateTo13
+#---------------------------------
+# Schema 12.0 -> 13.0: the no-NULLs hardening.  Every column becomes
+# NOT NULL DEFAULT ''/0; SQLite cannot ALTER a constraint in, so each table
+# is rebuilt.  Each new table is created from the (now hardened) $db_def via
+# the SAME createTable() a fresh install uses -- so a migrated DB and a fresh
+# DB converge on byte-identical schemas -- then data is copied with COALESCE
+# normalizing every prior NULL to its '' / 0 canonical.
+#
+# Timestamp triggers are dropped first; openDB's _createTriggers recreates
+# them (with the new 0-sentinel bodies) immediately after this returns, so
+# the INSERT...SELECT copies the existing timestamps verbatim (no trigger
+# fires on the trigger-less new table mid-rebuild).
+
+sub _migrateTo13
+{
+	my ($dbh) = @_;
+
+	for my $t (qw(waypoints routes tracks collections))
+	{
+		$dbh->do("DROP TRIGGER IF EXISTS ${t}_insert_ts", []);
+		$dbh->do("DROP TRIGGER IF EXISTS ${t}_update_ts", []);
+	}
+
+	$dbh->do("ALTER TABLE collections RENAME TO collections_old", []);
+	$dbh->createTable('collections');
+	$dbh->do(qq{
+		INSERT INTO collections
+			(uuid, name, parent_uuid, node_type, comment, position,
+			 source, created_ts, modified_ts)
+		SELECT uuid, name,
+			COALESCE(parent_uuid,''),
+			COALESCE(NULLIF(node_type,''),'branch'),
+			COALESCE(comment,''),
+			COALESCE(position,0),
+			COALESCE(source,''),
+			COALESCE(created_ts, strftime('%s','now')),
+			COALESCE(modified_ts, created_ts, strftime('%s','now'))
+		FROM collections_old
+	}, []);
+	$dbh->do("DROP TABLE collections_old", []);
+
+	$dbh->do("ALTER TABLE waypoints RENAME TO waypoints_old", []);
+	$dbh->createTable('waypoints');
+	$dbh->do(qq{
+		INSERT INTO waypoints
+			(uuid, name, comment, lat, lon, wp_type, sym, color, depth_cm,
+			 temp_k, created_ts, ts_source, source, collection_uuid,
+			 db_version, e80_version, kml_version, position, modified_ts)
+		SELECT uuid, name,
+			COALESCE(comment,''), lat, lon,
+			COALESCE(wp_type,0), COALESCE(sym,0),
+			COALESCE(color,''), COALESCE(depth_cm,0), COALESCE(temp_k,0),
+			COALESCE(created_ts, strftime('%s','now')),
+			COALESCE(ts_source,''), COALESCE(source,''), collection_uuid,
+			COALESCE(db_version,0), COALESCE(e80_version,0), COALESCE(kml_version,0),
+			COALESCE(position,0),
+			COALESCE(modified_ts, created_ts, strftime('%s','now'))
+		FROM waypoints_old
+	}, []);
+	$dbh->do("DROP TABLE waypoints_old", []);
+
+	$dbh->do("ALTER TABLE routes RENAME TO routes_old", []);
+	$dbh->createTable('routes');
+	$dbh->do(qq{
+		INSERT INTO routes
+			(uuid, name, comment, color, collection_uuid, db_version,
+			 e80_version, kml_version, position, source, created_ts, modified_ts)
+		SELECT uuid, name,
+			COALESCE(comment,''), COALESCE(color,''), collection_uuid,
+			COALESCE(db_version,0), COALESCE(e80_version,0), COALESCE(kml_version,0),
+			COALESCE(position,0), COALESCE(source,''),
+			COALESCE(created_ts, strftime('%s','now')),
+			COALESCE(modified_ts, created_ts, strftime('%s','now'))
+		FROM routes_old
+	}, []);
+	$dbh->do("DROP TABLE routes_old", []);
+
+	$dbh->do("ALTER TABLE tracks RENAME TO tracks_old", []);
+	$dbh->createTable('tracks');
+	$dbh->do(qq{
+		INSERT INTO tracks
+			(uuid, name, comment, color, ts_start, ts_end, ts_source,
+			 point_count, collection_uuid, db_version, e80_version,
+			 kml_version, position, companion_uuid, source, created_ts, modified_ts)
+		SELECT uuid, name,
+			COALESCE(comment,''), COALESCE(color,''),
+			COALESCE(ts_start,0), COALESCE(ts_end,0), COALESCE(ts_source,''),
+			COALESCE(point_count,0), collection_uuid,
+			COALESCE(db_version,0), COALESCE(e80_version,0), COALESCE(kml_version,0),
+			COALESCE(position,0), COALESCE(companion_uuid,''), COALESCE(source,''),
+			COALESCE(created_ts, strftime('%s','now')),
+			COALESCE(modified_ts, created_ts, strftime('%s','now'))
+		FROM tracks_old
+	}, []);
+	$dbh->do("DROP TABLE tracks_old", []);
+
+	$dbh->do("ALTER TABLE track_points RENAME TO track_points_old", []);
+	$dbh->createTable('track_points');
+	$dbh->do(qq{
+		INSERT INTO track_points
+			(track_uuid, position, lat, lon, depth_cm, temp_k, ts)
+		SELECT track_uuid, position, lat, lon,
+			COALESCE(depth_cm,0), COALESCE(temp_k,0), COALESCE(ts,0)
+		FROM track_points_old
+	}, []);
+	$dbh->do("DROP TABLE track_points_old", []);
+
+	$dbh->do("UPDATE key_values SET value='13.0' WHERE key='schema_version'", []);
 
 	return 1;
 }
@@ -723,7 +860,7 @@ sub newFSHUUID
 sub insertCollection
 {
 	my ($dbh, $name, $parent_uuid, $node_type, $comment, $position) = @_;
-	if (defined $parent_uuid)
+	if ($parent_uuid)
 	{
 		my $pr = $dbh->get_record(
 			"SELECT node_type FROM collections WHERE uuid=?", [$parent_uuid]);
@@ -738,7 +875,7 @@ sub insertCollection
 	my $uuid = newUUID($dbh);
 	$dbh->do(
 		"INSERT INTO collections (uuid, name, parent_uuid, node_type, comment, position) VALUES (?,?,?,?,?,?)",
-		[$uuid, $name, $parent_uuid, $node_type // $NODE_TYPE_BRANCH, $comment // '', $position]);
+		[$uuid, $name, $parent_uuid // '', $node_type // $NODE_TYPE_BRANCH, $comment // '', $position]);
 	return $uuid;
 }
 
@@ -746,7 +883,7 @@ sub insertCollection
 sub insertCollectionUUID
 {
 	my ($dbh, $uuid, $name, $parent_uuid, $node_type, $comment, $position) = @_;
-	if (defined $parent_uuid)
+	if ($parent_uuid)
 	{
 		my $pr = $dbh->get_record(
 			"SELECT node_type FROM collections WHERE uuid=?", [$parent_uuid]);
@@ -760,7 +897,7 @@ sub insertCollectionUUID
 		if !defined $position;
 	$dbh->do(
 		"INSERT INTO collections (uuid, name, parent_uuid, node_type, comment, position) VALUES (?,?,?,?,?,?)",
-		[$uuid, $name, $parent_uuid, $node_type // $NODE_TYPE_BRANCH, $comment // '', $position]);
+		[$uuid, $name, $parent_uuid // '', $node_type // $NODE_TYPE_BRANCH, $comment // '', $position]);
 	return $uuid;
 }
 
@@ -773,7 +910,7 @@ sub findCollection
 {
 	my ($dbh, $name, $parent_uuid) = @_;
 	my $rec;
-	if (defined $parent_uuid)
+	if ($parent_uuid)
 	{
 		$rec = $dbh->get_record(
 			"SELECT uuid FROM collections WHERE name=? AND parent_uuid=?",
@@ -782,7 +919,7 @@ sub findCollection
 	else
 	{
 		$rec = $dbh->get_record(
-			"SELECT uuid FROM collections WHERE name=? AND parent_uuid IS NULL",
+			"SELECT uuid FROM collections WHERE name=? AND parent_uuid=''",
 			[$name]);
 	}
 	return $rec ? $rec->{uuid} : undef;
@@ -836,10 +973,10 @@ sub insertWaypoint
 		$a{sym}             // symForWpType($a{wp_type} // $WP_TYPE_NAV) // 0,
 		_normalizeColor($a{color}),
 		$a{depth_cm}        // 0,
-		$a{temp_k}          || undef,
-		$a{created_ts},
-		$a{ts_source},
-		$a{source},
+		$a{temp_k}          // 0,
+		$a{created_ts}      // 0,
+		$a{ts_source}       // '',
+		$a{source}          // '',
 		$a{collection_uuid},
 		$position]);
 	return $uuid;
@@ -862,10 +999,10 @@ sub updateWaypoint
 		$a{sym}      // symForWpType($a{wp_type} // $WP_TYPE_NAV) // 0,
 		_normalizeColor($a{color}),
 		$a{depth_cm} // 0,
-		$a{temp_k}   || undef,
-		$a{created_ts},
-		$a{ts_source},
-		$a{source},
+		$a{temp_k}   // 0,
+		$a{created_ts}      // 0,
+		$a{ts_source}       // '',
+		$a{source}          // '',
 		$uuid]);
 	return 1;
 }
@@ -944,11 +1081,11 @@ sub insertTrack
 		$a{name},
 		_normalizeColor($a{color}),
 		$a{ts_start}       // 0,
-		$a{ts_end},
-		$a{ts_source},
+		$a{ts_end}         // 0,
+		$a{ts_source}       // '',
 		$a{point_count}    // 0,
 		$a{collection_uuid},
-		$a{companion_uuid},
+		$a{companion_uuid} // '',
 		$position]);
 	return $uuid;
 }
@@ -1006,7 +1143,7 @@ sub insertTrackPoints
 			$sth->execute(
 				$track_uuid, $i,
 				$p->{lat}, $p->{lon},
-				$p->{depth_cm}, $p->{temp_k}, $p->{ts});
+				$p->{depth_cm} // 0, $p->{temp_k} // 0, $p->{ts} // 0);
 		}
 		$dbh->commit();
 	};
@@ -1126,14 +1263,14 @@ sub updateTrackPointFields
 sub getCollectionChildren
 {
 	my ($dbh, $parent_uuid) = @_;
-	if (defined $parent_uuid)
+	if ($parent_uuid)
 	{
 		return $dbh->get_records(
 			"SELECT uuid, name, node_type, comment FROM collections WHERE parent_uuid=? ORDER BY position",
 			[$parent_uuid]);
 	}
 	return $dbh->get_records(
-		"SELECT uuid, name, node_type, comment FROM collections WHERE parent_uuid IS NULL ORDER BY position");
+		"SELECT uuid, name, node_type, comment FROM collections WHERE parent_uuid='' ORDER BY position");
 }
 
 
@@ -1575,7 +1712,7 @@ sub moveWaypoint
 sub moveCollection
 {
 	my ($dbh, $uuid, $new_parent_uuid, $position) = @_;
-	if (defined $new_parent_uuid)
+	if ($new_parent_uuid)
 	{
 		my $pr = $dbh->get_record(
 			"SELECT node_type FROM collections WHERE uuid=?", [$new_parent_uuid]);
@@ -1588,7 +1725,7 @@ sub moveCollection
 	$position = _appendPositionFallback($dbh, $new_parent_uuid, 'moveCollection', $uuid)
 		if !defined $position;
 	$dbh->do("UPDATE collections SET parent_uuid=?, position=? WHERE uuid=?",
-		[$new_parent_uuid, $position, $uuid]);
+		[$new_parent_uuid // '', $position, $uuid]);
 	return 1;
 }
 
@@ -1949,7 +2086,7 @@ sub _siblingPositionsSql
 	my $extra = defined($cmp) ? " AND position $cmp ?" : "";
 	my @parts;
 	my @params;
-	if (defined $container_uuid)
+	if ($container_uuid)
 	{
 		for my $info (
 			['waypoints',   'collection_uuid'],
@@ -1965,7 +2102,7 @@ sub _siblingPositionsSql
 	}
 	else
 	{
-		push @parts, "SELECT position AS p FROM collections WHERE parent_uuid IS NULL$extra";
+		push @parts, "SELECT position AS p FROM collections WHERE parent_uuid=''$extra";
 		push @params, $val if defined $cmp;
 	}
 	return ("(" . join(" UNION ALL ", @parts) . ")", \@params);
@@ -2113,7 +2250,7 @@ sub getContainerChildren
 	my @rows;
 
 	my $colls;
-	if (defined $container_uuid)
+	if ($container_uuid)
 	{
 		$colls = $dbh->get_records(
 			"SELECT uuid, name, node_type, comment, position
@@ -2124,7 +2261,7 @@ sub getContainerChildren
 	{
 		$colls = $dbh->get_records(
 			"SELECT uuid, name, node_type, comment, position
-			 FROM collections WHERE parent_uuid IS NULL");
+			 FROM collections WHERE parent_uuid=''");
 	}
 	for my $row (@$colls)
 	{
@@ -2132,7 +2269,7 @@ sub getContainerChildren
 		push @rows, $row;
 	}
 
-	if (defined $container_uuid)
+	if ($container_uuid)
 	{
 		my $wps = $dbh->get_records(
 			"SELECT uuid, name, 'waypoint' AS obj_type, lat, lon, wp_type, sym, color, position
@@ -2195,14 +2332,14 @@ sub compactContainer
 	# Each row: ($table, $uuid, $position, $rowid)
 	my $colls_sql;
 	my $colls_params;
-	if (defined $container_uuid)
+	if ($container_uuid)
 	{
 		$colls_sql = "SELECT uuid, position, rowid FROM collections WHERE parent_uuid=?";
 		$colls_params = [$container_uuid];
 	}
 	else
 	{
-		$colls_sql = "SELECT uuid, position, rowid FROM collections WHERE parent_uuid IS NULL";
+		$colls_sql = "SELECT uuid, position, rowid FROM collections WHERE parent_uuid=''";
 		$colls_params = [];
 	}
 	my $colls = $dbh->get_records($colls_sql, $colls_params);
@@ -2211,7 +2348,7 @@ sub compactContainer
 		push @rows, ['collections', $r->{uuid}, $r->{position} // 0, $r->{rowid} // 0];
 	}
 
-	if (defined $container_uuid)
+	if ($container_uuid)
 	{
 		for my $tbl ('waypoints', 'routes', 'tracks')
 		{

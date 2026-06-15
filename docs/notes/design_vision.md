@@ -63,7 +63,11 @@ Embedding <gx:SimpleArrayData> inside a <gx:Track> is dangerous: GE probably sil
 
 `db_version`, `e80_version`, and `kml_version` columns are in schema 9.0 on
 `waypoints`, `routes`, and `tracks` (not on `collections` or `route_waypoints`).
-Columns carry correct defaults; increment logic is not yet wired.
+Increment logic is not yet wired. (**Schema 13.0 update:** the three columns are now
+inert `INTEGER NOT NULL DEFAULT 0` reserved slots -- the prior `db_version DEFAULT 1`
+and the NULL `e80_version`/`kml_version` are gone, and the incidental `db_version++`
+on edits was removed. When this is wired, "never synced" is `0`, not NULL, per the
+no-NULLs schema; the NULL semantics described below predate 13.0.)
 
 **db_version** - bumped on every navMate edit (UPDATE). Starts at 1 on INSERT.
 

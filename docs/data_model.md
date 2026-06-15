@@ -83,14 +83,14 @@ WRT object exists in exactly one collection.
 ```sql
 collections (
   uuid          TEXT PRIMARY KEY,
-  name          TEXT NOT NULL,
-  parent_uuid   TEXT REFERENCES collections(uuid),  -- NULL = root-level node
-  node_type     TEXT NOT NULL DEFAULT 'branch',     -- 'branch' or 'group'
-  comment       TEXT DEFAULT '',
+  name          TEXT    NOT NULL,
+  parent_uuid   TEXT    NOT NULL DEFAULT '' REFERENCES collections(uuid),  -- '' = root-level node (schema 13.0)
+  node_type     TEXT    NOT NULL DEFAULT 'branch',  -- 'branch' or 'group'
+  comment       TEXT    NOT NULL DEFAULT '',
   position      REAL    NOT NULL DEFAULT 0,         -- display order within parent (schema 10.0)
-  source        TEXT,                               -- see Provenance Columns (schema 11.3)
-  created_ts    INTEGER NOT NULL,                   -- see Provenance Columns (schema 11.3)
-  modified_ts   INTEGER                             -- see Provenance Columns (schema 11.3)
+  source        TEXT    NOT NULL DEFAULT '',        -- see Provenance Columns (schema 11.3)
+  created_ts    INTEGER NOT NULL DEFAULT 0,         -- see Provenance Columns (schema 11.3)
+  modified_ts   INTEGER NOT NULL DEFAULT 0          -- see Provenance Columns (schema 11.3)
 )
 ```
 
@@ -119,18 +119,18 @@ waypoints (
   lon               REAL NOT NULL,       -- degrees WGS84
   wp_type           INTEGER NOT NULL DEFAULT 0,  -- enum; see Waypoint Types (schema 12.0)
   sym               INTEGER NOT NULL DEFAULT 0,  -- 0..35 E80 wire symbol (schema 12.0); see Sym
-  color             TEXT DEFAULT NULL,   -- aabbggrr hex (GE byte order); NULL = type default
-  depth_cm          INTEGER DEFAULT 0,   -- non-zero only for sounding waypoints
-  temp_k            INTEGER DEFAULT NULL,-- water temperature x 100 Kelvin (schema 11.2); NULL = no data
-  created_ts        INTEGER NOT NULL,    -- Unix epoch seconds; never NULL; see Provenance Columns
-  ts_source         TEXT NOT NULL,       -- see Timestamp Sources
-  source            TEXT,                -- see Provenance Columns
+  color             TEXT    NOT NULL DEFAULT '', -- aabbggrr hex; '' -> 'FFFFFFFF' type default (schema 13.0)
+  depth_cm          INTEGER NOT NULL DEFAULT 0,  -- non-zero only for sounding waypoints
+  temp_k            INTEGER NOT NULL DEFAULT 0,  -- water temperature x 100 Kelvin (schema 11.2); 0 = no reading (schema 13.0)
+  created_ts        INTEGER NOT NULL DEFAULT 0,  -- Unix epoch seconds; never NULL; see Provenance Columns
+  ts_source         TEXT    NOT NULL DEFAULT '', -- see Timestamp Sources
+  source            TEXT    NOT NULL DEFAULT '', -- see Provenance Columns
   collection_uuid   TEXT NOT NULL REFERENCES collections(uuid),
-  db_version        INTEGER NOT NULL DEFAULT 1,
-  e80_version       INTEGER,             -- NULL = never synced to E80
-  kml_version       INTEGER,             -- NULL = never exported via versioned KML
-  position          REAL    NOT NULL DEFAULT 0, -- display order within collection (schema 10.0)
-  modified_ts       INTEGER              -- Unix epoch seconds; see Provenance Columns (schema 11.3)
+  db_version        INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0); see Version Columns
+  e80_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
+  kml_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
+  position          REAL    NOT NULL DEFAULT 0,  -- display order within collection (schema 10.0)
+  modified_ts       INTEGER NOT NULL DEFAULT 0   -- Unix epoch seconds; see Provenance Columns (schema 11.3)
 )
 ```
 
@@ -200,24 +200,26 @@ conversion (feet x 30.48) for programmatic use.
 `color` is the hex color resolved from the KML style at import time. For `nav`
 waypoints the color encodes significance (green = anchorage, red = major hub,
 yellow = notable, cyan = visited/secondary). For `sounding` waypoints color is
-derived from depth (not stored separately). Null means use the type default.
+derived from depth (not stored separately). Stored `NOT NULL DEFAULT ''` (schema
+13.0); `navDB::_normalizeColor` resolves `''`/unset to `'FFFFFFFF'` (white) at the
+write boundary, so a stored color is always a valid 8-char hex string.
 
 ### routes
 
 ```sql
 routes (
   uuid              TEXT PRIMARY KEY,
-  name              TEXT NOT NULL,
-  comment           TEXT DEFAULT '',
-  color             TEXT DEFAULT NULL,   -- aabbggrr hex (GE byte order)
+  name              TEXT    NOT NULL,
+  comment           TEXT    NOT NULL DEFAULT '',
+  color             TEXT    NOT NULL DEFAULT '',  -- aabbggrr hex; '' -> 'FFFFFFFF' (schema 13.0)
   collection_uuid   TEXT NOT NULL REFERENCES collections(uuid),
-  db_version        INTEGER NOT NULL DEFAULT 1,
-  e80_version       INTEGER,             -- NULL = never synced to E80
-  kml_version       INTEGER,             -- NULL = never exported via versioned KML
+  db_version        INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0); see Version Columns
+  e80_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
+  kml_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
   position          REAL    NOT NULL DEFAULT 0,  -- display order within collection (schema 10.0)
-  source            TEXT,                -- see Provenance Columns (schema 11.3)
-  created_ts        INTEGER NOT NULL,    -- see Provenance Columns (schema 11.3)
-  modified_ts       INTEGER              -- see Provenance Columns (schema 11.3)
+  source            TEXT    NOT NULL DEFAULT '', -- see Provenance Columns (schema 11.3)
+  created_ts        INTEGER NOT NULL DEFAULT 0,  -- see Provenance Columns (schema 11.3)
+  modified_ts       INTEGER NOT NULL DEFAULT 0   -- see Provenance Columns (schema 11.3)
 )
 
 route_waypoints (
@@ -237,27 +239,28 @@ independently queryable and reusable across multiple routes. Route geometry
 The `uuid` column is the identity UUID (equivalent to `mta_uuid` at the FSH/E80
 boundary). `companion_uuid` is the paired TRK block UUID from the TRACKS protocol or
 FSH file. `companion_uuid` in the DB and KML maps directly to `trk_uuid` at the
-FSH/E80 boundary. Existing rows imported before schema 11.1 have `companion_uuid = NULL`.
+FSH/E80 boundary. Rows imported before schema 11.1 had `companion_uuid = NULL`,
+normalized to `''` in schema 13.0.
 
 ```sql
 tracks (
   uuid              TEXT PRIMARY KEY,    -- identity UUID (= mta_uuid at FSH/E80 boundary)
-  name              TEXT NOT NULL,
-  comment           TEXT DEFAULT '',     -- editable in winDatabase track editor (schema 12.0)
-  color             TEXT DEFAULT NULL,   -- aabbggrr hex (GE byte order)
-  ts_start          INTEGER NOT NULL,    -- derived summary; removal candidate (no consumers)
-  ts_end            INTEGER,             -- derived summary; removal candidate (no consumers)
-  ts_source         TEXT NOT NULL,       -- see Timestamp Sources
-  point_count       INTEGER,
+  name              TEXT    NOT NULL,
+  comment           TEXT    NOT NULL DEFAULT '', -- editable in winDatabase track editor (schema 12.0)
+  color             TEXT    NOT NULL DEFAULT '', -- aabbggrr hex; '' -> 'FFFFFFFF' (schema 13.0)
+  ts_start          INTEGER NOT NULL DEFAULT 0,  -- derived summary; removal candidate (no consumers)
+  ts_end            INTEGER NOT NULL DEFAULT 0,  -- derived summary; removal candidate (no consumers)
+  ts_source         TEXT    NOT NULL DEFAULT '', -- see Timestamp Sources
+  point_count       INTEGER NOT NULL DEFAULT 0,
   collection_uuid   TEXT NOT NULL REFERENCES collections(uuid),
-  db_version        INTEGER NOT NULL DEFAULT 1,
-  e80_version       INTEGER,             -- NULL = never synced to E80
-  kml_version       INTEGER,             -- NULL = never exported via versioned KML
+  db_version        INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0); see Version Columns
+  e80_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
+  kml_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
   position          REAL    NOT NULL DEFAULT 0,  -- display order within collection (schema 10.0)
-  companion_uuid    TEXT,                -- paired TRK block UUID (= trk_uuid at FSH/E80 boundary; schema 11.1)
-  source            TEXT,                -- see Provenance Columns (schema 11.3)
-  created_ts        INTEGER NOT NULL,    -- see Provenance Columns (schema 11.3)
-  modified_ts       INTEGER              -- see Provenance Columns (schema 11.3)
+  companion_uuid    TEXT    NOT NULL DEFAULT '', -- paired TRK block UUID (= trk_uuid at FSH/E80 boundary; schema 11.1)
+  source            TEXT    NOT NULL DEFAULT '', -- see Provenance Columns (schema 11.3)
+  created_ts        INTEGER NOT NULL DEFAULT 0,  -- see Provenance Columns (schema 11.3)
+  modified_ts       INTEGER NOT NULL DEFAULT 0   -- see Provenance Columns (schema 11.3)
 )
 
 track_points (
@@ -265,16 +268,19 @@ track_points (
   position      INTEGER NOT NULL,
   lat           REAL NOT NULL,
   lon           REAL NOT NULL,
-  depth_cm      INTEGER,             -- NULL when sourced from KML
-  temp_k        INTEGER,             -- NULL when sourced from KML
-  ts            INTEGER,             -- NULL when sourced from KML
+  depth_cm      INTEGER NOT NULL DEFAULT 0,   -- 0 when sourced from KML (schema 13.0)
+  temp_k        INTEGER NOT NULL DEFAULT 0,   -- 0 when sourced from KML (schema 13.0)
+  ts            INTEGER NOT NULL DEFAULT 0,   -- 0 when sourced from KML (schema 13.0)
   PRIMARY KEY (track_uuid, position)
 )
 ```
 
-`depth_cm`, `temp_k`, and `ts` in `track_points` are nullable by design. E80 TRACK
-protocol downloads carry this data; KML imports do not. Both are valid; the schema
-accommodates both without fabricating values.
+`depth_cm`, `temp_k`, and `ts` in `track_points` are `0` when absent (schema 13.0;
+previously nullable). E80 TRACK protocol downloads carry this data; KML imports do
+not. `0` is the canonical "no reading" sentinel -- consistent with `depth_cm` /
+`temp_k` on `waypoints`, and safe because no real marine reading is `0` Kelvin and
+these columns have no aggregate consumers that a `0` would skew. See the no-NULLs
+invariant under [Design Decisions](#design-decisions).
 
 ### key_values
 
@@ -292,7 +298,7 @@ Initial entries:
 
 | key | Purpose |
 |-----|---------|
-| `schema_version` | Current value `'12.0'`; `openDB` in `navDB.pm` migrates known prior versions in place |
+| `schema_version` | Current value `'13.0'`; `openDB` in `navDB.pm` migrates known prior versions in place |
 | `uuid_counter` | Integer; persistent counter for navMate UUID generation (bytes 4-5 of the UUID) |
 | `fsh_uuid_counter` | Integer; persistent counter for FSH-flavored UUID generation (`newFSHUUID`) |
 | `wp_mapped_syms` | JSON-encoded `{wp_type_int: sym_int}` mapping in effect (schema 12.0). Seeded from `%WP_DEFAULT_SYMS` at first `openDB`; editable via Utils -> Waypoint Sym Mapping... The Remapping dialog enforces uniqueness (each sym maps to at most one wp_type). Cached in memory as `%_mapped_syms` by `navDB::loadSymMap`, called from `openDB`. |
@@ -309,8 +315,8 @@ same three provenance columns, added in schema 11.3:
 | Column | Type | Meaning |
 |---|---|---|
 | `source` | TEXT | Originating subsystem for the row. Known values include `'onetimeImport'` (legacy KML rebuild), `'navMate'` (created interactively in winDatabase), and importer-specific strings such as `'import_gdb:<file>'` set by `gpsImport` and the Michelle reconciliation pass. The set is open-ended -- new importers may introduce new values. |
-| `created_ts` | INTEGER | Unix epoch seconds at row creation. NOT NULL. |
-| `modified_ts` | INTEGER | Unix epoch seconds at last UPDATE. NULL only on rows that have never been modified after insert (rare; the insert trigger sets it). |
+| `created_ts` | INTEGER | Unix epoch seconds at row creation. `NOT NULL DEFAULT 0`; the insert trigger backfills `0`. |
+| `modified_ts` | INTEGER | Unix epoch seconds at last UPDATE. `NOT NULL DEFAULT 0` (schema 13.0); never persists as `0` -- the triggers always resolve it to a real timestamp. |
 
 `created_ts` and `modified_ts` are auto-populated by SQLite triggers
 (`<table>_insert_ts`, `<table>_update_ts`) installed by `_createTriggers` in
@@ -318,17 +324,21 @@ same three provenance columns, added in schema 11.3:
 re-installed on every `openDB`, so both fresh databases and migrated databases
 end up with the triggers active.
 
-Trigger semantics:
+Trigger semantics (schema 13.0 uses `0` -- not NULL -- as the "fill me in" sentinel,
+so every column can be `NOT NULL` and a naive raw / `insert_record` write still lands
+correct data):
 
-- **Insert trigger.** AFTER INSERT, `created_ts` and `modified_ts` are set
-  via COALESCE so explicit values provided by the caller win; otherwise both
-  default to `strftime('%s','now')`. `modified_ts` further falls back to
-  `NEW.created_ts` before defaulting to the current time, so an INSERT that
-  specifies `created_ts` but not `modified_ts` initializes both to the same value.
-- **Update trigger.** AFTER UPDATE, `modified_ts` is touched to
-  `strftime('%s','now')` ONLY when the UPDATE itself did not already change
-  `modified_ts` (guarded by `WHEN OLD.modified_ts IS NEW.modified_ts`). An
-  explicit SET on `modified_ts` therefore wins.
+- **Insert trigger.** AFTER INSERT, `created_ts` and `modified_ts` are resolved with
+  `CASE ... > 0`: an explicit positive value wins; a `0` (or omitted column, which
+  defaults to `0`) is replaced with `strftime('%s','now')`. `modified_ts` falls back
+  to `NEW.created_ts` before the current time, so an INSERT that sets `created_ts` but
+  not `modified_ts` initializes both to the same value. The `collections` insert
+  trigger additionally normalizes a `''` `node_type` to `'branch'`.
+- **Update trigger.** AFTER UPDATE, `modified_ts` is touched to `strftime('%s','now')`
+  when the UPDATE left it unchanged OR explicitly set it to `0`
+  (`WHEN OLD.modified_ts IS NEW.modified_ts OR NEW.modified_ts = 0`). So a normal edit
+  and a deliberate "pass 0 to refresh" both bump it, while an explicit positive
+  `modified_ts` wins.
 - **Recursion safety** relies on SQLite's default `PRAGMA recursive_triggers = OFF`
   so the trigger's own UPDATE does not re-fire the trigger.
 
@@ -344,6 +354,19 @@ This is a general-purpose backup utility, independent of any KML or E80 transpor
 ImportFromText calls `resetDB()` before importing to ensure a clean schema.
 
 ## Design Decisions
+
+**No NULLs in the database (schema 13.0).** Every column in every table is
+`NOT NULL DEFAULT ''` (text) or `NOT NULL DEFAULT 0` (numeric). navMate follows the
+"database-machinery" school: the engine owns the invariants via constraints,
+`DEFAULT`s, and triggers, so even a sparse raw / `insert_record` write lands correct,
+NULL-free data, and a stray NULL fails loud as a constraint violation rather than
+silently corrupting a read. `''` is the canonical empty/root text value
+(`parent_uuid=''` is a root-level collection); `0` is the canonical numeric "none"
+sentinel (`temp_k`, `depth_cm`, the version columns) and the triggers' "fill me in"
+signal for timestamps. Core inserts are deliberately raw SQL that *cooperates* with
+the triggers and defaults -- `insert_record` is **not** used on the WGRT tables,
+because its force-`0`/`''` on every column would bypass the `DEFAULT`s and defeat the
+timestamp triggers' sentinel logic. See [Schema 13 Migration](#schema-13-migration).
 
 **lat/lon as REAL degrees - no northing/easting in the schema.** The 1e7 integer
 scaling used in WPMGR wire packets, and the Mercator northing/easting values used
@@ -429,15 +452,17 @@ E80-sourced clipboard arrives in dependency-correct order by construction,
 but a DB-sourced clipboard may carry routes ahead of their referenced
 waypoints because the DB tree permits arbitrary interleave.
 
-**Version columns are transport-specific fields in core tables.** `db_version`,
+**Version columns are inert reserved fields (schema 13.0).** `db_version`,
 `e80_version`, and `kml_version` are present on `waypoints`, `routes`, and `tracks`
-(not on `collections` or `route_waypoints`). `db_version` starts at 1 on INSERT and
-increments on every UPDATE. `e80_version` and `kml_version` are NULL
-until the first sync; each is set to `db_version` at time of successful sync.
-Version numbers are not stored on the E80 itself - `e80_version` is initialized at
-connect time from a token in the E80 comment field (encoding TBD pending E80
-character-set and length-limit verification). The alternative junction-table design
-was rejected in favor of simplicity given the small, slow-moving transport list.
+(not on `collections` or `route_waypoints`), all `INTEGER NOT NULL DEFAULT 0`. The
+sync-versioning scheme they were intended for was **never built** -- nothing in the
+code reads or compares them. In schema 13.0 the `db_version` auto-increment machinery
+was removed (its only real side effect -- an mtime touch on route-membership edits --
+is now an explicit `modified_ts` UPDATE), and all three are left at `0` as reserved
+slots whose semantics can be defined, and prototyped against real columns, later
+without a further schema change. A future design would compare a bumped `db_version`
+against per-spoke `e80_version` / `kml_version` to detect what changed since the last
+push; that comparison is the part that does not yet exist.
 
 ## Timestamp Sources
 
@@ -499,6 +524,25 @@ SQLite cannot `ALTER COLUMN TYPE`, so the migration rebuilds the `waypoints`
 table (CREATE NEW + INSERT...SELECT + DROP OLD + RENAME) under one transaction.
 Triggers are recreated on the renamed table by `_createTriggers` at the end of
 `openDB`.
+
+## Schema 13 Migration
+
+`openDB` carries the 12.0 -> 13.0 migration (`_migrateTo13` in `navDB.pm`): the
+no-NULLs hardening. Every column becomes `NOT NULL DEFAULT ''`/`0`. SQLite cannot add
+a constraint to an existing column, so each of the five tables (`collections`,
+`waypoints`, `routes`, `tracks`, `track_points`) is rebuilt -- drop the timestamp
+triggers, rename the table aside, recreate it from `$db_def` via the **same**
+`createTable()` a fresh install uses, copy the data with `COALESCE` normalizing every
+prior NULL to its `''`/`0` canonical, drop the old table. Because both the
+fresh-create path and the migration build from the one `$db_def`, a migrated database
+and a freshly created one converge on byte-identical schemas. `_createTriggers` (with
+the 0-sentinel bodies) reinstalls the triggers at the end of `openDB`.
+
+Notable normalizations: `collections.parent_uuid` roots `NULL -> ''` (tree reads use
+`parent_uuid=''`); `color NULL -> ''`; `temp_k` / `depth_cm` / `ts` / `ts_end`
+`NULL -> 0`; the version columns `NULL -> 0`. 13.0 is a **major** schema bump, so the
+cross-major guard in `openDB` refuses to open a 13.0 database under code that expects
+an earlier major ("reimport required"), while a 12.x database migrates up in place.
 
 ## Data Migration
 

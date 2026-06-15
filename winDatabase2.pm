@@ -209,7 +209,7 @@ sub onLeafletTrackEdit
 		my @points = map { { lat => $_->[0], lon => $_->[1] } } @$coords;
 		insertTrackPoints($dbh, $uuid, \@points);
 		my $n = scalar @points;
-		$dbh->do("UPDATE tracks SET db_version=db_version+1, point_count=? WHERE uuid=?",
+		$dbh->do("UPDATE tracks SET point_count=? WHERE uuid=?",
 			[$n, $uuid]);
 		$this->_pullFromLeaflet($uuid);
 		_pushObjToLeaflet($dbh, $this, { uuid => $uuid, obj_type => 'track' }, undef);
@@ -230,7 +230,7 @@ sub onLeafletTrackEdit
 		my @pts_b = @{$pts}[$split_idx .. $#$pts];
 		$dbh->do("DELETE FROM track_points WHERE track_uuid=?", [$uuid]);
 		insertTrackPoints($dbh, $uuid, \@pts_a);
-		$dbh->do("UPDATE tracks SET db_version=db_version+1, point_count=? WHERE uuid=?",
+		$dbh->do("UPDATE tracks SET point_count=? WHERE uuid=?",
 			[scalar @pts_a, $uuid]);
 		my $orig_pos  = $track->{position} // 0;
 		my $next = $dbh->get_record(
@@ -272,7 +272,7 @@ sub onLeafletTrackEdit
 		my @merged = (@{$pts_a}[0 .. $idx_a], @{$pts_b}[$idx_b .. $#$pts_b]);
 		$dbh->do("DELETE FROM track_points WHERE track_uuid=?", [$uuid]);
 		insertTrackPoints($dbh, $uuid, \@merged);
-		$dbh->do("UPDATE tracks SET db_version=db_version+1, point_count=? WHERE uuid=?",
+		$dbh->do("UPDATE tracks SET point_count=? WHERE uuid=?",
 			[scalar @merged, $uuid]);
 		deleteTrack($dbh, $uuid_b);
 		$this->_pullFromLeaflet($uuid);
@@ -349,7 +349,7 @@ sub onLeafletRouteEdit
 			}
 			appendRouteWaypoint($dbh, $uuid, $wp_uuid, $i + 1);
 		}
-		$dbh->do("UPDATE routes SET db_version=db_version+1 WHERE uuid=?", [$uuid]);
+		$dbh->do("UPDATE routes SET modified_ts=strftime('%s','now') WHERE uuid=?", [$uuid]);
 		$this->_pullFromLeaflet($uuid);
 		_pushObjToLeaflet($dbh, $this, { uuid => $uuid, obj_type => 'route' }, undef);
 		$this->refresh();
@@ -376,7 +376,7 @@ sub onLeafletRouteEdit
 		{
 			appendRouteWaypoint($dbh, $uuid, $wps_a[$i]{uuid}, $i + 1);
 		}
-		$dbh->do("UPDATE routes SET db_version=db_version+1 WHERE uuid=?", [$uuid]);
+		$dbh->do("UPDATE routes SET modified_ts=strftime('%s','now') WHERE uuid=?", [$uuid]);
 		my $new_uuid = insertRoute($dbh, $new_name, $route->{color} // 0, $route->{comment} // '',
 			$route->{collection_uuid}, $new_pos);
 		setDbVisible($new_uuid, getDbVisible($uuid));
