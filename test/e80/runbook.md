@@ -568,13 +568,39 @@ if (-not $present)
 
 ### Test G1 -- Delete E80 Group+WPS blocked (member in route) [was e80.6b]
 
+This guard requires a group on E80 whose member is also in an E80 route. The positive
+sequence tears that down (e80.21a deletes all routes, e80.21b deletes all groups+WPs),
+so the precondition is **orphaned** and must be re-established as guard setup before firing
+(see master_plan "Guards assume positives passed" -- setup runs as curl-and-sleep with no
+assertion). The setup re-uploads Popa group + Popa route; teardown removes them afterward so
+e80.G5's precondition (Popa route members ABSENT from E80) stays intact.
+
 ```powershell
+# Setup: re-establish Popa group + Popa route on E80 (orphaned by e80.21a/21b)
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G1+setup" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=244e8e100800400a&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Agroups&right_click=header%3Agroups&cmd=10210" | Out-Null
+Start-Sleep 10
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=f34efdd6070022e8&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Aroutes&right_click=header%3Aroutes&cmd=10210" | Out-Null
+Start-Sleep 8
+
+# Fire guard
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G1" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=244e8e100800400a&right_click=244e8e100800400a&cmd=10222" | Out-Null
 Start-Sleep 3
+
+# Teardown: remove Popa route then group (restore pre-G1 state for downstream guards)
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G1+teardown" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Aroutes&right_click=header%3Aroutes&cmd=10223" | Out-Null
+Start-Sleep 8
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=244e8e100800400a&right_click=244e8e100800400a&cmd=10222" | Out-Null
+Start-Sleep 8
 ```
 
-**Pass:** `ERROR - Cannot delete group 'Popa' and its waypoints: one or more members are used in a route.`; no IMPL ERROR; no ProgressDialog STARTED; group + 11 members + route still in `/api/db`.
+**Pass:** the fired guard logs `ERROR - Cannot delete group 'Popa' and its waypoints: one or more members are used in a route.` (the full message continues "...Remove them from routes first, or use Delete Group..."); no IMPL ERROR; no ProgressDialog STARTED for the guard dispatch; at guard time group + 11 members + route all in `/api/db`. After teardown, Popa group + route are gone.
 
 ---
 
@@ -604,7 +630,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_
 Start-Sleep 3
 ```
 
-**Pass:** preflight aborts with collision sentinel; sentinel mentions `BajaCalifornia~` (the post-truncation form, not the original names) -- this is what proves the post-truncation comparison fired vs the pre-truncation form.  E80 unchanged.  NO ProgressDialog.
+**Pass:** preflight aborts with the sentinel `ERROR - E80 operation blocked: N name collision(s):` followed by an `intra-clipboard waypoint name '...': waypoint 'BajaCalifornia~1' vs waypoint 'BajaCalifornia~2'` line and `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`  The sentinel names the two distinct *source* WPs (their full names differ -- they can ONLY collide after truncation to `BajaCalifornia~`, so the block itself proves the post-truncation comparison fired; the message does not display the bare truncated key, and that is fine).  E80 unchanged.  NO ProgressDialog.
 
 ---
 
@@ -628,13 +654,18 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_
 Start-Sleep 3
 ```
 
-**Pass:** post-setup E80 has 1 WP named `BajaCalifornia~` (truncated form).  After probe: preflight rejects; sentinel mentions the post-truncation collision; E80 still has only the one WP from setup.  Cleanup: delete the setup WP after the test via DELETE_WAYPOINT to keep state tidy for later guards.
+**Pass:** post-setup E80 has 1 WP named `BajaCalifornia~` (truncated form, UUID `7b4e6d421403dc72`).  After probe: preflight rejects with `ERROR - E80 operation blocked: N name collision(s):` followed by `waypoint 'BajaCalifornia~2' (from waypoint 'BajaCalifornia~2') already on E80 at UUID 7b4e6d421403dc72` and the `Per policy, navMate does not auto-rename...` line.  The incoming `~2` truncates to `BajaCalifornia~` and matches the existing truncated WP -- that match is the proof the post-truncation comparison fired (the message reports the incoming full name + the existing UUID, not the bare truncated key, and that is fine).  E80 still has only the one WP from setup; no ProgressDialog; no IMPL ERROR.  Cleanup: delete the setup WP after the test via DELETE_WAYPOINT to keep state tidy for later guards.
 
 ---
 
 ### Test G5 -- Route-dependency pre-flight [was e80.21d]
 
-Prerequisite: E80 is empty (verify before firing).
+Prerequisite: the Popa route's member WPs (Popa0..Popa10) are NOT on E80 and no Popa route is
+present. The post-positive state satisfies this (the positives left only Timiteo + the two
+ungrouped IsolatedWP1/2 on E80) -- do NOT clear E80 here, which would orphan the preconditions
+of G6/G8/G9/G10/G12/G16 that need Timiteo and BOCAS1 present. "E80 empty" is sufficient but
+over-strong; the real requirement is just that Popa's members are absent so the preflight has
+something missing to reject on.
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G5" | Out-Null
@@ -747,11 +778,17 @@ Start-Sleep 3
 
 ### Test G12 -- DELETE_GROUP_WPS with mixed my_waypoints + named group blocked (predicate) [was e80.30]
 
-Multi-select includes the my_waypoints node and a named group (Popa group, `244e8e100800400a`, present on E80 since e80.22). The predicate's D5 guard rejects the mixed selection before any executor work.
+Multi-select includes the my_waypoints node and a named group. The predicate's D5 guard rejects
+the mixed selection before any executor work. The named group present at guard time is **Timiteo**
+(paste-new'd with a fresh UUID at e80.22; the old runbook said "Popa `244e8e...` present since
+e80.22", which is wrong -- e80.22 pastes Timiteo, and Popa was deleted at e80.21b). Query the
+present group dynamically so the test does not depend on a specific UUID.
 
 ```powershell
+$db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
+$grpUuid = @($db.groups.PSObject.Properties)[0].Name   # the present named group (Timiteo, fresh UUID)
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G12" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints,244e8e100800400a&right_click=my_waypoints&cmd=10222" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints,$grpUuid&right_click=my_waypoints&cmd=10222" | Out-Null
 Start-Sleep 3
 ```
 
@@ -811,13 +848,18 @@ Start-Sleep 3
 
 D6 rejects group clipboard items at a named-group destination -- only waypoint items are accepted at a group node. Spokes do not support nested groups.
 
-Uses [TestGroup] (`1a4eaf5a8c00e922`, Timiteo) as the clipboard group and Popa group (`244e8e100800400a`, present on E80 since e80.9a / e80.11a) as the destination node.
+Uses [TestGroup] (`1a4eaf5a8c00e922`, Timiteo DB group) as the clipboard group and the named group
+actually present on E80 as the destination node. At guard time that is the **Timiteo** group
+paste-new'd at e80.22 (fresh UUID); the old runbook named Popa `244e8e...` "present since
+e80.9a/e80.11a", which is wrong -- Popa was deleted at e80.21b. Query the present group dynamically.
 
 ```powershell
+$db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
+$destGrp = @($db.groups.PSObject.Properties)[0].Name   # present named group on E80 (Timiteo, fresh UUID)
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G16" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=database&select=1a4eaf5a8c00e922&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=244e8e100800400a&right_click=244e8e100800400a&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$destGrp&right_click=$destGrp&cmd=10210" | Out-Null
 Start-Sleep 3
 ```
 

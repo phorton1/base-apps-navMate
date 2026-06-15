@@ -276,7 +276,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=header%3Agroups&rig
 Start-Sleep 4
 ```
 
-**Pass:** `/api/fsh` groups is empty `{}`; all 5 groups (4 fixture + Popa from test 2) and their embedded members gone; top-level isolated WPs preserved; tracks unchanged.
+**Pass:** `/api/fsh` groups is empty `{}`; all groups gone with their embedded members (4 at this point: the 3 fixture groups still present after fsh.11b dissolved Michel_Agua -- Michel_Sumwood, test, Timiteo -- plus Popa from test 2; the old "5 groups" count predates the fsh.11b dissolve); top-level isolated WPs preserved; tracks unchanged.
 
 ---
 
@@ -597,15 +597,23 @@ if (-not ($f.waypoints.PSObject.Properties.Name -contains "CE4E-4318-1F01-B3AE")
 
 ### Test G1 -- Delete FSH Group+WPS blocked (members in route) [was fsh.12]
 
-Uses [FSH_GroupInRoute] = Timiteo `C482-CBA0-D14E-67B2` (6 members, all in Timiteo route).
+The old runbook used the fixture Timiteo group `C482-CBA0-D14E-67B2`, but fsh.14 (Delete via
+FSH Groups header) deletes ALL groups including that fixture Timiteo, and fsh.13 deletes all
+routes -- so by guard time the fixture Timiteo group + its route no longer exist and the
+precondition is **orphaned** (the guard dispatched against a missing node, selecting 0 nodes).
+
+Use instead the group-with-members-in-route that the positives leave standing: the Popa group
+`244E-8E10-0800-400A` (re-uploaded at fsh.17a) whose 11 members are all referenced by the fresh
+Popa route created at fsh.20 (fsh.20 reused the Popa group member UUIDs). Deleting that group +
+WPs is blocked because its members are in a route.
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G1" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=C482-CBA0-D14E-67B2&right_click=C482-CBA0-D14E-67B2&cmd=10222" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=244E-8E10-0800-400A&right_click=244E-8E10-0800-400A&cmd=10222" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** `ERROR - Cannot delete FSH group 'Timiteo' and its waypoints: one or more members are referenced by routes. Use Delete Group to dissolve without deleting members, or remove from routes first.`; no IMPL ERROR; Timiteo group + 6 members + Timiteo route still in `/api/fsh`.
+**Pass:** `ERROR - Cannot delete FSH group 'Popa' and its waypoints: one or more members are referenced by routes. Use Delete Group to dissolve without deleting members, or remove from routes first.`; no IMPL ERROR; Popa group + 11 members + the fresh Popa route still in `/api/fsh`.
 
 ---
 
@@ -755,13 +763,18 @@ Start-Sleep 2
 
 D6 rejects group clipboard items at a named-group destination -- only waypoint items are accepted at a group node. Spokes do not support nested groups.
 
-Uses DB Popa group (`244e8e100800400a`) as the clipboard group and [FSH_GroupInRoute] = `C482-CBA0-D14E-67B2` (Timiteo group, fixture-present) as the destination node.
+Uses DB Popa group (`244e8e100800400a`) as the clipboard group and a named group **present on FSH**
+as the destination node. The old runbook used the fixture Timiteo `C482-CBA0-D14E-67B2`, but fsh.14
+deletes all groups -- that node is orphaned by guard time (same gap as fsh.G1). Query a present
+group dynamically (the fresh Timiteo from fsh.19 or the Popa group from fsh.17a).
 
 ```powershell
+$f = curl.exe -s "http://localhost:9883/api/fsh" | ConvertFrom-Json
+$destGrp = @($f.groups.PSObject.Properties)[0].Name   # any present named group on FSH
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G10" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=database&select=244e8e100800400a&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=C482-CBA0-D14E-67B2&right_click=C482-CBA0-D14E-67B2&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=$destGrp&right_click=$destGrp&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
@@ -781,7 +794,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_
 Start-Sleep 3
 ```
 
-**Pass:** preflight aborts with collision sentinel mentioning the post-truncation form `BajaCalifornia~`; FSH waypoints count unchanged; NO write to in-memory `$navFSH::fsh_db`.
+**Pass:** preflight aborts with the sentinel `ERROR - FSH operation blocked: N name collision(s):` followed by an `intra-clipboard waypoint name '...': waypoint 'BajaCalifornia~1' vs waypoint 'BajaCalifornia~2'` line and `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`  The sentinel names the two distinct *source* WPs (their full names differ -- they can ONLY collide after truncation to `BajaCalifornia~`, so the block itself proves the post-truncation comparison fired; the message does not display the bare truncated key, and that is fine).  FSH waypoints count unchanged; NO write to in-memory `$navFSH::fsh_db`.
 
 ---
 

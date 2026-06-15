@@ -187,7 +187,7 @@ $tk = (curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json).tracks
 $tk."8a4e3c4a2201fac2".name
 ```
 
-**Pass:** `/api/db` tracks count = 1; the new E80 track's mta_uuid = `8a4e3c4a2201fac2`; name = "BOCAS1-001".  Log shows `SUCCESS: track written and SAVED ack received` from `d_TRACK_writer`, then `TRACK_CHANGED` event and `got track(8a4e3c4a2201fac2) = 'BOCAS1-001'`.  PASTE STARTED/FINISHED.
+**Pass:** the pasted BOCAS1-001 lands on E80 as a new track at mta_uuid `8a4e3c4a2201fac2`, name = "BOCAS1-001".  (E80 total tracks = 2 here: BOCAS1-001 plus the E80Track1 still on E80 from tracks.1 -- tracks.4 only CUT E80Track2, so E80Track1 lingers; the old "count = 1" assertion predates that lingering track and is wrong.)  Log shows `d_TRACK_writer SAVED ok` (the SAVED ack), a `TRACK_CHANGED` event, and `got track(8a4e3c4a2201fac2) = 'BOCAS1-001'`.  PASTE (e80) STARTED/FINISHED + ProgressDialog 'Paste Tracks' STARTED/FINISHED.
 
 ---
 
@@ -284,13 +284,13 @@ Write-Host "DB color: before=$color_before after=$($row_after.color)"
 Source uuids: any three E80 uuids that are NOT yet in DB.  The uuid-collision preflight added 2026-05-29 rejects record-creating spoke->DB paste at an already-existing uuid (use PUSH for that), so this positive test must pick uncontaminated source uuids.  The fresh-navMate-uuid tracks from tracks.7/.8 fit (byte 1 = `4e` and DB has no row at those uuids).
 
 ```powershell
-$nmdb_uuids = @{}
 $nmdb = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
-$nmdb_uuids[$_] = 1 foreach (@($nmdb.tracks | ForEach-Object { $_.uuid }))
+$nmdb_uuids = @{}
+foreach ($u in @($nmdb.tracks | ForEach-Object { $_.uuid })) { $nmdb_uuids[$u] = 1 }
 $db    = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
 $fresh = @($db.tracks.PSObject.Properties | Where-Object { -not $nmdb_uuids[$_.Name] } | ForEach-Object { $_.Name })
 "E80 uuids NOT in DB: $($fresh -join ', ')"
-$picked = $fresh | Select-Object -First 3
+$picked = @($fresh | Select-Object -First 3)
 "Picked: $($picked -join ', ')"
 
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.11" | Out-Null
@@ -309,13 +309,13 @@ Start-Sleep 15
 Same uuid-collision constraint as tracks.11 -- pick E80 uuids that are NOT yet in DB.  After tracks.11 those fresh uuids ARE now in DB (tracks.11 pasted them), so this test re-derives the set fresh.
 
 ```powershell
-$nmdb_uuids = @{}
 $nmdb = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
-$nmdb_uuids[$_] = 1 foreach (@($nmdb.tracks | ForEach-Object { $_.uuid }))
+$nmdb_uuids = @{}
+foreach ($u in @($nmdb.tracks | ForEach-Object { $_.uuid })) { $nmdb_uuids[$u] = 1 }
 $db    = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
 $fresh = @($db.tracks.PSObject.Properties | Where-Object { -not $nmdb_uuids[$_.Name] } | ForEach-Object { $_.Name })
 "E80 uuids NOT in DB: $($fresh -join ', ')"
-$picked = $fresh | Select-Object -First 2
+$picked = @($fresh | Select-Object -First 2)
 "Picked: $($picked -join ', ')"
 
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.12" | Out-Null

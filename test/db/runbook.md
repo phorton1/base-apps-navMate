@@ -576,7 +576,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=database&select=rp:f34efdd6070
 Start-Sleep 4
 ```
 
-**Pass:** log shows `_doCopy: database 3 item(s)`; PASTE BEFORE STARTED/FINISHED; no IMPL ERROR; route_waypoints count increased by exactly the clipboard item count (12 -> 15).
+**Pass:** log shows `_doCopy: database 3 item(s)`; PASTE BEFORE STARTED/FINISHED; no IMPL ERROR; route_waypoints count increased by exactly the clipboard item count. The absolute count is dynamic -- db.35 and db.37 each append a route_waypoint to [TestRoute] earlier in the cycle, so the pre-state is higher than the route's 11-point baseline (cycle 28: 14 -> 17). Assert `delta == COPY item count`, not absolute numbers.
 
 ---
 

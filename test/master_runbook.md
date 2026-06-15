@@ -317,6 +317,7 @@ Random unfamiliar WARNINGs are noted in observations and the cycle continues.
 | `WARNING: navDB::moveWaypoint: position not specified for '<uuid>'...` | navDB.pm | Reparent works; warning flags caller-side TODO. Common in group-dissolve tests. |
 | `WARNING: deleting waypoints(<uuid>) <Name>` | d_WPMGR.pm | Normal protocol chatter during `clear_e80` / E80 delete. |
 | `WARNING: enquing mod(...)` | d_WPMGR.pm (~line 625) | Pre-existing E80/NET warning. Expected during E80 ops. Not expected during DB-only tests -- if it appears in db module, that IS a regression. |
+| `WARNING: not enquiing duplicate api_command(2)` | d_WPMGR.pm[141] | Per-member GET_ITEM de-duplication during E80 route operations (Paste Route, Delete-via-Routes-header, re-upload, Paste New Route). ~10 lines per route op. No data effect -- route lands/deletes with correct `num_wpts`, UUIDs preserved, ProgressDialog FINISHED, no IMPL ERROR. Confirmed recurring cycle 27 + 28. |
 | Track-record warnings: `TRACK EVENT(N)`, `enquing GET_CUR2`, `handleEvent() returning undef`, `bad points(0) != expected(N)`, `TRACK OUT OF BAND` | d_TRACK.pm, e_TRACK.pm, b_sock.pm | Normal protocol noise during teensyBoat-driven track creation. Save succeeds when `got track(uuid) = '<name>'` appears. |
 
 ---
