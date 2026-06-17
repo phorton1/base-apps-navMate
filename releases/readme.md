@@ -21,10 +21,28 @@ history is authoritative: `git log navMate<older>..navMate<newer>`.
 
 | date | version | notes |
 | ---- | ------- | ----- |
+| 2026-06-17 | 0.9.6 | e80Mod -- the E-Series Firmware Builder: build a custom v5.72 plotter firmware from your own stock v5.69, offline |
 | 2026-06-15 | 0.9.5 | first public pre-release -- Leaflet map waypoint editor, seeded example database, E-Series network wizard |
 
 Each release is the same tag `navMate<version>` stamped across the five repos it was built
 from, so it is fully reproducible. Provenance per release is recorded here at release time:
+
+### navMate0.9.6 -- 2026-06-17 (pre-release)
+
+Adds **e80Mod**, the E-Series Firmware Builder: turn your own stock Raymarine **v5.69**
+firmware into a modified **v5.72** image on your own machine, entirely offline, then flash it
+from the plotter's own CF-card menu. Reached from **Utils -> E-Series Firmware** or its
+Start-menu / desktop shortcut.
+
+Built from (the `navMate0.9.6` tag in each repo):
+
+```
+navMate            1d0429b
+Pub                0c26037
+Pub::Ray           a2012aa
+base_dist/navMate  582d040   (private)
+Perl               a3c6c457  (private)
+```
 
 ### navMate0.9.5 -- 2026-06-15 (pre-release)
 
