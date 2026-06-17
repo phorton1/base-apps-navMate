@@ -387,8 +387,8 @@ sub _isPointer
 
 #---------------------------------------------------------
 # $progress shared-hash contract (mutate-only)
-# See memory reference-progress-shared-object: workers write fields, the wx
-# ProgressDialog::_onIdle reads them. We never call methods on $progress.
+# The workers write fields; the wx ProgressDialog::_onIdle reads them.
+# We never call methods on $progress.
 #---------------------------------------------------------
 
 sub _progressInit

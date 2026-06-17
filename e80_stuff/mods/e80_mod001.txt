@@ -1,0 +1,144 @@
+# =====================================================================
+# mod001 -- diagnostics debug primitive (peek / poke / call) over UDP 6667
+# =====================================================================
+# Add a remote read-memory / write-memory / call-function primitive to the running
+# E80, so runtime unknowns can be settled empirically against real bytes on the
+# device. This is a debug primitive, not a feature. Length-preserving: the bytes
+# overwritten are positively-known dead code, given up on purpose.
+#
+#   design / wire format / why-safe / reused offsets : deployment/mod001.md
+#   live-device instrument view                      : tools/diagnostics.md
+#   catalog / versions                               : deployment/mods.md
+#   record + annotation syntax, apply, build         : deployment/modification.md
+#   ghidra annotation directives (full grammar)      : tools/ghidra.md
+#
+# Supersedes the reverted first mod001 (the TFTP gate flip; see history.md).
+# file_offset == ghidra_addr for this image (identity mapping).
+# =====================================================================
+
+
+# [A] -- the peek/poke/call handler, overwriting the dead checksum helpers
+#        (verifyChecksumCmd + computeXorChecksum, 260 B, only callers each other).
+func  0x0053a808 0x0053a90b  mod001_diag_handler
+sig   0x0053a808  void mod001_diag_handler(uint *packet)  cc=__stdcall
+pre   0x0053a808 << peek/poke/call/call5 handler, reached from the UDP 6667 listener via
+                    the [splice] below.  in: r0 = &packet (the request/reply buffer).
+                    subop at packet[8]: 0=peek 1=poke 2=call.  Fills the reply IN PLACE and
+                    returns; the listener's echo path sends it.  peek/call output is
+                    hex-encoded; call pushes packet[0x20] as the AAPCS 5th/stack arg. >>
+edit 0053a808 0x0053a808 260 2cfd5b1d34531781b914fb50c6a60fc122a17286aa83dad11e99549987e39afb
+    overwrite dead checksum helpers with the peek/poke/call/call5 handler
+new
+    # registers: r4=&packet  r5=addr/funcptr (packet[0xc])  r6=count  r3=dst/src/out cursor
+    70402de9   # push {r4,r5,r6,lr}
+    0040a0e1   # mov  r4, r0                ; r4 = &packet
+    0c5094e5   # ldr  r5, [r4, #0xc]        ; r5 = address / function pointer
+    0800d4e5   # ldrb r0, [r4, #8]          ; r0 = subop
+    010050e3   # cmp  r0, #1
+    0f00000a   # beq  poke                  ; subop 1 -> poke
+    020050e3   # cmp  r0, #2
+    1b00000a   # beq  call                  ; subop 2 -> call
+    # peek:  hex-encode r6 bytes read from [r5] into packet+8
+    106094e5   # ldr  r6, [r4, #0x10]       ; r6 = count
+    fa1fa0e3   # mov  r1, #0x3e8            ; clamp = 1000
+    010056e1   # cmp  r6, r1
+    0160a081   # movhi r6, r1               ; r6 = min(count, 1000)
+    # hexcopy:  shared encode entry -- r5 = src, r6 = byte count, output to packet+8
+    083084e2   # add  r3, r4, #8            ; r3 = &packet[8]  (hex output cursor)
+    0020a0e3   # mov  r2, #0                ; i = 0
+    # enc_loop:
+    060052e1   # cmp  r2, r6
+    0300002a   # bcs  enc_done
+    0210d5e7   # ldrb r1, [r5, r2]          ; source byte
+    1e0000eb   # bl   hexbyte               ; write 2 hex chars at [r3]++
+    012082e2   # add  r2, r2, #1
+    f9ffffea   # b    enc_loop
+    # enc_done:
+    8600a0e1   # mov  r0, r6, lsl #1        ; reply length = 2 * count (hex chars)
+    260000ea   # b    set_len
+    # poke:  copy r6 bytes from packet+0x14 to [r5]
+    106094e5   # ldr  r6, [r4, #0x10]       ; r6 = count
+    071ca0e3   # mov  r1, #0x700            ; clamp = 0x700
+    010056e1   # cmp  r6, r1
+    0160a081   # movhi r6, r1
+    143084e2   # add  r3, r4, #0x14         ; r3 = &packet[0x14]  (bytes to write)
+    0020a0e3   # mov  r2, #0
+    # poke_loop:
+    060052e1   # cmp  r2, r6
+    0300002a   # bcs  poke_done
+    0210d3e7   # ldrb r1, [r3, r2]
+    0210c5e7   # strb r1, [r5, r2]          ; write to destination address
+    012082e2   # add  r2, r2, #1
+    f9ffffea   # b    poke_loop
+    # poke_done:
+    0000a0e3   # mov  r0, #0                ; reply length = 0
+    180000ea   # b    set_len
+    # call:  r5(arg0..arg3, [arg4 on stack]); hex-encode the 4-byte result
+    20c094e5   # ldr  ip, [r4, #0x20]       ; arg4 (AAPCS 5th -> stack)
+    08c02de5   # str  ip, [sp, #-8]!        ; push the stack arg
+    100094e5   # ldr  r0, [r4, #0x10]       ; arg0
+    141094e5   # ldr  r1, [r4, #0x14]       ; arg1
+    182094e5   # ldr  r2, [r4, #0x18]       ; arg2
+    1c3094e5   # ldr  r3, [r4, #0x1c]       ; arg3
+    0fe0a0e1   # mov  lr, pc
+    15ff2fe1   # bx   r5                    ; call the function pointer
+    08d08de2   # add  sp, sp, #8            ; pop the stack arg
+    100084e5   # str  r0, [r4, #0x10]       ; stash the 4-byte return
+    105084e2   # add  r5, r4, #0x10         ; r5 = &result
+    0460a0e3   # mov  r6, #4                ; count = 4 bytes
+    daffffea   # b    hexcopy              ; reuse peek's hex-encode (r5=&result, r6=4)
+    # hexbyte:  write r1's two hex chars at [r3]++   (called from enc_loop)
+    21c2a0e1   # mov  ip, r1, lsr #4        ; high nibble
+    0fc00ce2   # and  ip, ip, #0xf
+    09005ce3   # cmp  ip, #9
+    30c08c92   # addls ip, ip, #0x30        ; '0'-'9'
+    57c08c82   # addhi ip, ip, #0x57        ; 'a'-'f'
+    01c0c3e4   # strb ip, [r3], #1
+    0fc001e2   # and  ip, r1, #0xf          ; low nibble
+    09005ce3   # cmp  ip, #9
+    30c08c92   # addls ip, ip, #0x30
+    57c08c82   # addhi ip, ip, #0x57
+    01c0c3e4   # strb ip, [r3], #1
+    1eff2fe1   # bx   lr
+    # set_len:  store the 16-bit reply length at packet[6..7], then return
+    0600c4e5   # strb r0, [r4, #6]          ; reply length, low byte
+    2014a0e1   # mov  r1, r0, lsr #8
+    0710c4e5   # strb r1, [r4, #7]          ; reply length, high byte
+    7080bde8   # pop  {r4,r5,r6,pc}
+end
+
+
+# [splice] -- route the dead 0xdddd0005 (checksum) command into the handler, then into
+#             the echo reply path. The enclosing listener's entry is off-patch:
+plate 0x0053acc8 << CLNetDiagnosticsServer_listenerThread -- the UDP 6667 diagnostics
+                    listener. Dispatches on the command word at recvbuf[0]:
+                      0xdddd0006 -> N2K insertion   (kept)
+                      0xdddd0005 -> *** MODIFIED BY mod001 *** the dead checksum-verify
+                                    branch now routes to mod001_diag_handler (peek/poke/call)
+                      0xdddd0000 -> echo            (kept; builds + sends the reply we reuse) >>
+edit 0053af78 0x0053af78 32 2b442c74c9517b8932a9559c775b3985dc1e7dbec0a621c288d01cae1fcb92b6
+    route 0xdddd0005 to the handler, then into the echo reply path
+new
+    58008de2   # add r0, sp, #0x58          ; r0 = &recvbuf (the listener's request buffer)
+    21feffeb   # bl  mod001_diag_handler    ; -> 0x0053a808  (fills the reply in place)
+    7cffffea   # b   0x0053ad78             ; into the echo build+send path
+    0000a0e1   # nop  (mov r0, r0)
+    0000a0e1   # nop
+    0000a0e1   # nop
+    0000a0e1   # nop
+    0000a0e1   # nop
+end
+
+
+# [D] -- bump the SysInfo build-stamp self-check + fallback 569 -> 571 so the standalone
+#        v5.71 mod001 package displays its own version (display-only, not a schema version).
+edit 0017a924 0x0017a924 4 b8f2cb910d15a915286da27e2eeaa0b37015f15dd8a4fc0c727f8377d4a841c8
+    version self-check 569 -> 571 (match the v5.71 DOB)
+new
+    3b1081e2   # add r1, r1, #0x3b   ; r1 = 0x23b (571), now matches the v5.71 DOB
+end
+edit 0017a93c 0x0017a93c 4 085f86ee9be79c0f608012cc2bebede3523d9cf9cc0520285a0421e8eefdccee
+    fallback version 569 -> 571
+new
+    3b0080e2   # add r0, r0, #0x3b   ; r0 = 0x23b (571)
+end
