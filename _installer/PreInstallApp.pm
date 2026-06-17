@@ -72,6 +72,143 @@ sub firewallUninstallSection
 }
 
 
+sub agreementsCodeSection
+	# A [Code] section (Cava emits none) that replaces Inno's native license page with
+	# two consistent custom pages, inserted after the Welcome page in order:
+	#   1. Notice to Mariners      2. License Agreement (GPL3)
+	# Each is a read-only memo of its document -- extracted at install time from the
+	# dontcopy [Files] payload, so the source files stay the single source of truth --
+	# plus an "I agree" checkbox.  The checkbox is SCROLL-GATED: the instant it is
+	# ticked we sample the memo's vertical scrollbar via GetScrollInfo, and if the user
+	# has not reached the bottom we un-tick it and prompt.  Sampling at click time
+	# catches every scroll method (wheel, scrollbar, keyboard) -- the only reliable way
+	# under Inno 5.x, which lacks the CreateCallback timers Inno 6 would use to watch
+	# scrolling live.  A document short enough to need no scrollbar counts as read, so
+	# Next enables immediately.  CreateCustomPage anchors on wpWelcome regardless of
+	# whether the Welcome page is itself displayed, so the ordering holds either way.
+{
+	return <<"EOC";
+
+; added by PreInstallApp.pm -- Notice to Mariners + License agreement (scroll-gated checkbox pages)
+[Code]
+type
+  TScrollInfo = record
+    cbSize: Cardinal;
+    fMask: Cardinal;
+    nMin: Integer;
+    nMax: Integer;
+    nPage: Cardinal;
+    nPos: Integer;
+    nTrackPos: Integer;
+  end;
+
+function GetScrollInfo(hWnd: HWND; BarFlag: Integer; var ScrollInfo: TScrollInfo): BOOL;
+  external 'GetScrollInfo\@user32.dll stdcall';
+
+const
+  SB_VERT = 1;
+  SIF_RANGE = 1;
+  SIF_PAGE = 2;
+  SIF_POS = 4;
+
+var
+  NoticePageID, LicensePageID: Integer;
+  NoticeMemo, LicenseMemo: TNewMemo;
+  NoticeCheck, LicenseCheck: TNewCheckBox;
+
+function ScrolledToBottom(Memo: TNewMemo): Boolean;
+var
+  SI: TScrollInfo;
+begin
+  SI.cbSize := SizeOf(SI);
+  SI.fMask := SIF_RANGE or SIF_PAGE or SIF_POS;
+  if GetScrollInfo(Memo.Handle, SB_VERT, SI) then
+    Result := (SI.nMax <= 0) or (SI.nPos >= SI.nMax - Integer(SI.nPage))
+  else
+    Result := True;
+end;
+
+procedure GateCheck(Memo: TNewMemo; Check: TNewCheckBox);
+begin
+  if Check.Checked and not ScrolledToBottom(Memo) then
+  begin
+    Check.Checked := False;
+    MsgBox('Please scroll to the bottom of the document before accepting.', mbInformation, MB_OK);
+  end;
+  WizardForm.NextButton.Enabled := Check.Checked;
+end;
+
+procedure NoticeCheckClick(Sender: TObject);
+begin
+  GateCheck(NoticeMemo, NoticeCheck);
+end;
+
+procedure LicenseCheckClick(Sender: TObject);
+begin
+  GateCheck(LicenseMemo, LicenseCheck);
+end;
+
+function MakeAgreementPage(AfterID: Integer; ACaption, ADescription, ADocFile, ACheckCaption: String; var Memo: TNewMemo; var Check: TNewCheckBox): Integer;
+var
+  Page: TWizardPage;
+  A: AnsiString;
+  S: String;
+begin
+  Page := CreateCustomPage(AfterID, ACaption, ADescription);
+
+  Memo := TNewMemo.Create(WizardForm);
+  Memo.Parent := Page.Surface;
+  Memo.Left := 0;
+  Memo.Top := 0;
+  Memo.Width := Page.SurfaceWidth;
+  Memo.Height := Page.SurfaceHeight - ScaleY(28);
+  Memo.ReadOnly := True;
+  Memo.WordWrap := True;
+  Memo.ScrollBars := ssVertical;
+  ExtractTemporaryFile(ADocFile);
+  if LoadStringFromFile(ExpandConstant('{tmp}\\' + ADocFile), A) then
+  begin
+    // A Windows edit control breaks lines only on CRLF; normalize so the memo
+    // wraps correctly whether the source file is LF or CRLF.
+    S := A;
+    StringChangeEx(S, #13#10, #10, True);
+    StringChange(S, #10, #13#10);
+    Memo.Text := S;
+  end
+  else
+    Memo.Text := '(' + ADocFile + ' could not be loaded)';
+
+  Check := TNewCheckBox.Create(WizardForm);
+  Check.Parent := Page.Surface;
+  Check.Left := 0;
+  Check.Top := Page.SurfaceHeight - ScaleY(22);
+  Check.Width := Page.SurfaceWidth;
+  Check.Height := ScaleY(20);
+  Check.Caption := ACheckCaption;
+
+  Result := Page.ID;
+end;
+
+procedure InitializeWizard();
+begin
+  NoticePageID := MakeAgreementPage(wpWelcome, 'Notice to Mariners', 'Please read this notice carefully before continuing.', 'NOTICE_TO_MARINERS.txt', 'I have read and agree to this Notice to Mariners.', NoticeMemo, NoticeCheck);
+  NoticeCheck.OnClick := \@NoticeCheckClick;
+
+  LicensePageID := MakeAgreementPage(NoticePageID, 'License Agreement', 'Please read the following license agreement.', 'LICENSE.TXT', 'I have read and agree to the terms and conditions.', LicenseMemo, LicenseCheck);
+  LicenseCheck.OnClick := \@LicenseCheckClick;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = NoticePageID then
+    WizardForm.NextButton.Enabled := NoticeCheck.Checked
+  else if CurPageID = LicensePageID then
+    WizardForm.NextButton.Enabled := LicenseCheck.Checked;
+end;
+EOC
+}
+
+
 sub processLine
 {
 	my ($line) = @_;
@@ -97,6 +234,12 @@ sub processLine
 			"OutputManifestFile=innosetup.manifest";
 	}
 
+	# NOTE: the GPL3 license is NOT wired to Inno's native LicenseFile= page (which
+	# carries the "I do not accept" radio Patrick dislikes and can't scroll-gate).
+	# Both the Notice to Mariners and the license are custom scroll-gated checkbox
+	# pages built in the [Code] section (see agreementsCodeSection); the documents are
+	# carried as dontcopy [Files] payload and extracted at run time.
+
 	# First-time install: seed the user's data dir.  onlyifdoesntexist => fresh
 	# machines only, never clobber an existing hub; uninsneveruninstall => never
 	# removed on uninstall.  Target is the user's OWN Documents (user-writable, no
@@ -108,7 +251,10 @@ sub processLine
 		return $line."\n".
 			"; added by PreInstallApp.pm -- seed user data on a fresh install\n".
 			qq(Source: "$ex\\example.db"; DestDir: "{userdocs}\\phorton1\\navMate"; DestName: "navMate.db"; Flags: onlyifdoesntexist uninsneveruninstall\n).
-			qq(Source: "$ex\\*"; DestDir: "{userdocs}\\phorton1\\navMate\\examples"; Flags: ignoreversion uninsneveruninstall);
+			qq(Source: "$ex\\*"; DestDir: "{userdocs}\\phorton1\\navMate\\examples"; Flags: ignoreversion uninsneveruninstall\n).
+			"; added by PreInstallApp.pm -- agreement docs, extracted at run time by the Notice/License [Code] pages (dontcopy = not installed)\n".
+			qq(Source: "C:\\base\\apps\\navMate\\NOTICE_TO_MARINERS.txt"; Flags: dontcopy\n).
+			qq(Source: "C:\\base\\apps\\navMate\\LICENSE.TXT"; Flags: dontcopy);
 	}
 
 	# Append the optional post-install "run the network wizard" checkbox.
@@ -154,6 +300,9 @@ if (open($in, '<', $iss_file))
 		chomp $line;
 		$text .= processLine($line)."\n";
 	}
+
+	# Append the Notice + License [Code] pages (Cava emits no [Code] section).
+	$text .= agreementsCodeSection();
 
 	my $out;
 	if (open($out, '>', $iss_file))

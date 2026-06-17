@@ -1,0 +1,15 @@
+NOTICE TO MARINERS
+
+navMate is provided as an aid to navigation only -- not a substitute for
+official charts, published Notices to Mariners, a proper lookout, or sound
+seamanship and judgment. Never rely on it as your sole means of navigation.
+
+The sea is inherently hazardous. You alone are responsible for the safe
+operation of your vessel and every decision made aboard it. Use of this
+software is entirely at your own risk.
+
+navMate is provided "as is", without warranty of any kind. To the extent
+permitted by law, the author accepts no liability for any loss, property
+damage, personal injury, or loss of life arising from its use or misuse.
+
+By continuing, you acknowledge that you have read and accept this notice.
