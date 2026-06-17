@@ -11,6 +11,15 @@
 **[Connecting an E-Series](connecting_e80.md)** --
 **Using Your E-Series**
 
+
+**Important Note:** *navMate has been tested with **v5.52** of the Raymarine firmware, and
+exhaustivly tested with the only still available Raymarine
+[**v5.69 firmware**](https://www.raymarine.com/en-us/download/e-series-classic-software) and the
+[**custom v5.72 firmware**](custom_firmware.md) you can produce from navMate.
+**navMate may not work with earlier versions of Raymaine firmware**, and
+so, if you're on firmware older than 5.52, we recommend upgrading your plotter to 5.69 or 5.72 if you wish to use it with navMate.*
+
+
 Once your computer and plotter are connected ([previous chapter](connecting_e80.md)), the **E80
 window** -- open it with **View -> E80** -- shows a live view of what is on the plotter: its
 waypoints, groups, routes, and tracks, right next to your database window.
@@ -52,7 +61,20 @@ Two more E80 menu commands worth knowing:
 - **E80 -> Clear** wipes all routes, groups, waypoints, and tracks off the plotter, after a
   confirmation that shows you the counts first -- the quick way to start a trip with a clean unit.
 
-## Managing the plotter's screens
+## Advanced Features -- Custom Firmware
+
+The two features below -- saving the plotter's display configuration, and capturing its screen --
+are **not part of the stock E-Series software**. They work only on a plotter running
+optional **custom firmware** that you can build and install yourself, for free, using navMate's own
+tool. Nothing of Raymarine's is bundled: you supply your own firmware, navMate modifies a copy of
+it, and you flash the result onto your unit at your own risk.
+
+If your plotter is running the stock firmware, the two menu commands below will simply have no
+effect. Once it is running the custom firmware, they work exactly as described.
+
+**Click [here](custom_firmware.md) to learn how to build the [Custom Firmware](custom_firmware.md)**
+
+### Managing the plotter's screens
 
 navMate can also look after the plotter's **display configuration** -- the page layouts and
 instrument panels you have set up on the unit. From the **E80** menu:
@@ -62,7 +84,7 @@ instrument panels you have set up on the unit. From the **E80** menu:
   or borrowed unit just the way you like it.
 - **Clear Configuration** resets the unit to its defaults.
 
-## Capturing the screen
+### Capturing the screen
 
 **Grab Screen** takes a picture of whatever the plotter is showing right now and saves it as an
 image file -- useful for notes, sharing, or documentation.

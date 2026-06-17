@@ -99,12 +99,26 @@ sub _run
 		warning(0, 0, "e80Mod build failed: " . ($progress->{error} || 'unknown'));
 		# ... and a plain-language reason to the user (dialog + on-panel note)
 		(my $file = $model->{pkg_path} || '') =~ s{^.*[/\\]}{};
-		my $why = ($progress->{error} && $progress->{error} =~ /cannot write/i)
-			? "The modified package could not be written to the output folder you chose. ".
-			  "Please pick a folder you can write to, then try again."
-			: "\"$file\" does not appear to be valid v5.69 E-Series firmware. ".
-			  "This modification requires the v5.69 firmware downloaded directly from ".
-			  "Raymarine. Please check the input file and try again.";
+		my $err = $progress->{error} || '';
+		my $why;
+		if ($err =~ /cannot write/i)
+		{
+			$why = "The modified package could not be written to the output folder you ".
+			       "chose. Please pick a folder you can write to, then try again.";
+		}
+		elsif ($err =~ /missing modification data|no record file/i)
+		{
+			# OUR shipping problem, not the user's firmware -- do not blame the file.
+			$why = "e80Mod could not find its firmware modification data. This means ".
+			       "e80Mod was not installed correctly. Please reinstall navMate and ".
+			       "try again.";
+		}
+		else
+		{
+			$why = "\"$file\" does not appear to be valid v5.69 E-Series firmware. ".
+			       "This modification requires the v5.69 firmware downloaded directly ".
+			       "from Raymarine. Please check the input file and try again.";
+		}
 		error($why);
 		$this->{status}->SetLabel("Could not build the firmware.");
 		$this->{detail}->SetLabel($why);

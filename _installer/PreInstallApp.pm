@@ -25,12 +25,52 @@
 
 use strict;
 use warnings;
+use File::Copy qw(copy);
+use File::Path qw(make_path);
 
-my $unused_release_dir = $ARGV[0];
-my $installer_dir      = $ARGV[1];
-my $iss_file           = "$installer_dir/innosetup.iss";
+my $release_dir   = $ARGV[0];
+my $installer_dir = $ARGV[1];
+my $iss_file      = "$installer_dir/innosetup.iss";
 
 my $in_languages = 0;
+
+# e80Mod's ONLY runtime data dependency is the firmware mod records
+# (e80_stuff/mods/e80_mod*.txt).  Those records are sacrosanct and cannot move
+# out of e80_stuff, so the build DENORMALIZES a copy of them into the freshly
+# built release resource tree, from which Inno's recursesubdirs [Files] installs
+# them to {app}\res\mods.  Packaged e80Mod reads them from $resource_dir/mods
+# (em_defs::mods_dir).  We glob EVERY e80_mod*.txt so a newly-added record ships
+# automatically -- the build remembers, so we don't have to.
+my $MODS_SRC = 'C:/base/apps/navMate/e80_stuff/mods';
+
+sub shipModRecords
+{
+	my ($release_dir) = @_;
+	my $dst = "$release_dir/res/mods";
+	my @recs = glob("$MODS_SRC/e80_mod*.txt");
+	if (!@recs)
+	{
+		warn "PreInstallApp: no mod records found in $MODS_SRC -- e80Mod will not build when installed\n";
+		return;
+	}
+	if (!-d $dst && !make_path($dst))
+	{
+		warn "PreInstallApp: cannot create $dst: $!\n";
+		return;
+	}
+	for my $src (@recs)
+	{
+		(my $name = $src) =~ s{^.*/}{};
+		if (copy($src, "$dst/$name"))
+		{
+			print "PreInstallApp: shipped mod record $name -> res/mods/\n";
+		}
+		else
+		{
+			warn "PreInstallApp: cannot copy $src -> $dst/$name: $!\n";
+		}
+	}
+}
 
 # Programs that open inbound (RAYDP discovery) sockets.  Pre-authorize them in
 # Windows Firewall during install so the user never sees the "allow access"
@@ -284,6 +324,10 @@ sub processLine
 	return $line;
 }
 
+
+# Ship e80Mod's firmware mod records into the release resource tree (must happen
+# every build so a new record is never left behind).
+shipModRecords($release_dir);
 
 # Read, rewrite, write back.  No die/exit -- a failure just warns (Cava
 # captures it) and leaves the file untouched.

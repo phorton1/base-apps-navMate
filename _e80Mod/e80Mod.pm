@@ -48,6 +48,9 @@ sub OnInit
 #---------------------------------
 
 setStandardDataDir('navMate');
+# Resolve the Cava resource dir so em_defs::mods_dir() finds the shipped mod
+# records when PACKAGED: dev = the in-repo _res, packaged = {app}/res.
+setStandardCavaResourceDir('/base/apps/navMate/_res');
 $logfile = "$data_dir/e80Mod.log";
 LOG(-1, "==== e80Mod (E-Series Firmware Builder) ====");
 

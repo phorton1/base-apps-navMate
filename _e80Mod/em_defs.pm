@@ -3,13 +3,14 @@
 #---------------------------------------------
 # Shared constants for e80Mod: debug gates, wx control IDs, geometry, the
 # firmware-source URL, the fixed output naming, the builder-handle rule, the
-# point-of-use disclaimer text, and the locations of the data the app reads
-# (LICENSE.TXT and the mod records).  Exported a_defs-style so the panels and
-# engine use them bare.
+# point-of-use disclaimer text, and the location of the mod records the build
+# reads.  Exported a_defs-style so the panels and engine use them bare.
 
 package em_defs;
 use strict;
 use warnings;
+use Pub::Utils;			# $resource_dir (set by e80Mod via setStandardCavaResourceDir)
+use Cava::Packager;		# $Cava::Packager::PACKAGED
 
 BEGIN
 {
@@ -20,7 +21,7 @@ BEGIN
 		$WIN_W $WIN_H $M $TITLE_Y $BODY_Y $BTN_H $BTN_GAP $CB_H
 		$RAYMARINE_URL $BUILDER_RE $DEFAULT_BUILDER $OUT_LABEL $OUT_VERSION $OUT_BASENAME
 		$DISCLAIMER_TEXT
-		em_data_dir license_file mod_record
+		mods_dir mod_record
 	);
 }
 
@@ -61,26 +62,28 @@ our $OUT_LABEL      = 'mod002';			# output is E_App_Upg_Uni.mod002.pkg (FIXED; u
 our $OUT_VERSION    = '5.72';			# the combined mod001+mod002 app version
 our $OUT_BASENAME   = "E_App_Upg_Uni.$OUT_LABEL.pkg";
 
-# Data locations.  DEV reads straight from the repo tree.  TODO packaging: when
-# built, LICENSE.TXT and e80_stuff/mods/ ship as app payload under {app} and
-# em_data_dir() resolves there instead (Cava::Packager::GetBinPath()-relative).
+# Mod-record location -- the build's ONLY runtime data dependency (the disclaimer
+# is an embedded constant; the GPL license page was dropped).  DEV reads the
+# canonical, sacrosanct source in the repo tree.  PACKAGED reads the copy shipped
+# under the Cava resource dir ({app}/res/mods), placed there at build time by
+# _installer/PreInstallApp.pm -- the records cannot move out of e80_stuff/mods,
+# so the build denormalizes a copy for shipping (see build.md).
 
 our $DEV_ROOT = '/base/apps/navMate';
 
-sub em_data_dir
+sub mods_dir
 {
-	return $DEV_ROOT;
-}
-
-sub license_file
-{
-	return em_data_dir() . "/LICENSE.TXT";
+	# PACKAGED -> {app}/res/mods ($resource_dir is set by e80Mod.pm via
+	# setStandardCavaResourceDir); DEV -> the canonical e80_stuff/mods source.
+	return $Cava::Packager::PACKAGED
+		? "$resource_dir/mods"
+		: "$DEV_ROOT/e80_stuff/mods";
 }
 
 sub mod_record
 {
 	my ($n) = @_;
-	return sprintf("%s/e80_stuff/mods/e80_mod%03d.txt", em_data_dir(), $n);
+	return sprintf("%s/e80_mod%03d.txt", mods_dir(), $n);
 }
 
 # The point-of-use disclaimer: the general Notice to Mariners PLUS the

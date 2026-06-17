@@ -40,36 +40,45 @@ A separate git repo (private; on GitHub as `base_dist-navMate`), `USES /base/app
   files that are already tracked.
 
 
-## The three executables
+## The four executables
 
-navMate packages as THREE exec targets from the one `.cpkgproj`, each its own exe + icon:
+navMate packages as FOUR exec targets from the one `.cpkgproj`, each its own exe + icon:
 
-| Exe             | exec_type        | Manifest               | Script                  | Icon              | Role                                   |
-| --------------- | ---------------- | ---------------------- | ----------------------- | ----------------- | -------------------------------------- |
-| `navMate.exe`   | 2 (console+GUI)  | asInvoker (default)    | `navMate.pm`            | grey anchor       | console-bearing dev / diagnostic shape |
-| `navMateGUI.exe`| 1 (console-less) | asInvoker (default)    | `navMate.pm`            | blue anchor       | the GUI-only user shape                |
-| `netWizard.exe` | 1 (console-less) | requireAdministrator   | `_netWizard/netWizard.pm`| green bolt+anchor | the elevated E-Series network wizard   |
+| Exe             | exec_type        | Manifest               | Script                    | Icon                | Role                                     |
+| --------------- | ---------------- | ---------------------- | ------------------------- | ------------------- | ---------------------------------------- |
+| `navMate.exe`   | 2 (console+GUI)  | asInvoker (default)    | `navMate.pm`              | grey anchor         | console-bearing dev / diagnostic shape   |
+| `navMateGUI.exe`| 1 (console-less) | asInvoker (default)    | `navMate.pm`              | blue anchor         | the GUI-only user shape                  |
+| `netWizard.exe` | 1 (console-less) | requireAdministrator   | `_netWizard/netWizard.pm` | grey anchor + red W | the elevated E-Series network wizard     |
+| `e80Mod.exe`    | 1 (console-less) | asInvoker (default)    | `_e80Mod/e80Mod.pm`       | grey anchor + red F | the E-Series firmware builder ("modder") |
 
-- **Icon convention:** blue = GUI, grey = console; the wizard is a green lightning bolt
-  striking an anchor. The `.ico` files live at `apps/navMate/_res/site/` (`navMate*.ico`,
-  `netWizard.ico`).
+- **Icon convention:** an anchor base -- **blue** = the GUI shape, **grey** = console/core; the
+  two utility apps overlay a bold **red letter** on the grey anchor: **W** = netWizard, **F** =
+  e80Mod (firmware). The `.ico` files live at `apps/navMate/_res/site/` (`navMate*.ico`,
+  `netWizard.ico`, `e80Mod.ico`).
 - **Cava `manifest_exec_level`:** 1 = asInvoker, 2 = highestAvailable, 3 =
-  requireAdministrator. The wizard needs **3** (it runs `netsh` to set the adapter IP).
-- **Icons are INTERNALIZED by Cava** -- the tracked config stores only a filename pointing
-  into Cava's iconresource store, so each exe's icon must be set via the Cava GUI icon
-  field (one click) pointing at the `.ico`. SQL alone cannot wire it.
+  requireAdministrator. The wizard needs **3** (it runs `netsh` to set the adapter IP); e80Mod is
+  **1** -- a pure offline file transform, no `netsh`, no elevation.
+- **Icons are INTERNALIZED by Cava** -- the build embeds each exe's icon from Cava's
+  `cava20-temp/iconresource/<icon_bundle>` store, NOT from `_res/site` at build time. The tracked
+  config (`executable.icon_bundle`) holds only the filename; the actual icon is placed into
+  iconresource by setting it in the **Cava GUI icon field** (one click) pointing at the `.ico`.
+  Replacing the `_res/site` source alone does NOT change the embedded exe icon -- SQL or a manual
+  file-copy cannot durably wire it; the GUI assignment is the canonical path.
 
 
 ## Scan configuration (`@INC` / module packing)
 
 - **`extrapaths`** (`local_config_values`):
-  `C:/base;C:/base/apps/navMate;C:/base/apps/navMate/_netWizard`
+  `C:/base;C:/base/apps/navMate;C:/base/apps/navMate/_netWizard;C:/base/apps/navMate/_e80Mod`
   - `C:/base` -- resolves `Pub::` and `Pub::Ray::NET::*`.
   - the navMate folder -- navMate loads its locals by BARE name (`use n_defs` / `n_utils` /
-    `navDB` / `nmFrame` / ...; also `e80Config.pm` + `e80ScreenGrab.pm`, which MUST stay
-    unqualified), so the folder has to be on the scan path for them to pack. Chosen over
+    `navDB` / `nmFrame` / ...; also `e80Config.pm` + `e80ScreenGrab.pm` + `e80Firmware.pm`, which
+    MUST stay unqualified), so the folder has to be on the scan path for them to pack. Chosen over
     qualifying the names because the bare-name convention is permanent.
   - `_netWizard` -- so the `nw_*` wizard modules pack for `netWizard.exe`.
+  - `_e80Mod` -- so the `em_*` modules pack for `e80Mod.exe`. (e80Mod's deps -- `Digest::SHA`,
+    `IO::Compress::*` via `e80Firmware.pm` -- are statically `use`d, so it needs no
+    `include_module`.)
 - **`include_module`** (force-include the runtime-loaded modules a static scan misses):
   `DBD::SQLite`, `JSON::PP`, `threads`, `threads::shared`.
 - **`codemask` = 1** (Plain Text Perl Code, not Masked) -- the source is open on GitHub;
@@ -135,8 +144,27 @@ standard dirs plus the per-environment prefs file. `$Cava::Packager::PACKAGED` i
     (the user's writable demo copy). The examples are INSTALLER payload, compiled into the installer
     at ISCC time -- deliberately NOT in `_res` (the app never reads them at runtime). The app keeps
     "no navMate.db -> create empty", so deleting the db stays the user's reset gesture.
-- **Shortcuts:** `installer.config` `desktopicons` drives the Start-Menu + Desktop
-  shortcuts for the app and the wizard.
+  - **Firmware mod records (e80Mod payload):** e80Mod's ONLY runtime data dependency is the mod
+    records (`e80_stuff/mods/e80_mod*.txt`). They are sacrosanct and cannot move out of
+    `e80_stuff/mods`, so `PreInstallApp.pm` DENORMALIZES a copy into the freshly built release
+    resource tree (`release\navMate\res\mods\`) -- which Inno's `recursesubdirs` `[Files]` then
+    installs to `{app}\res\mods`. Packaged e80Mod reads them from `$resource_dir/mods`
+    (`em_defs::mods_dir`); dev reads the canonical `e80_stuff/mods` directly. The step globs EVERY
+    `e80_mod*.txt`, so a newly-added record ships automatically -- the build remembers, not us.
+    - **Inspection gotcha (why `res\mods` is invisible in Cava):** unlike `_Inline` / `site` /
+      `sym_catalog`, `res\mods` is NOT a Cava resource and will NOT appear in the CavaPackager GUI's
+      Resources branch -- it is injected by `PreInstallApp.pm` AFTER Cava has packed (the pre-installer
+      hook is the only script Cava runs, and it fires post-pack). Cava recreates `release\navMate` from
+      scratch every build, so the step is a plain copy, not a compare-and-copy (nothing persists to
+      reconcile). To verify a build shipped them, look for the `shipped mod record ... -> res/mods/`
+      lines in the build log, or confirm `{app}\res\mods\e80_mod*.txt` in the install. Do NOT "fix" the
+      invisibility by moving the records into `_res`: there is no pre-build hook to keep a committed
+      `_res\mods` in sync with `e80_stuff/mods`, so that silently reintroduces the manual-copy trap.
+- **Shortcuts:** `installer.config` `desktopicons` drives the Start-Menu + Desktop shortcuts --
+  four entries: `navMate`, `navMateGUI`, `navMate netWizard`, `navMate e80Mod`. The `Name` field
+  is the shortcut LABEL, independent of `exec` (the exe): the two utilities are labeled
+  `navMate <x>` so they wrap to a two-line desktop title and surface under a "navMate" Start
+  search, while still launching `netWizard.exe` / `e80Mod.exe`.
 - **Artifacts:** SFX = `navmate-mswin-x86-<ver>.exe` (run-in-place); the installer's base
   name is the `installer.config` `name` field.
 
@@ -158,9 +186,12 @@ field auto-bumps on build). Current: **0.9.3**.
 4. Confirm `netWizard.exe` packed all `nw_*` modules (the build.log "Building file" list)
    and got the requireAdministrator manifest.
 5. The installer compiles via ISCC after `PreInstallApp.pm` rewrites the `.iss`.
-6. Install and smoke-test the four wizard launch paths -- Start-Menu icon, Desktop icon,
-   in-app **Utils -> "E-Series Network Wizard"**, and the installer Finish-screen checkbox.
-   All four UAC-elevate.
+6. Install and smoke-test the wizard's four launch paths -- Start-Menu icon, Desktop icon,
+   in-app **Utils -> "E-Series Network Wizard"**, and the installer Finish-screen checkbox (all
+   four UAC-elevate) -- and e80Mod's paths -- Start-Menu / Desktop icon and in-app **Utils ->
+   "E-Series Firmware"** (e80Mod does NOT elevate). Confirm the embedded icons actually appear
+   (grey anchor + red W / red F); if a replaced icon looks stale it is the Windows icon cache, not
+   the build -- `ie4uinit.exe -show`.
 7. Commit `cava20.cpkgproj` (and `installer.config` if it changed).
 
 
@@ -199,12 +230,17 @@ field auto-bumps on build). Current: **0.9.3**.
   than mis-loaded.
 
 
-## e80Config / e80ScreenGrab (advanced features)
+## e80Config / e80ScreenGrab (advanced features) + e80Mod (the firmware builder)
 
-These two depend on a separate hardcoded port and on CUSTOM E80 FIRMWARE running on the
-device; they are "advanced / requires custom firmware" features, not baseline for a public
-install. (The firewall is no longer a manual step -- the installer pre-authorizes inbound
-access for all three exes.)
+`e80Config` (save/restore/clear display config) and `e80ScreenGrab` (live screen grab) depend on a
+separate hardcoded diagnostic port and on CUSTOM E80 FIRMWARE running on the device; they are
+"advanced / requires custom firmware" features, not baseline for a public install. That custom
+firmware is produced by **e80Mod** (the 4th exe above, `_e80Mod/`): the user supplies their own
+stock E-Series `.pkg` and e80Mod applies the mod records to it offline, via the `e80Firmware.pm`
+library -- it carries nothing of the manufacturer's. End-user how-to:
+`user_manual/custom_firmware.md`; library API: `e80Firmware_API.md`. (The firewall is no longer a
+manual step -- the installer pre-authorizes inbound access for the three networked exes; e80Mod
+opens no sockets and needs no rule.)
 
 
 ## Release cycle

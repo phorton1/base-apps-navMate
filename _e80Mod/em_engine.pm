@@ -33,6 +33,20 @@ sub build_modified
 	my $progress = $a{progress} || {};
 	my $step     = $a{step} || sub { };
 
+	# The mod records are the build's only runtime data dependency.  Check them
+	# up front so a missing/unshipped record yields a precise "modification data
+	# missing" reason (our shipping problem) rather than e80Firmware's generic
+	# per-region failure, which em_build would otherwise blame on the firmware.
+	for my $n (1, 2)
+	{
+		my $rec = mod_record($n);
+		if (!-f $rec)
+		{
+			$progress->{error} = "missing modification data file: $rec";
+			return undef;
+		}
+	}
+
 	# progress is reported as a COMPLETED-step count (0..4) so the long final
 	# re-gzip/build sits visibly at 3/4 while it runs, rather than the bar jumping
 	# straight to full.

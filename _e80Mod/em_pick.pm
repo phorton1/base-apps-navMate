@@ -142,10 +142,24 @@ sub onNext
 {
 	my ($this) = @_;
 	my $model = $this->model;
+	my $outdir = $this->{outdir_ctrl}->GetValue();
+
+	# Warn before clobbering an existing build.  The output name is fixed
+	# (OUT_BASENAME), so a prior build sits at a known path in this folder.
+	my $target = "$outdir/$OUT_BASENAME";
+	if (-e $target)
+	{
+		my $ans = Wx::MessageBox(
+			"A modified firmware package already exists in this folder:\n\n".
+			"$target\n\nBuilding will overwrite it.  Continue?",
+			"Overwrite existing package?", wxYES_NO | wxICON_QUESTION, $this);
+		return if $ans != wxYES;
+	}
+
 	$model->{pkg_path} = $this->{pkg};
 	my $h = $this->{handle}->GetValue();
 	$model->{builder} = (defined $h && $h ne '') ? $h : '';
-	$model->{outdir} = $this->{outdir_ctrl}->GetValue();
+	$model->{outdir} = $outdir;
 	$this->frame->goTo('build');
 }
 

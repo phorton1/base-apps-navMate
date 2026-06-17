@@ -399,6 +399,10 @@ sub onCommand
 	{
 		_doRunNetWizard($this);
 	}
+	elsif ($id == $COMMAND_RUN_E80MOD)
+	{
+		_doRunE80Mod($this);
+	}
 	elsif ($id == $COMMAND_REFRESH_DB)
 	{
 		$_->refresh() for $this->_findDatabasePanes();
@@ -927,6 +931,36 @@ sub _doRunNetWizard
 	{
 		my $wiz = '/base/apps/navMate/_netWizard/netWizard.pm';
 		system(1, $^X, "-I/base", $wiz);
+	}
+}
+
+
+sub _doRunE80Mod
+	# Launch the standalone E-Series firmware builder (e80Mod).  Packaged:
+	# Start-Process the sibling e80Mod.exe in {app}/bin -- NOT elevated (unlike
+	# netWizard): e80Mod is a pure offline file transform, no netsh, no NOR.  Dev:
+	# run the .pm via perl.
+{
+	my ($this) = @_;
+	if ($Cava::Packager::PACKAGED)
+	{
+		my $bin = Cava::Packager::GetBinPath();
+		$bin =~ s{[\\/]+$}{};
+		my $exe = "$bin/e80Mod.exe";
+		if (!-e $exe)
+		{
+			error("e80Mod.exe not found at $exe");
+			return;
+		}
+		(my $bin_w = $bin) =~ s{/}{\\}g;
+		(my $exe_w = $exe) =~ s{/}{\\}g;
+		my $ps = "Start-Process -FilePath '$exe_w' -WorkingDirectory '$bin_w'";
+		system(1, "powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", $ps);
+	}
+	else
+	{
+		my $app = '/base/apps/navMate/_e80Mod/e80Mod.pm';
+		system(1, $^X, "-I/base", $app);
 	}
 }
 
