@@ -17,6 +17,7 @@
 #   /api/query   - SELECT against navMate SQLite DB
 #   /api/nmdb    - structured snapshot: collections, waypoints, routes, route_waypoints, tracks
 #   /api/fsh     - navFSH in-memory state as JSON (waypoints, groups, routes, tracks)
+#   /api/timed_tracks - mod003 timed-track toggle: cmd=get / cmd=set&enabled=0|1 (v5.73+)
 #   /api/e80config - headless E80 config save/restore/clear:
 #                  ?op=save|restore|clear&ip=<addr>&folder=<path>  (folder omitted for clear)
 #                  -> { ok:1, message:... } | { error:... }   (blocking; no dialogs)
@@ -39,6 +40,7 @@ use nmDialogs qw($suppress_confirm $suppress_outcome $suppress_error_dialog);
 use navDB;
 use navFSH;
 use nmE80DirectOps;
+use nmE80TimedTracks;
 use base qw(Pub::Ray::NET::h_server);
 
 
@@ -362,6 +364,17 @@ sub handle_request
 			routes    => $fsh_db->{routes}    // {},
 			tracks    => $fsh_db->{tracks}    // {},
 		});
+	}
+	elsif ($uri eq '/api/timed_tracks')
+	{
+		# mod003 timed-track toggle: cmd=get reads state; cmd=set&enabled=0|1 writes it
+		# (enabled=1 => timed ON / fid value 0; enabled=0 => stock).  Gated v5.73+.
+		my $params = $request->{params} || {};
+		my $cmd = $params->{cmd} // 'get';
+		my $result = ($cmd eq 'set')
+			? nmE80TimedTracks::apiSet($params->{enabled})
+			: nmE80TimedTracks::apiGet();
+		return json_response($request, $result);
 	}
 	elsif ($uri eq '/api/e80config')
 	{

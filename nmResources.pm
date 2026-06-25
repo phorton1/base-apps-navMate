@@ -49,6 +49,7 @@ BEGIN
 		$COMMAND_RESTORE_E80_CONFIG
 		$COMMAND_CLEAR_E80_CONFIG
 		$COMMAND_GRAB_E80_SCREEN
+		$COMMAND_E80_TIMED_TRACKS
 		$COMMAND_RUN_NET_WIZARD
 		$COMMAND_RUN_E80MOD
 		$COMMAND_IMPORT_DB_TEXT
@@ -99,6 +100,7 @@ our $COMMAND_RESTORE_E80_CONFIG	= 10052;
 our $COMMAND_CLEAR_E80_CONFIG	= 10053;
 our $COMMAND_GRAB_E80_SCREEN	= 10054;
 our $COMMAND_RUN_NET_WIZARD		= 10055;
+our $COMMAND_E80_TIMED_TRACKS	= 10057;
 our $COMMAND_RUN_E80MOD			= 10056;
 our $COMMAND_IMPORT_DB_TEXT		= 10061;
 our $COMMAND_EXPORT_DB_TEXT		= 10062;
@@ -158,6 +160,7 @@ my $command_data = {
 	$COMMAND_RESTORE_E80_CONFIG	=> ['Restore Configuration...',	'Restore a saved E80 display configuration from a folder'],
 	$COMMAND_CLEAR_E80_CONFIG	=> ['Clear Configuration',	'Reset the E80 display configuration to factory defaults'],
 	$COMMAND_GRAB_E80_SCREEN	=> ['Grab Screen...',		'Capture the live E80 screen to a PNG image'],
+	$COMMAND_E80_TIMED_TRACKS	=> ['Timed Track Recording...',	'Turn the E80 timed-track recording (date/time + depth per point) on or off'],
 	$COMMAND_RUN_NET_WIZARD		=> ['E-Series Network Wizard',	'Run the network wizard to connect this computer to your E-Series network'],
 	$COMMAND_RUN_E80MOD			=> ['E-Series Firmware',		'Build a modified E-Series firmware image from your own firmware package'],
 	$COMMAND_IMPORT_DB_TEXT		=> ['Import from Text',		'Replace navMate database from a text backup file'],
@@ -229,6 +232,8 @@ my $e80_menu = [
 	$COMMAND_CLEAR_E80_CONFIG,
 	$ID_SEPARATOR,
 	$COMMAND_GRAB_E80_SCREEN,
+	$ID_SEPARATOR,
+	$COMMAND_E80_TIMED_TRACKS,
 ];
 
 my $filesys_context_menu = [

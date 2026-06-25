@@ -37,6 +37,7 @@ use navOneTimeImport;
 use navKML;
 use winSymMapping;
 use nmE80DirectOps;
+use nmE80TimedTracks;
 use base qw(Pub::WX::Frame);
 
 my $next_db_instance = 0;
@@ -72,6 +73,7 @@ sub new
 	EVT_MENU($this, $COMMAND_RESTORE_E80_CONFIG,	\&onCommand);
 	EVT_MENU($this, $COMMAND_CLEAR_E80_CONFIG,	\&onCommand);
 	EVT_MENU($this, $COMMAND_GRAB_E80_SCREEN,	\&onCommand);
+	EVT_MENU($this, $COMMAND_E80_TIMED_TRACKS,	\&onCommand);
 	EVT_MENU($this, $COMMAND_RUN_NET_WIZARD,	\&onCommand);
 	EVT_MENU($this, $COMMAND_REFRESH_DB,		\&onCommand);
 	EVT_MENU($this, $COMMAND_EXPORT_DB_TEXT,	\&onCommand);
@@ -95,6 +97,7 @@ sub new
 	EVT_UPDATE_UI($this, $COMMAND_RESTORE_E80_CONFIG,	\&onCommandEnable);
 	EVT_UPDATE_UI($this, $COMMAND_CLEAR_E80_CONFIG,		\&onCommandEnable);
 	EVT_UPDATE_UI($this, $COMMAND_GRAB_E80_SCREEN,		\&onCommandEnable);
+	EVT_UPDATE_UI($this, $COMMAND_E80_TIMED_TRACKS,	\&onCommandEnable);
 	EVT_UPDATE_UI($this, $COMMAND_REVERT_DB,			\&onCommandEnable);
 	EVT_UPDATE_UI($this, $COMMAND_COMMIT_DB,			\&onCommandEnable);
 	EVT_UPDATE_UI($this, $COMMAND_SAVE_FSH_FILE,		\&onCommandEnable);
@@ -181,6 +184,7 @@ sub onIdle
 	}
 
 	nmE80DirectOps::onIdle($this);
+	nmE80TimedTracks::onIdle($this);
 
 	if (pollClearMapPending())
 	{
@@ -395,6 +399,10 @@ sub onCommand
 	{
 		nmE80DirectOps::doGrab($this);
 	}
+	elsif ($id == $COMMAND_E80_TIMED_TRACKS)
+	{
+		nmE80TimedTracks::doToggle($this);
+	}
 	elsif ($id == $COMMAND_RUN_NET_WIZARD)
 	{
 		_doRunNetWizard($this);
@@ -550,6 +558,10 @@ sub onCommandEnable
 	    || $id == $COMMAND_GRAB_E80_SCREEN)
 	{
 		$enable = 0 if !nmE80DirectOps::deviceCount();
+	}
+	elsif ($id == $COMMAND_E80_TIMED_TRACKS)
+	{
+		$enable = 0 if !nmE80TimedTracks::available();
 	}
 	elsif ($id == $COMMAND_REVERT_DB || $id == $COMMAND_COMMIT_DB)
 	{

@@ -23,9 +23,11 @@ use Pub::Ray::NET::c_RAYDP;
 use Pub::Ray::NET::d_WPMGR;
 use Pub::Ray::NET::d_TRACK;
 use Pub::Ray::NET::d_FILESYS;
+use Pub::Ray::NET::d_DB;
 use Pub::Ray::NET::e_WPMGR;
 use Pub::Ray::NET::e_TRACK;
 use Pub::Ray::NET::e_FILESYS;
+use Pub::Ray::NET::e_DB;
 use Pub::Ray::NET::e_wp_api;
 
 use n_defs;
@@ -80,7 +82,14 @@ if ($db_rc > 0)
 }
 navServer::startNavMateServer();
 
-Pub::Ray::NET::a_defs::initServices(wpmgr => 1, track => 1, filesys => 1, auto_query => 1);
+# Enable the point-to-point DATABASE service (mod003 timed-track toggle, fid 0x05ff0001).
+# Set HOW_INIT_DB=NONE FIRST: at its default (ALL) d_DB auto-subscribes every fid for DBNAV
+# broadcast and floods the LAN; we only do point-to-point getItem/putItem.  This is safe here
+# because the compile-time 'use Pub::Ray::NET::d_DB' above already ran the module's
+# 'our $HOW_INIT_DB = $INIT_DB_ALL', so this runtime assignment overrides it -- and the service
+# is not instantiated until c_RAYDP (below) discovers a unit, well after this line.
+$Pub::Ray::NET::d_DB::HOW_INIT_DB = $Pub::Ray::NET::d_DB::INIT_DB_NONE;
+Pub::Ray::NET::a_defs::initServices(wpmgr => 1, track => 1, filesys => 1, db => 1, auto_query => 1);
 Pub::Ray::NET::c_RAYDP->new();
 $raydp->start();
 
