@@ -58,15 +58,15 @@ our $CB_H    = 24;		# checkbox row height
 our $RAYMARINE_URL  = 'https://www.raymarine.com/en-us/download/e-series-classic-software';
 our $BUILDER_RE     = qr/^[A-Za-z0-9.-]{1,15}$/;	# letters/digits/dash/dot, 1-15, no spaces
 our $DEFAULT_BUILDER = 'navMate';
-our $OUT_LABEL      = 'mod002';			# output is E_App_Upg_Uni.mod002.pkg (FIXED; user never names it)
-our $OUT_VERSION    = '5.72';			# the combined mod001+mod002 app version
+our $OUT_LABEL      = 'mod003';			# output is E_App_Upg_Uni.mod003.pkg (FIXED; user never names it)
+our $OUT_VERSION    = '5.73';			# the combined mod001..mod003 app version
 our $OUT_BASENAME   = "E_App_Upg_Uni.$OUT_LABEL.pkg";
 
 # Mod-record location -- the build's ONLY runtime data dependency (the disclaimer
 # is an embedded constant; the GPL license page was dropped).  DEV reads the
 # canonical, sacrosanct source in the repo tree.  PACKAGED reads the copy shipped
 # under the Cava resource dir ({app}/res/mods), placed there at build time by
-# _installer/PreInstallApp.pm -- the records cannot move out of e80_stuff/mods,
+# _installer/PreInstallApp.pm -- the records (mods/) are not a Cava resource,
 # so the build denormalizes a copy for shipping (see build.md).
 
 our $DEV_ROOT = '/base/apps/navMate';
@@ -74,10 +74,10 @@ our $DEV_ROOT = '/base/apps/navMate';
 sub mods_dir
 {
 	# PACKAGED -> {app}/res/mods ($resource_dir is set by e80Mod.pm via
-	# setStandardCavaResourceDir); DEV -> the canonical e80_stuff/mods source.
+	# setStandardCavaResourceDir); DEV -> the canonical mods/ source.
 	return $Cava::Packager::PACKAGED
 		? "$resource_dir/mods"
-		: "$DEV_ROOT/e80_stuff/mods";
+		: "$DEV_ROOT/mods";
 }
 
 sub mod_record

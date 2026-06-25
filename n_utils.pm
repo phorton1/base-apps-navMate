@@ -32,6 +32,8 @@ BEGIN
 		depthText
 		tempKText
 		tsText
+		$TRACK_TIMED_MIN
+		trackPointIsTimed
 		trackPointsText
 		routePointsText
 		uuidRefText
@@ -315,15 +317,57 @@ sub tsText
 }
 
 
+# mod003 timed-track decode.  A mod003 E80 (per Pub::Ray
+# e80_firmware/deployment/mod003.md, "the timed-track contract") stamps each
+# track point with time + true depth by OVERLOADING the 14-byte record's last
+# two fields, length-preserving and with no type flag -- detection is purely by
+# value.  When the raw depth u32 reads as a unix time at/after 1980-01-01
+# (>= 315532800 = 0x12CEA600), the point is "timed": the depth field then holds
+# the unix timestamp (sec) and the temp field holds the real depth in 0.1 ft
+# (not a temperature).  No real depth in cm approaches 3155 km, so the threshold
+# separates the two readings with vast margin.
+our $TRACK_TIMED_MIN = 315532800;	# 0x12CEA600 -- 1980-01-01 00:00 UTC
+
+sub trackPointIsTimed
+	# True if a raw track-point depth u32 is a mod003 "timed" stamp (a unix
+	# time) rather than a depth in cm.  Callers pass the raw depth field
+	# ($pt->{depth} / depth_start / depth_end); on a timed point the temp
+	# field then holds depth in 0.1 ft.
+{
+	my ($depth_raw) = @_;
+	return defined($depth_raw) && $depth_raw >= $TRACK_TIMED_MIN ? 1 : 0;
+}
+
+
 sub trackPointsText
 	# Renders an indexed table of trackpoints.  Each point may carry
 	# {lat, lon, depth_cm OR depth, temp_k, ts} -- depth and ts are
 	# optional.  with_datetime=1 adds a trailing UTC timestamp column
 	# (only the DB carries per-point ts).
+	#
+	# variable=1 decodes the mod003 "timed-track" overload (live E80 reads):
+	# any point whose raw depth u32 is a unix time (trackPointIsTimed) is timed
+	# -- its depth field is the timestamp and its temp field is the real depth
+	# in 0.1 ft, not a temperature.  When any point is timed the datetime column
+	# is shown automatically.  See $TRACK_TIMED_MIN.
 {
 	my ($points, %opts) = @_;
 	return '' if !$points || !@$points;
-	my $with_dt = $opts{with_datetime} ? 1 : 0;
+	my $variable = $opts{variable} ? 1 : 0;
+
+	# show the datetime column when explicitly asked (DB per-point ts) or when
+	# a variable-format track actually carries a timed point (live mod003 E80).
+	my $any_timed = 0;
+	if ($variable)
+	{
+		for my $pt (@$points)
+		{
+			$any_timed = 1, last
+				if trackPointIsTimed($pt->{depth_cm} // $pt->{depth});
+		}
+	}
+	my $with_dt = ($opts{with_datetime} || $any_timed) ? 1 : 0;
+
 	my $text = '';
 	for my $i (0 .. $#$points)
 	{
@@ -333,16 +377,30 @@ sub trackPointsText
 		# (0,0) treated as a sentinel (FSH zero-zero filler) -- depth/temp
 		# blanked out to match the visual "no real data" cue.
 		my $sentinel = ($lat == 0 && $lon == 0) ? 1 : 0;
-		my $d_cm = $pt->{depth_cm} // $pt->{depth} // 0;
-		my $d_ft = (!$sentinel && $d_cm) ? sprintf('%.1fft', $d_cm / 30.48) : '-';
-		my $t_f  = (!$sentinel && ($pt->{temp_k} // 0))
-			? sprintf('%.1fF', ($pt->{temp_k} / 100 - 273) * 9 / 5 + 32)
-			: '-';
+		my $d_raw = $pt->{depth_cm} // $pt->{depth} // 0;
+
+		my ($d_ft, $t_f, $ts);
+		if ($variable && !$sentinel && trackPointIsTimed($d_raw))
+		{
+			# timed point: depth holds the unix time, temp holds 0.1-ft depth
+			$ts   = $d_raw;
+			$d_ft = sprintf('%.1fft', ($pt->{temp_k} // 0) / 10);
+			$t_f  = '-';
+		}
+		else
+		{
+			$d_ft = (!$sentinel && $d_raw) ? sprintf('%.1fft', $d_raw / 30.48) : '-';
+			$t_f  = (!$sentinel && ($pt->{temp_k} // 0))
+				? sprintf('%.1fF', ($pt->{temp_k} / 100 - 273) * 9 / 5 + 32)
+				: '-';
+			$ts   = $pt->{ts};
+		}
+
 		my $dt = '';
 		if ($with_dt)
 		{
-			$dt = (!$sentinel && ($pt->{ts} // 0))
-				? '  ' . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime($pt->{ts}))
+			$dt = (!$sentinel && ($ts // 0))
+				? '  ' . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime($ts))
 				: '  -';
 		}
 		$text .= sprintf("  %3d  %9.6f  %10.6f  %8s  %6s%s\n",

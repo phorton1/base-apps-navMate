@@ -145,11 +145,11 @@ standard dirs plus the per-environment prefs file. `$Cava::Packager::PACKAGED` i
     at ISCC time -- deliberately NOT in `_res` (the app never reads them at runtime). The app keeps
     "no navMate.db -> create empty", so deleting the db stays the user's reset gesture.
   - **Firmware mod records (e80Mod payload):** e80Mod's ONLY runtime data dependency is the mod
-    records (`e80_stuff/mods/e80_mod*.txt`). They are sacrosanct and cannot move out of
-    `e80_stuff/mods`, so `PreInstallApp.pm` DENORMALIZES a copy into the freshly built release
+    records (`mods/e80_mod*.txt`). They are sacrosanct (upstream-projected) and not a
+    Cava resource, so `PreInstallApp.pm` DENORMALIZES a copy into the freshly built release
     resource tree (`release\navMate\res\mods\`) -- which Inno's `recursesubdirs` `[Files]` then
     installs to `{app}\res\mods`. Packaged e80Mod reads them from `$resource_dir/mods`
-    (`em_defs::mods_dir`); dev reads the canonical `e80_stuff/mods` directly. The step globs EVERY
+    (`em_defs::mods_dir`); dev reads the canonical `mods` directly. The step globs EVERY
     `e80_mod*.txt`, so a newly-added record ships automatically -- the build remembers, not us.
     - **Inspection gotcha (why `res\mods` is invisible in Cava):** unlike `_Inline` / `site` /
       `sym_catalog`, `res\mods` is NOT a Cava resource and will NOT appear in the CavaPackager GUI's
@@ -159,7 +159,7 @@ standard dirs plus the per-environment prefs file. `$Cava::Packager::PACKAGED` i
       reconcile). To verify a build shipped them, look for the `shipped mod record ... -> res/mods/`
       lines in the build log, or confirm `{app}\res\mods\e80_mod*.txt` in the install. Do NOT "fix" the
       invisibility by moving the records into `_res`: there is no pre-build hook to keep a committed
-      `_res\mods` in sync with `e80_stuff/mods`, so that silently reintroduces the manual-copy trap.
+      `_res\mods` in sync with `mods`, so that silently reintroduces the manual-copy trap.
 - **Shortcuts:** `installer.config` `desktopicons` drives the Start-Menu + Desktop shortcuts --
   four entries: `navMate`, `navMateGUI`, `navMate netWizard`, `navMate e80Mod`. The `Name` field
   is the shortcut LABEL, independent of `exec` (the exe): the two utilities are labeled

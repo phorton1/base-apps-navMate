@@ -35,13 +35,14 @@ my $iss_file      = "$installer_dir/innosetup.iss";
 my $in_languages = 0;
 
 # e80Mod's ONLY runtime data dependency is the firmware mod records
-# (e80_stuff/mods/e80_mod*.txt).  Those records are sacrosanct and cannot move
-# out of e80_stuff, so the build DENORMALIZES a copy of them into the freshly
-# built release resource tree, from which Inno's recursesubdirs [Files] installs
-# them to {app}\res\mods.  Packaged e80Mod reads them from $resource_dir/mods
-# (em_defs::mods_dir).  We glob EVERY e80_mod*.txt so a newly-added record ships
-# automatically -- the build remembers, so we don't have to.
-my $MODS_SRC = 'C:/base/apps/navMate/e80_stuff/mods';
+# (mods/e80_mod*.txt).  Those records are sacrosanct (upstream-projected,
+# alongside the e80*.pm libs at the repo root) and are NOT a Cava resource, so
+# the build DENORMALIZES a copy of them into the freshly built release resource
+# tree, from which Inno's recursesubdirs [Files] installs them to {app}\res\mods.
+# Packaged e80Mod reads them from $resource_dir/mods (em_defs::mods_dir).  We glob
+# EVERY e80_mod*.txt so a newly-added record ships automatically -- the build
+# remembers, so we don't have to.
+my $MODS_SRC = 'C:/base/apps/navMate/mods';
 
 sub shipModRecords
 {

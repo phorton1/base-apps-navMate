@@ -38,7 +38,7 @@ Because you supply your own firmware and install it yourself, you stay in contro
 ## Before you start: get your plotter onto v5.69
 
 This is the one thing worth doing carefully. The custom firmware is built from Raymarine's **v5.69**
-release, and installs as version **v5.72**.
+release, and installs as version **v5.73**.
 
 **Our recommendation:** if your plotter is not already running v5.69, first update it to stock
 **v5.69** using Raymarine's own instructions, and confirm it runs normally. *Then* install the
@@ -77,7 +77,7 @@ It walks you through a few short steps:
 4. **Output folder.** This defaults to the same folder as your firmware; change it if you prefer.
 5. Click **Build.**
 
-In a few seconds navMate writes the finished file, named **`E_App_Upg_Uni.mod002.pkg`**, into your
+In a few seconds navMate writes the finished file, named **`E_App_Upg_Uni.mod003.pkg`**, into your
 output folder. (navMate names it for you, so it can never overwrite Raymarine's original.)
 
 > If e80Mod tells you the file *"does not appear to be valid v5.69 firmware,"* you most likely
@@ -90,7 +90,7 @@ Copy **three** files to a CF card:
 
 ```
 autorun.dob                Raymarine's installer (from the download, unchanged)
-E_App_Upg_Uni.mod002.pkg   the custom firmware you just built
+E_App_Upg_Uni.mod003.pkg   the custom firmware you just built
 E_App_Upg_Uni.pkg          Raymarine's original (keep it -- this is your way back)
 ```
 
@@ -102,13 +102,13 @@ Install it exactly like any Raymarine software update -- put the CF card in the 
 its installer runs. The installer lists every firmware package it finds on the card, so you simply
 choose which one to install:
 
-- Choose **`E_App_Upg_Uni.mod002.pkg`** (it shows as version **v5.72**) to install the custom
+- Choose **`E_App_Upg_Uni.mod003.pkg`** (it shows as version **v5.73**) to install the custom
   firmware.
 - Choose **`E_App_Upg_Uni.pkg`** (version **v5.69**) to put Raymarine's original firmware back.
 
 Follow Raymarine's normal on-screen update procedure for the flashing itself.
 
-When the unit comes back up, open its **Unit Info** screen: you should see version **v5.72** and, if
+When the unit comes back up, open its **Unit Info** screen: you should see version **v5.73** and, if
 you entered one, your **builder handle**.
 
 ## Going back to stock

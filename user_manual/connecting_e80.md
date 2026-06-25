@@ -18,9 +18,9 @@ other. If you do not have one, you can skip both.
 **Important Note:** *navMate has been tested with **v5.52** of the Raymarine firmware, and
 exhaustivly tested with the only still available Raymarine
 [**v5.69 firmware**](https://www.raymarine.com/en-us/download/e-series-classic-software) and the
-[**custom v5.72 firmware**](custom_firmware.md) you can produce from navMate.
+[**custom v5.73 firmware**](custom_firmware.md) you can produce from navMate.
 **navMate may not work with earlier versions of Raymaine firmware**, and
-so, if you're on firmware older than 5.52, we recommend upgrading your plotter to 5.69 or 5.72 if you wish to use it with navMate.*
+so, if you're on firmware older than 5.52, we recommend upgrading your plotter to 5.69 or 5.73 if you wish to use it with navMate.*
 
 Connecting is a one-time setup: a cable between your computer and the plotter, and a short
 network step that navMate helps you through.

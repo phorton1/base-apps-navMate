@@ -1,7 +1,7 @@
 #---------------------------------------------
 # em_build.pm
 #---------------------------------------------
-# Run the build pipeline (extract -> mod001 -> mod002 -> build) and show coarse
+# Run the build pipeline (extract -> mod001 -> mod002 -> mod003 -> build) and show coarse
 # progress.  The work is synchronous and fast; it is kicked off via CallAfter so
 # the panel paints first, and each step repaints between e80Firmware calls.
 
