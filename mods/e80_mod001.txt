@@ -5,15 +5,6 @@
 # E80, so runtime unknowns can be settled empirically against real bytes on the
 # device. This is a debug primitive, not a feature. Length-preserving: the bytes
 # overwritten are positively-known dead code, given up on purpose.
-#
-#   design / wire format / why-safe / reused offsets : deployment/mod001.md
-#   live-device instrument view                      : tools/diagnostics.md
-#   catalog / versions                               : deployment/mods.md
-#   record + annotation syntax, apply, build         : deployment/modification.md
-#   ghidra annotation directives (full grammar)      : tools/ghidra.md
-#
-# Supersedes the reverted first mod001 (the TFTP gate flip; see history.md).
-# file_offset == ghidra_addr for this image (identity mapping).
 # =====================================================================
 
 

@@ -7,15 +7,6 @@
 # heap scratch and streams it back over the same connection. The host composites
 # and writes the PNG -- nothing is converted on the device. Also stamps the app's
 # reported version to 5.72.
-#
-#   design / why-safe / wire format / reused offsets : deployment/mod002.md
-#   catalog / versions / package composition         : deployment/mods.md
-#   record + annotation syntax, apply, build         : deployment/modification.md
-#   ghidra annotation directives (full grammar)      : tools/ghidra.md
-#   host-side capture library                        : cleanroom/e80ScreenGrab_API.md
-#
-# Ships WITH mod001 in one package (v5.72): the regions are disjoint.
-# file_offset == ghidra_addr for this image (identity mapping).
 # =====================================================================
 
 

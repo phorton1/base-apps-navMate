@@ -1,0 +1,178 @@
+# =====================================================================
+# mod003 -- per-track-point datetime (+ corrected depth), DB-toggled
+# =====================================================================
+# E80 track points natively carry position + depth(cm) + temp(K), but no time.
+# This mod makes the on-device recorder stamp each committed point with a real
+# wall-clock value, so standalone-recorded tracks (navMate is NOT connected while
+# the E80 records) are date-stamped.
+#
+# Toggle -- a DB value gates the behavior, so it can be turned off without a reflash:
+#   fid 0x05ff0001 (BOOL8, ENC 0x0054) -- a novel item minted over the stock DB
+#   protocol (see abstracts/DB_FIDS + abstracts/DATABASE; persists across reboot on
+#   E80-2). Read each point via the stub's read_item helper:
+#     value 0 OR ABSENT -> write timed tracks   (default)
+#     value nonzero     -> write stock non-timed tracks
+#   read_item returns 0 for both "explicitly 0" and "item not present", so a unit
+#   that never had the fid minted gets timed tracks by default. navMate carries a
+#   purpose-built UI that sets/clears this one fid (scripts/_db_create.pl mints it,
+#   scripts/_db_set.pl flips it); the mod itself only READS it.
+#
+# Mechanism -- ride the existing storage/serve/round-trip machinery, length-preserving:
+#   [A] retarget the `bl addPoint` in all three track emit sites to `bl mod003_stub`.
+#   [B] mod003_stub -- the datetime/depth injector in the InterNiche dev-CLI reservoir
+#       (run 06), with the toggle read at its head. It reads fid 0x05ff0001; if set it
+#       branches to the epilogue and tail-calls addPoint with the point UNTOUCHED (stock
+#       track). Else it reads the day/time data items, packs datetime =
+#       (date & 0xffff)*86400 + time/10000 (unix sec) into the point's DEPTH field and
+#       real depth (0.1 ft) into the junk TEMP field, then tail-calls addPoint.
+#   [D] bump the SysInfo build-stamp self-check + fallback to 573 (v5.73 DOB).
+#
+# A datetime in the DEPTH slot is ~1.78e9 -- an impossible depth -- so a consumer
+# identifies a timed track from the point values themselves; no track-type flag is set.
+#
+# BASE: apply onto e80_base + mod001 + mod002, where run 06 holds stock InterNiche code;
+# the SHA-256 guard aborts cleanly otherwise.
+# =====================================================================
+
+
+# [A] -- retarget the three track emit sites' `bl TrackRecorder_addPoint` (0x002e8c34)
+#        at mod003_stub (0x00293340). Only real points reach addPoint (segment breaks
+#        bypass it), so only real points are routed through the stub; the toggle decision
+#        is made per point inside the stub.
+plate 0x002f84cc << CAutoTrackCalculator_emitPoint (DEFAULT/Auto).  *** MODIFIED BY mod003 ***
+                    its `bl addPoint` @0x2f86c8 calls mod003_stub. >>
+edit 002f86c8 0x002f86c8 4 68be4733d9e683349285ec0a3c7634a1b662c239e9fe81b67170ac6adcc766f4
+    bl addPoint -> bl mod003_stub (Auto emit site)
+new
+    1c6bfeeb   # bl   0x00293340          ; was bl TrackRecorder_addPoint (0x002e8c34)
+end
+plate 0x002f8cb8 << CDistanceTrackCalculator_emitPoint.  *** MODIFIED BY mod003 *** its
+                    `bl addPoint` @0x2f8eb4 calls mod003_stub. >>
+edit 002f8eb4 0x002f8eb4 4 a67a1167bb982d8bbddce3b36f6800105dcd33be83bc8e30be607b9d52ac66eb
+    bl addPoint -> bl mod003_stub (Distance emit site)
+new
+    2169feeb   # bl   0x00293340          ; was bl TrackRecorder_addPoint (0x002e8c34)
+end
+plate 0x002e96dc << CTimeTrackCalculator_emitPoint.  *** MODIFIED BY mod003 *** its
+                    `bl addPoint` @0x2e98e4 calls mod003_stub. >>
+edit 002e98e4 0x002e98e4 4 2ed2845d19288752cc6ab13289f81a2a8534d7b87c749618481fb11557a2644c
+    bl addPoint -> bl mod003_stub (Time emit site)
+new
+    95a6feeb   # bl   0x00293340          ; was bl TrackRecorder_addPoint (0x002e8c34)
+end
+
+
+# [B] -- the toggle-gated datetime/depth injector, in InterNiche dev-CLI run 06
+#        (0x00293340..0x0029346f, 304 B; run ends 0x002934b3, 68 B spare). ARMv4T-safe:
+#        the getItem call uses `mov lr,pc; bx ip` (this core has no blx).
+func  0x00293340 0x00293463  mod003_stub
+sig   0x00293340  void mod003_stub(void *controller, void *pPointParam, int flag)  cc=__stdcall
+pre   0x00293340 << per-point datetime + corrected-depth injector, DB-toggled, in the
+                    InterNiche dev-CLI reservoir (run 06). Transparent wrapper around
+                    TrackRecorder_addPoint (0x002e8c34): the emit sites call addPoint with
+                    r0,r1,r2 = (controller, &pointParam, flag); *(r1) -> the 14-byte
+                    TRACK_PT {north@0, east@4, temp@8, depth@0xa}.
+                    TOGGLE: read_item(fid 0x05ff0001, ENC 0x0054 BOOL8). Nonzero -> branch to
+                    epilogue and tail-call addPoint with the point UNTOUCHED (stock non-timed
+                    track). 0 or absent (read_item returns 0 on a failed/missing read) -> stamp:
+                      point.depth (uint32 cm @ +0xa) <- datetime = (date & 0xffff)*86400 + time/10000
+                      point.temp  (uint16    @ +0x8) <- real depth in 0.1 ft = (cm*0x5400) lsr 16
+                    getItem ABI: provider = DataProvider_instance (0x0044c530); vmethod[0x8c] =
+                    getItem (called via mov lr,pc / bx ip -- ARMv4T, no blx); desc = 0x44 B stack
+                    obj init by FUN_000041a4; FUN_000043b8 extracts (0x40000 on success). read_item
+                    zero-dests so the 16-bit Date reads clean. Time is 0.1 ms units, /10000 on-device
+                    (umull by 0xD1B71759, high word lsr 13). Wrong FID/type -> value stays 0. >>
+edit 00293340 0x00293340 304 af23e749556ef9dd4e9bfb99aeeaec8dc229889c5f4e43926dbc1d7fddfd3b4a
+    toggle-gated datetime + corrected-depth injector
+new
+    f7402de9   # push {r0, r1, r2, r4, r5, r6, r7, lr}
+    004091e5   # ldr  r4, [r1]                 ; r4 = TRACK_PT
+    50d04de2   # sub  sp, sp, #80
+    0d70a0e1   # mov  r7, sp                   ; r7 = &desc
+    76e406eb   # bl   44c530 <provider>       ; r0 = DataProvider
+    0060a0e1   # mov  r6, r0                   ; r6 = provider
+    0c019fe5   # ldr  r0, [pc] <Lfid>         ; r0 = 0x05ff0001 (toggle fid)
+    5410a0e3   # mov  r1, #0x54                ; ENC 0x0054 (BOOL8)
+    240000eb   # bl   read_item               ; r0 = toggle (0/absent = timed)
+    000050e3   # cmp  r0, #0
+    1f00001a   # bne  epilogue                ; flag set -> stock track, no stamp
+    1300a0e3   # mov  r0, #19                  ; date fid 0x13
+    0310a0e3   # mov  r1, #3                   ; date enc
+    1f0000eb   # bl   read_item               ; r0 = date
+    0050a0e1   # mov  r5, r0
+    1200a0e3   # mov  r0, #18                  ; time fid 0x12
+    0410a0e3   # mov  r1, #4                   ; time enc
+    1b0000eb   # bl   read_item               ; r0 = time (0.1ms units)
+    d8309fe5   # ldr  r3, [pc] <Lmagic>
+    901382e0   # umull r1, r2, r0, r3
+    a206a0e1   # lsr  r0, r2, #13              ; time/10000 (unix sec frac)
+    c8209fe5   # ldr  r2, [pc] <L86400>
+    920525e0   # mla  r5, r2, r5, r0           ; r5 = date*86400 + time/10000
+    0a00d4e5   # ldrb r0, [r4, #10]            ; real depth cm (lo)
+    0b10d4e5   # ldrb r1, [r4, #11]
+    0c20d4e5   # ldrb r2, [r4, #12]
+    0d30d4e5   # ldrb r3, [r4, #13]
+    010480e1   # orr  r0, r0, r1, lsl #8
+    020880e1   # orr  r0, r0, r2, lsl #16
+    030c80e1   # orr  r0, r0, r3, lsl #24      ; r0 = depth cm
+    151ba0e3   # mov  r1, #0x5400
+    910000e0   # mul  r0, r1, r0
+    2008a0e1   # lsr  r0, r0, #16              ; depth 0.1ft = cm*0x5400 >>16
+    0800c4e5   # strb r0, [r4, #8]             ; temp <- depth 0.1ft
+    2014a0e1   # lsr  r1, r0, #8
+    0910c4e5   # strb r1, [r4, #9]
+    0a50c4e5   # strb r5, [r4, #10]            ; depth <- datetime
+    2504a0e1   # lsr  r0, r5, #8
+    0b00c4e5   # strb r0, [r4, #11]
+    2508a0e1   # lsr  r0, r5, #16
+    0c00c4e5   # strb r0, [r4, #12]
+    250ca0e1   # lsr  r0, r5, #24
+    0d00c4e5   # strb r0, [r4, #13]
+    50d08de2   # add  sp, sp, #80              ; epilogue:
+    f740bde8   # pop  {r0, r1, r2, r4, r5, r6, r7, lr}
+    0e5601ea   # b    2e8c34 <addPoint>       ; tail-call
+    10402de9   # push {r4, lr}                 ; read_item:
+    0040a0e1   # mov  r4, r0                   ; r4 = fid
+    0700a0e1   # mov  r0, r7
+    66c3f5eb   # bl   41a4 <desc init>
+    b410c7e1   # strh r1, [r7, #4]             ; desc.enc = r1
+    0600a0e1   # mov  r0, r6
+    002096e5   # ldr  r2, [r6]
+    8cc092e5   # ldr  ip, [r2, #140]           ; vmethod 0x8c = getItem
+    0410a0e1   # mov  r1, r4
+    0720a0e1   # mov  r2, r7
+    0fe0a0e1   # mov  lr, pc                   ; ARMv4T call (no blx)
+    1cff2fe1   # bx   ip
+    0040a0e3   # mov  r4, #0                   ; default result 0
+    000050e3   # cmp  r0, #0
+    080000ba   # blt  ri_done                  ; getItem<0 -> 0
+    0400a0e3   # mov  r0, #4
+    4c0087e5   # str  r0, [r7, #76]
+    484087e5   # str  r4, [r7, #72]
+    481087e2   # add  r1, r7, #72
+    4c2087e2   # add  r2, r7, #76
+    0700a0e1   # mov  r0, r7
+    d9c3f5eb   # bl   43b8 <extract>          ; 0x40000 = ok
+    010750e3   # cmp  r0, #0x40000
+    48409705   # ldreq r4, [r7, #72]           ; r4 = value
+    0400a0e1   # mov  r0, r4                   ; ri_done:
+    1040bde8   # pop  {r4, lr}
+    1eff2fe1   # bx   lr
+    80510100   # .word 0x00015180             ; L86400
+    5917b7d1   # .word 0xd1b71759             ; Lmagic (1/10000 recip)
+    0100ff05   # .word 0x05ff0001             ; Lfid (toggle fid)
+end
+
+
+# [D] -- bump the SysInfo build-stamp self-check + fallback to 573 (v5.73 DOB).
+#        Chains on mod002 (old_hash = the 572 state). Display-only.
+edit 0017a924 0x0017a924 4 c7928cb3d9f64ae1c14d180e8b56ca800fc4ebe9c99a5e83d6d62c07ce009c56
+    version self-check -> 573 (match the v5.73 DOB)
+new
+    3d1081e2   # add  r1, r1, #0x3d   ; r1 = 0x23d (573)
+end
+edit 0017a93c 0x0017a93c 4 842651a6521034661c0ff86032f089fa0078afad638ac476b26c80ea0546f0ca
+    fallback version -> 573
+new
+    3d0080e2   # add  r0, r0, #0x3d   ; r0 = 0x23d (573)
+end

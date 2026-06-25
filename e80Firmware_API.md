@@ -79,7 +79,7 @@ against the record's recorded original-region hash before any byte is written, s
 a record that does not match the image is rejected with no partial edit. Idempotent
 (a region already equal to its new bytes is skipped). Returns 1 on success, 0 on
 failure. Annotation directives in the record are ignored here (they drive the
-Ghidra-side engine, not the binary patch).
+annotation layer, not the binary patch).
 
 To stack mods, call once per record against the same `\$image`, in order. A record
 whose recorded original hashes assume an earlier mod must be applied after it.

@@ -870,7 +870,7 @@ sub _localSize
 sub _localRead
     # Read a whole \local file by path and return its raw bytes ('' if empty), or undef if the file
     # is missing / unreadable. STAT-guards, GET-SIZEs, then reads the file in <= $POKE_CHUNK pieces at
-    # successive offsets (the proven read_pageset recipe -- a single whole-file READ can short-copy),
+    # successive offsets (the proven page-set read recipe -- a single whole-file READ can short-copy),
     # peeking each piece back out of scratch.
 {
     my ($this, $path) = @_;

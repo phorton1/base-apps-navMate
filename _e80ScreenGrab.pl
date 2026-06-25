@@ -15,7 +15,7 @@
 #              ../temp/screen.png
 #
 # For a unit WITHOUT mod002, use the legacy mod001 peek-based grabber
-# scripts/_oldE80GrabScreen.pl (slower, tear-prone, but needs no firmware mod).
+# (slower, tear-prone, but needs no firmware mod).
 #
 #   /c/Perl/bin/perl.exe _e80ScreenGrab.pl 10.0.240.83 ../temp/screen.png
 #-------------------------------------------------------------------

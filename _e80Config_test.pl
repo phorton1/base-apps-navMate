@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 #-------------------------------------------------------------------
-# scripts/_e80Config_test.pl   <cmd>  <ip>  [folder]
+# _e80Config_test.pl   <cmd>  <ip>  [folder]
 #
 # Parameterized gated test harness for the cleanroom e80Config library
-# (docs/cleanroom/e80Config.pm). Loads the library off the cleanroom folder
+# (e80Config.pm). Loads the library off the cleanroom folder
 # and drives ONE high-level config-gestalt operation against a live E80,
 # supplying the mutate-only shared $progress hash that navMate's wx
 # ProgressDialog would otherwise provide. The library's own display() output
@@ -14,7 +14,7 @@
 #   folder = gestalt folder (required for save / restore; ignored for clear)
 #
 # EVERY command here touches the live unit; clear / restore WRITE it and reboot.
-#   /c/Perl/bin/perl.exe -I/base scripts/_e80Config_test.pl save 10.0.240.83 ./e80-2_gestalt
+#   /c/Perl/bin/perl.exe -I/base _e80Config_test.pl save 10.0.240.83 ./e80-2_gestalt
 #-------------------------------------------------------------------
 use strict;
 use warnings;
