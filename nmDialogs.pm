@@ -58,9 +58,13 @@ sub lossyTransformWarning
 	my $tn = scalar @{$issues->{truncated_names}    // []};
 	my $tc = scalar @{$issues->{truncated_comments} // []};
 	my $cm = scalar @{$issues->{color_mismatch}     // []};
+	my $dd = scalar @{$issues->{depth_degraded}     // []};
+	my $td = scalar @{$issues->{ts_dropped}         // []};
 	push @lines, "$tn item(s) will have names truncated to 15 characters." if $tn;
 	push @lines, "$tc item(s) will have comments truncated to 31 characters." if $tc;
 	push @lines, "$cm item(s) have colors that cannot round-trip to the destination and will be approximated." if $cm;
+	push @lines, "$td track(s) carry timestamps that will be DROPPED (stock-track write mode)." if $td;
+	push @lines, "$dd track(s) have centimetre depths that will be quantized to 0.1 ft (written as timed tracks)." if $dd;
 	display(0, 0, "lossyTransformWarning: $_") for @lines;
 	if ($suppress_confirm)
 	{

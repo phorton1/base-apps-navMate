@@ -1011,10 +1011,15 @@ sub _normalizeTrackPointForWire
     # lat/lon (cheaper, exact), and the depth field is read as either
     # 'depth' or 'depth_cm' (both are centimeters per
     # memory/track_point_fields.md).
-    my ($pt) = @_;
+    my ($pt, $force_timed) = @_;
+    # mod003 timed encode: encodeTrackPoint decides temp_k+depth -- a DB row with a ts,
+    # under $force_timed, packs depth=ts and temp=depth-in-0.1ft; otherwise stock
+    # passthrough (depth=depth_cm/depth, temp=temp_k).  A raw spoke point with no ts
+    # (FSH/E80 source) passes through unchanged, so a timed-overload value rides through.
+    my $enc  = encodeTrackPoint($pt, $force_timed);
     my %wire = (
-        temp_k => $pt->{temp_k} // 0,
-        depth  => $pt->{depth}  // $pt->{depth_cm} // 0,
+        temp_k => $enc->{temp_k},
+        depth  => $enc->{depth},
     );
     if (defined $pt->{north} && defined $pt->{east})
     {
@@ -1144,7 +1149,8 @@ sub _writeTrackToE80
         return 0;
     }
 
-    my @wire_points = map { _normalizeTrackPointForWire($_) } @$raw_points;
+    my $force_timed = getPref($PREF_FORCE_TIMED_TRACKS) // 1;
+    my @wire_points = map { _normalizeTrackPointForWire($_, $force_timed) } @$raw_points;
     my $mta_rec     = _buildMtaRecForItem($item, $name, $color, \@wire_points);
 
     display($dbg_e80_ops, 0, "_writeTrackToE80 name='$name' uuid=$uuid_hex points=".scalar(@wire_points));

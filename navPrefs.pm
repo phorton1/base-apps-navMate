@@ -23,6 +23,7 @@ BEGIN
 		$PREF_DATABASE_PATH
 		$PREF_HTTP_PORT
 		$PREF_MAP_BROWSER
+		$PREF_FORCE_TIMED_TRACKS
 	);
 	push @EXPORT, grep { $_ ne 'initPrefs' } @Pub::Prefs::EXPORT;
 }
@@ -34,6 +35,14 @@ our $PREF_FAHRENHEIT      = 'FAHRENHEIT';
 our $PREF_DATABASE_PATH   = 'DATABASE_PATH';
 our $PREF_HTTP_PORT       = 'HTTP_PORT';
 our $PREF_MAP_BROWSER     = 'MAP_BROWSER';
+
+# mod003 timed-track WRITE preference.  1 (default) = write a TIMED point whenever a
+# DB track row carries a per-point timestamp, on ANY target (the E80 ignores a track
+# point's depth/temp, so a timed write is safe + lossless on any firmware); 0 = "ride
+# on stock tracks" (write stock depth/temp, drop the ts) -- a courtesy for third-party
+# FSH software that cannot decode the overload.  WRITE-only: timed tracks are always
+# DECODED on read regardless of this preference.
+our $PREF_FORCE_TIMED_TRACKS = 'FORCE_TIMED_TRACKS';
 
 sub init_prefs
 	# navMate's changeable prefs are placed into the prefs hash as in-hash
@@ -54,6 +63,8 @@ sub init_prefs
 		if !defined getPref($PREF_DEPTH_DISPLAY);
 	setPref($PREF_FAHRENHEIT, 1)
 		if !defined getPref($PREF_FAHRENHEIT);
+	setPref($PREF_FORCE_TIMED_TRACKS, 1)
+		if !defined getPref($PREF_FORCE_TIMED_TRACKS);
 }
 
 1;

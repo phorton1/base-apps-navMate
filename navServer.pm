@@ -34,7 +34,7 @@ use JSON::PP qw(encode_json decode_json);
 use Pub::Utils qw(display warning error $resource_dir);
 use Pub::HTTP::Response qw(json_response);
 use Pub::Ray::NET::h_server;
-use navPrefs qw(getPref setPref $PREF_HTTP_PORT $PREF_MAP_BROWSER);
+use navPrefs qw(getPref setPref $PREF_HTTP_PORT $PREF_MAP_BROWSER $PREF_FORCE_TIMED_TRACKS);
 use nmResources qw(ensureLeafletNative ensureLeafletMask leafletNativePath leafletMaskPath);
 use nmDialogs qw($suppress_confirm $suppress_outcome $suppress_error_dialog);
 use navDB;
@@ -375,6 +375,16 @@ sub handle_request
 			? nmE80TimedTracks::apiSet($params->{enabled})
 			: nmE80TimedTracks::apiGet();
 		return json_response($request, $result);
+	}
+	elsif ($uri eq '/api/force_timed_tracks')
+	{
+		# mod003 WRITE preference (navMate-side; distinct from the E80 DEVICE toggle at
+		# /api/timed_tracks): cmd=get reads it, cmd=set&val=0|1 writes it.  1 (default) =
+		# force timed writes when a DB track carries timestamps; 0 = "ride on stock".
+		my $params = $request->{params} || {};
+		setPref($PREF_FORCE_TIMED_TRACKS, ($params->{val} // 0) ? 1 : 0)
+			if ($params->{cmd} // 'get') eq 'set';
+		return json_response($request, { ok => 1, force_timed => (getPref($PREF_FORCE_TIMED_TRACKS) ? 1 : 0) });
 	}
 	elsif ($uri eq '/api/e80config')
 	{

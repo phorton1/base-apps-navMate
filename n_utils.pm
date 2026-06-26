@@ -34,6 +34,8 @@ BEGIN
 		tsText
 		$TRACK_TIMED_MIN
 		trackPointIsTimed
+		decodeTrackPoint
+		encodeTrackPoint
 		trackPointsText
 		trackEndpointsText
 		routePointsText
@@ -337,6 +339,59 @@ sub trackPointIsTimed
 {
 	my ($depth_raw) = @_;
 	return defined($depth_raw) && $depth_raw >= $TRACK_TIMED_MIN ? 1 : 0;
+}
+
+
+# tenths-of-a-foot <-> centimetres.  A mod003 TIMED point stores depth in the
+# (overloaded) temp field as 0.1 ft; the hub stores depth in cm.  0.1 ft = 3.048 cm.
+my $CM_PER_TENTH_FT = 3.048;
+
+
+sub decodeTrackPoint
+	# Decode one RAW spoke track point (Pub::Ray parseTRK shape:
+	# {lat, lon, north, east, temp_k, depth}) into the hub's flat per-point columns
+	# {lat, lon, depth_cm, temp_k, ts}.  mod003 TIMED points overload the last two
+	# wire fields: when the raw depth reads as a unix time (trackPointIsTimed) the
+	# depth field IS the timestamp and the temp field is the real depth in 0.1 ft --
+	# so they split out as {ts, depth_cm from 0.1ft, temp_k=0}.  STOCK points pass
+	# through {depth_cm=depth, temp_k, ts=0}.  See $TRACK_TIMED_MIN and the corpus
+	# Pub::Ray e80_firmware/deployment/mod003.md.
+{
+	my ($pt) = @_;
+	my $raw_depth = $pt->{depth} // $pt->{depth_cm} // 0;
+	my %hub = (lat => $pt->{lat}, lon => $pt->{lon});
+	if (trackPointIsTimed($raw_depth))
+	{
+		$hub{ts}       = $raw_depth;
+		$hub{depth_cm} = int(($pt->{temp_k} // 0) * $CM_PER_TENTH_FT + 0.5);
+		$hub{temp_k}   = 0;
+	}
+	else
+	{
+		$hub{depth_cm} = $raw_depth;
+		$hub{temp_k}   = $pt->{temp_k} // 0;
+		$hub{ts}       = 0;
+	}
+	return \%hub;
+}
+
+
+sub encodeTrackPoint
+	# Encode one hub point {depth_cm, temp_k, ts} into the two overloadable wire
+	# fields {temp_k, depth} for buildTRKPoint (the caller supplies north/east).
+	# When $force_timed is set AND the point carries a real timestamp
+	# (>= $TRACK_TIMED_MIN), write a TIMED point: depth = the unix ts, temp = depth
+	# in 0.1 ft (a real cm depth degrades to the 0.1 ft grid -- the accepted loss).
+	# Otherwise write STOCK: depth = depth_cm, temp = temp_k.  Firmware-agnostic --
+	# the E80 ignores a track point's depth/temp, so a timed write is safe on any
+	# unit and round-trips losslessly through it.
+{
+	my ($pt, $force_timed) = @_;
+	my $ts       = $pt->{ts} // 0;
+	my $depth_cm = $pt->{depth_cm} // $pt->{depth} // 0;
+	return { depth => $ts, temp_k => int($depth_cm / $CM_PER_TENTH_FT + 0.5) }
+		if $force_timed && $ts >= $TRACK_TIMED_MIN;
+	return { depth => $depth_cm, temp_k => $pt->{temp_k} // 0 };
 }
 
 

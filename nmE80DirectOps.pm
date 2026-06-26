@@ -63,12 +63,29 @@ my $pending_success;
 
 sub filesysDevices
     # Live E80 units advertising the RAYDP FILESYS service, as ({ip, device_id}, ...) sorted by
-    # ip.  Every E80 advertises FILESYS, so this is the reliable target list.
+    # ip.  Every E80 advertises FILESYS, so this is the reliable target list.  With $min defined,
+    # restricts to units whose RAYDP IDENT firmware version is >= $min -- the per-device floor for
+    # the diagnostics-channel features (config = v5.71/mod001, grab = v5.72/mod002).  Config and
+    # grab are multi-device, so the floor is a property of each candidate; timed tracks is
+    # master-only and gates separately on the connected unit (see nmE80TimedTracks).
 {
+    my ($min) = @_;
     my $raydp = Pub::Ray::NET::c_RAYDP::getRayDP();
     return () if !$raydp;
     my $ports = $raydp->getServicePortsByAddr();
     return () if !$ports;
+
+    # per-ip firmware version from the RAYDP IDENT device records (only needed when filtering)
+    my %ver;
+    if (defined $min)
+    {
+        my $recs = $raydp->{devices} || {};
+        for my $d (values %$recs)
+        {
+            $ver{$d->{ip}} = $d->{version} if $d && $d->{ip} && defined $d->{version};
+        }
+    }
+
     my @devs;
     for my $addr (keys %$ports)
     {
@@ -77,6 +94,7 @@ sub filesysDevices
         my $ip = $sp->{ip};
         $ip = $1 if !$ip && $addr =~ /^([^:]+):/;       # fall back to the addr's ip half
         next if !$ip;
+        next if defined($min) && !(defined($ver{$ip}) && $ver{$ip} >= $min);
         push(@devs, { ip => $ip, device_id => $sp->{device_id} // '' });
     }
     @devs = sort { $a->{ip} cmp $b->{ip} } @devs;   # not "return sort ..." -- sort in scalar context is undef
@@ -85,8 +103,30 @@ sub filesysDevices
 
 
 sub deviceCount
+    # Count of reachable FILESYS units (optionally restricted to those at firmware >= $min).
 {
-    return scalar(filesysDevices());
+    my ($min) = @_;
+    return scalar(filesysDevices($min));
+}
+
+
+sub _opMinVersion
+    # The firmware floor an op requires: the config ops (save/restore/clear) ride the mod001
+    # (v5.71) diagnostics channel; screen grab needs mod002 (v5.72).  undef = no floor.
+{
+    my ($op) = @_;
+    return 5.71 if $op eq 'save' || $op eq 'restore' || $op eq 'clear';
+    return 5.72 if $op eq 'grab';
+    return undef;
+}
+
+
+sub opDeviceCount
+    # Reachable units that satisfy $op's firmware floor -- drives the menu enable/disable so a
+    # diagnostics-channel op only lights up when at least one capable unit is present.
+{
+    my ($op) = @_;
+    return deviceCount(_opMinVersion($op));
 }
 
 
@@ -291,7 +331,7 @@ sub _doInteractive
         return;
     }
 
-    my $dev = _pickDevice($frame);
+    my $dev = _pickDevice($frame, _opMinVersion($op));
     return if !$dev;
     my $target_id = deviceLabel($dev->{ip}, $dev->{device_id});
     my $source_id = $target_id;             # for save, the source IS the live unit
@@ -345,13 +385,18 @@ sub _doInteractive
 
 
 sub _pickDevice
-    # 0 devices -> error + undef; 1 -> that device; 2+ -> a chooser.  Returns {ip,device_id} or undef.
+    # 0 devices -> error + undef; 1 -> that device; 2+ -> a chooser.  Returns {ip,device_id} or
+    # undef.  With $min defined, only units meeting that firmware floor are offered, so a too-old
+    # unit can't be chosen for a diagnostics-channel op; the empty-case message says which.
 {
-    my ($frame) = @_;
-    my @devs = filesysDevices();
+    my ($frame, $min) = @_;
+    my @devs = filesysDevices($min);
     if (!@devs)
     {
-        okDialog($frame, "No E80 is reachable on the network.", "E80 Configuration");
+        my $msg = (defined($min) && scalar(filesysDevices()))
+            ? sprintf("No reachable E80 has the firmware (v%.2f+) this operation requires.", $min)
+            : "No E80 is reachable on the network.";
+        okDialog($frame, $msg, "E80 Configuration");
         return undef;
     }
     return $devs[0] if @devs == 1;

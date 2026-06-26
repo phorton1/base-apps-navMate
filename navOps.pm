@@ -21,6 +21,7 @@ use navDB;
 use navFSH qw(fshToNavUUID navToFSHUUID);
 use n_defs;
 use n_utils;
+use navPrefs;
 use nmResources;
 use navClipboard;
 use nmDialogs;
@@ -1842,13 +1843,15 @@ sub _hasLossyIssues
 	my ($issues) = @_;
 	return @{$issues->{truncated_names}    // []}
 	    || @{$issues->{truncated_comments} // []}
-	    || @{$issues->{color_mismatch}     // []};
+	    || @{$issues->{color_mismatch}     // []}
+	    || @{$issues->{depth_degraded}     // []}
+	    || @{$issues->{ts_dropped}         // []};
 }
 
 sub _preflightLossyTransform
 {
 	my ($items, $direction) = @_;
-	my (@trunc_names, @trunc_comments, @color_mismatch);
+	my (@trunc_names, @trunc_comments, @color_mismatch, @depth_degraded, @ts_dropped);
 
 	# FSH spoke shares the E80 name/comment field-length limits
 	# (Z16/Z32) and the same 0-5 color palette index.  db_to_fsh and
@@ -1856,6 +1859,8 @@ sub _preflightLossyTransform
 	# matching E80 directions.  See [[fsh-name-comment-limits]].
 	my $is_db_to_spoke = ($direction eq 'db_to_e80' || $direction eq 'db_to_fsh');
 	my $is_spoke_to_db = ($direction eq 'e80_to_db' || $direction eq 'fsh_to_db');
+	# mod003 timed-track write preference governs which encode loss we surface (below).
+	my $force_timed = getPref($PREF_FORCE_TIMED_TRACKS) // 1;
 
 	my $dbh = $is_spoke_to_db ? connectDB() : undef;
 
@@ -1888,6 +1893,23 @@ sub _preflightLossyTransform
 			push @color_mismatch, $name
 				if ($t eq 'route' || $t eq 'track')
 				&& !isExactE80Color($d->{color} // '');
+
+			# mod003 encode loss, preference-conditional: a timed track (ts_start>0)
+			# either has its timestamps DROPPED (stock-write / opt-out) or its real
+			# centimetre depth QUANTIZED to 0.1 ft (force-timed, only when the ts was
+			# backfilled onto cm depths -- ts_source != 'e80', i.e. not mod003-origin,
+			# whose depths are already on the 0.1 ft grid and round-trip cleanly).
+			if ($t eq 'track' && ($d->{ts_start} // 0) > 0)
+			{
+				if (!$force_timed)
+				{
+					push @ts_dropped, $name;
+				}
+				elsif (($d->{ts_source} // '') ne 'e80')
+				{
+					push @depth_degraded, $name;
+				}
+			}
 		}
 		elsif ($is_spoke_to_db && $dbh)
 		{
@@ -1913,6 +1935,8 @@ sub _preflightLossyTransform
 		truncated_names    => \@trunc_names,
 		truncated_comments => \@trunc_comments,
 		color_mismatch     => \@color_mismatch,
+		depth_degraded     => \@depth_degraded,
+		ts_dropped         => \@ts_dropped,
 	};
 }
 

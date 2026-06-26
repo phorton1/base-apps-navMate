@@ -1105,20 +1105,24 @@ sub _pasteTrackToFSH
 	my $data     = $item->{data} // {};
 	my ($name, $comment) = _truncForFSH($data->{name} // '', $data->{comment} // '');
 
-	my $pts_in  = $data->{points} // [];
-	my $pts_out = shared_clone([]);
+	my $pts_in      = $data->{points} // [];
+	my $pts_out     = shared_clone([]);
+	my $force_timed = getPref($PREF_FORCE_TIMED_TRACKS) // 1;
 	for my $pt (@$pts_in)
 	{
 		my $lat = $pt->{lat} // 0;
 		my $lon = $pt->{lon} // 0;
 		my $ne  = latLonToNorthEast($lat, $lon);
+		# mod003 timed encode (same rule as the E80 spoke); MTA start/end below
+		# follow the encoded points, so a mixed track yields a mixed MTA for free.
+		my $enc = encodeTrackPoint($pt, $force_timed);
 		my $rec = &threads::shared::share({});
 		$rec->{lat}    = $lat;
 		$rec->{lon}    = $lon;
 		$rec->{north}  = $ne->{north} // 0;
 		$rec->{east}   = $ne->{east}  // 0;
-		$rec->{depth}  = $pt->{depth_cm} // 0;
-		$rec->{temp_k} = $pt->{temp_k}   // 0;
+		$rec->{depth}  = $enc->{depth};
+		$rec->{temp_k} = $enc->{temp_k};
 		push @$pts_out, $rec;
 	}
 	my $cnt = scalar @$pts_out;

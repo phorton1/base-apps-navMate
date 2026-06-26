@@ -730,8 +730,11 @@ sub _pasteItemsToCollection
 			{
 				my $track       = $item->{data};
 				my $pts         = $track->{points} // [];
-				my $ts_start    = $track->{ts_start} // (@$pts ? ($pts->[0]{ts}  // 0) : 0);
-				my $ts_end      = $track->{ts_end}   // (@$pts ? $pts->[-1]{ts}       : undef);
+				# spoke->hub: decode the mod003 timed overload per point (ts/depth/temp
+				# split into the hub's flat columns); ts_start/end follow the decoded ends.
+				my @db_pts      = map { decodeTrackPoint($_) } @$pts;
+				my $ts_start    = $track->{ts_start} // (@db_pts ? ($db_pts[0]{ts}  // 0) : 0);
+				my $ts_end      = $track->{ts_end}   // (@db_pts ? $db_pts[-1]{ts}      : undef);
 				my $ts_source   = ($source eq 'e80' || $source eq 'fsh') ? 'e80' : ($track->{ts_source} // 'user');
 				my $track_color = ($source eq 'e80' || $source eq 'fsh')
 					? e80ColorIndexToAbgr($track->{color})
@@ -748,15 +751,8 @@ sub _pasteItemsToCollection
 					companion_uuid  => (($source eq 'e80' || $source eq 'fsh') ? $track->{trk_uuid} : undef),
 					position        => $pos,
 				);
-				if (@$pts)
+				if (@db_pts)
 				{
-					my @db_pts = map {{
-						lat      => $_->{lat},
-						lon      => $_->{lon},
-						depth_cm => $_->{depth_cm} // $_->{depth},
-						temp_k   => $_->{temp_k},
-						ts       => $_->{ts},
-					}} @$pts;
 					insertTrackPoints($dbh, $track_uuid, \@db_pts);
 				}
 				if ($cut_flag)
@@ -989,10 +985,11 @@ sub _pasteDB
 				{
 					my $tr       = $item->{data};
 					my $pts      = $tr->{points} // [];
+					my @db_pts   = map { decodeTrackPoint($_) } @$pts;   # spoke->hub: split timed overload
 					my $ts_src   = ($source eq 'e80' || $source eq 'fsh') ? 'e80' : ($tr->{ts_source} // 'user');
 					my $color    = ($source eq 'e80' || $source eq 'fsh') ? e80ColorIndexToAbgr($tr->{color}) : $tr->{color};
-					my $ts_start = $tr->{ts_start} // (@$pts ? ($pts->[0]{ts} // 0) : 0);
-					my $ts_end   = $tr->{ts_end}   // (@$pts ? $pts->[-1]{ts}       : undef);
+					my $ts_start = $tr->{ts_start} // (@db_pts ? ($db_pts[0]{ts} // 0) : 0);
+					my $ts_end   = $tr->{ts_end}   // (@db_pts ? $db_pts[-1]{ts}       : undef);
 					if ($cut_flag && $source eq 'database' && !$fresh)
 					{
 						moveTrack($dbh, $item->{uuid}, $coll_uuid, $pos);
@@ -1014,15 +1011,8 @@ sub _pasteDB
 							companion_uuid  => (($source eq 'e80' || $source eq 'fsh') ? $tr->{trk_uuid} : undef),
 							position        => $pos,
 						);
-						if (@$pts)
+						if (@db_pts)
 						{
-							my @db_pts = map {{
-								lat      => $_->{lat},
-								lon      => $_->{lon},
-								depth_cm => $_->{depth_cm} // $_->{depth},
-								temp_k   => $_->{temp_k},
-								ts       => $_->{ts},
-							}} @$pts;
 							insertTrackPoints($dbh, $new_uuid, \@db_pts);
 						}
 						push @to_cut, $item if $cut_flag;
