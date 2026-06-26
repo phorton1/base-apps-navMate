@@ -86,9 +86,12 @@ Base URL: `http://localhost:9883`.
 | `GET /api/test?op=create_branch&name=NAME` | `parent_uuid` optional (omitted = root) | Dialog-free NEW_BRANCH. Returns `{ok:1,queued:1}`; new branch's UUID appears in log as `navTest: create_branch '<name>' uuid=<uuid>`. |
 | `GET /api/test?op=load_fsh&path=<abs>` | `path` = absolute filesystem path to a `.fsh` archive | Loads FSH file via `navFSH::loadFSH`; opens or refreshes winFSH pane. Log: `navTest: load_fsh done path=<path>` on success; `WARNING: navTest: load_fsh failed for <path>` on parse failure. **Requires `suppress=1` first** if the in-memory FSH may be dirty -- see Suppress ordering note in Reset Primitives. |
 | `GET /api/test?panel=P&select=K&cmd=N` | `right_click=K` optional; `P` = `database`, `e80`, or `fsh` | Fires context-menu command N on panel P at node K. |
-| `GET /api/nmdb` | -- | navMate DB state: arrays -- waypoints, collections, routes, route_waypoints, tracks. |
+| `GET /api/nmdb` | -- | navMate DB state: arrays -- waypoints, collections, routes, route_waypoints, tracks. Track rows carry `ts_start`,`ts_end`,`ts_source`,`point_count` (per-point data is NOT here -- use `/api/track_points`). |
+| `GET /api/track_points?uuid=<track_uuid>` | `uuid` = navMate-canonical track uuid | Per-point rows for ONE track: `{uuid, points:[{position,lat,lon,depth_cm,temp_k,ts},...]}`. The headless readback for mod003 timed-track assertions (per-point `ts` survival; cm->0.1ft depth quantization). Kept off `/api/nmdb` to avoid bloating it with every track's hundreds of points. |
 | `GET /api/db` | -- | E80 live state: hashes keyed by UUID -- waypoints, groups, routes, tracks. |
 | `GET /api/fsh` | -- | navFSH in-memory state: hashes keyed by FSH-native UUID (dashed-uppercase) -- waypoints, groups, routes, tracks; plus `filename`. Returns `{error:"no FSH database loaded"}` before any `load_fsh`. |
+| `GET /api/timed_tracks?cmd=get\|set` | `cmd=set&enabled=0\|1` | mod003 DEVICE recorder toggle (what the E80 RECORDS). `cmd=get` -> `{connected,version,value,enabled}` (also the headless firmware-version read); `cmd=set&enabled=1` => timed, `enabled=0` => stock. Gated v5.73+ (errors on older firmware). |
+| `GET /api/force_timed_tracks?cmd=get\|set` | `cmd=set&val=0\|1` | mod003 navMate WRITE preference (what navMate EMITS on DB->spoke). `val=1` (default) = force-timed when a DB track has a ts; `val=0` = "ride on stock" (drop ts). Returns `{ok:1,force_timed:0\|1}`. Pure navMate-side -- no E80 needed. |
 
 ### `/api/test` queue rule
 
@@ -319,6 +322,19 @@ Random unfamiliar WARNINGs are noted in observations and the cycle continues.
 | `WARNING: enquing mod(...)` | d_WPMGR.pm (~line 625) | Pre-existing E80/NET warning. Expected during E80 ops. Not expected during DB-only tests -- if it appears in db module, that IS a regression. |
 | `WARNING: not enquiing duplicate api_command(2)` | d_WPMGR.pm[141] | Per-member GET_ITEM de-duplication during E80 route operations (Paste Route, Delete-via-Routes-header, re-upload, Paste New Route). ~10 lines per route op. No data effect -- route lands/deletes with correct `num_wpts`, UUIDs preserved, ProgressDialog FINISHED, no IMPL ERROR. Confirmed recurring cycle 27 + 28. |
 | Track-record warnings: `TRACK EVENT(N)`, `enquing GET_CUR2`, `handleEvent() returning undef`, `bad points(0) != expected(N)`, `TRACK OUT OF BAND` | d_TRACK.pm, e_TRACK.pm, b_sock.pm | Normal protocol noise during teensyBoat-driven track creation. Save succeeds when `got track(uuid) = '<name>'` appears. |
+
+---
+
+## mod003 Timed-Track Sentinels
+
+The timed-track lossy-warn lines that the `tracks` / `fsh` / `reflash` tests assert.  Unlike the warnings above these are EXPECTED, asserted-positively log lines (emitted by `nmDialogs::lossyTransformWarning` before the `suppress=1` short-circuit, so they appear in automated-run logs).  Each is prefixed `lossyTransformWarning: ` in the log.  Match them EXACTLY:
+
+| Category | Exact line (after the `lossyTransformWarning: ` prefix) | Fires when (`db_to_e80` / `db_to_fsh`) |
+|----------|--------------------------------------------------------|----------------------------------------|
+| `ts_dropped` | `N track(s) carry timestamps that will be DROPPED (stock-track write mode).` | a timed DB track (`ts_start>0`) is written with `force_timed_tracks=0` (opt-out / ride-on-stock). |
+| `depth_degraded` | `N track(s) have centimetre depths that will be quantized to 0.1 ft (written as timed tracks).` | a timed DB track is written with `force_timed_tracks=1` AND `ts_source != 'e80'` (cm depths not already 0.1ft-quantized). |
+
+The two are MUTUALLY EXCLUSIVE for a given track -- they fork on the write preference.  The fixture is the REAL `[TIMED_CAT32]` track (`ts_source='gdb'`); flipping `force_timed_tracks` drives both lines.  Cat32's 39-char name co-fires a `truncated_names` line, so the guards assert the timed line is PRESENT/ABSENT, not "exactly one line".  Depth-quantization (cm->0.1ft) is NOT asserted from these guards (no saved track carries depth); it is exercised once, on real recorded depth, in tracks.14a (teensyBoat `d=` injection).  Spec: [`../docs/timed_tracks.md`](../docs/timed_tracks.md).
 
 ---
 

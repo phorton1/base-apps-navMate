@@ -21,6 +21,7 @@ curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
 curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh" | Out-Null
 Start-Sleep 3
+curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=1" | Out-Null   # pin mod003 write-pref (fsh.40 / fsh.G12)
 
 # Verify baseline
 $f = curl.exe -s "http://localhost:9883/api/fsh" | ConvertFrom-Json
@@ -593,6 +594,46 @@ if (-not ($f.waypoints.PSObject.Properties.Name -contains "CE4E-4318-1F01-B3AE")
 
 ---
 
+### Test 40 -- Timed-track DB->FSH->DB round-trip on real Cat32 (headless)
+
+The FSH-spoke twin of tracks.15 -- firmware-free and hardware-free, entirely in-memory.  COPYs the real `[TIMED_CAT32]` (uuid `65b3888535b54913`, 500 pts, varied ts) to the FSH tracks header under `force_timed=1` (FSH encode writes timed points into `$navFSH::fsh_db`), then COPYs the FSH track back and PASTE_NEWs it to DB (FSH->DB decode), asserting per-point ts survival incl. order.  This is the load-bearing FSH->DB decode regression -- the seam that previously stored the unix ts into `depth_cm`.
+
+```powershell
+$CAT = "65b3888535b54913"
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.40" | Out-Null
+$src = curl.exe -s "http://localhost:9883/api/track_points?uuid=$CAT" | ConvertFrom-Json
+$src_n = @($src.points).Count
+$src_distinct = (@($src.points | ForEach-Object { $_.ts }) | Sort-Object -Unique).Count
+"source Cat32: points=$src_n distinct-ts=$src_distinct first.ts=$($src.points[0].ts) last.ts=$($src.points[-1].ts)"
+curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=1" | Out-Null
+
+# DB -> FSH (encode): COPY Cat32, PASTE to FSH tracks header (uuid preserved -> FSH form; name truncates to 15)
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$CAT&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=header%3Atracks&right_click=header%3Atracks&cmd=10210" | Out-Null
+Start-Sleep 3
+$fsh_uuid = dbToFsh $CAT
+"FSH now has timed track: $((curl.exe -s 'http://localhost:9883/api/fsh' | ConvertFrom-Json).tracks.$fsh_uuid.name) @ $fsh_uuid"
+
+# FSH -> DB (decode): COPY FSH track, PASTE_NEW to DB (fresh uuid; lands under [DST])
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=$fsh_uuid&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+Start-Sleep 2
+
+$rt = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks |
+    Where-Object { $_.name -like '2005-10-09-Cat*' -and $_.collection_uuid -eq '6f4e72ceae0264de' })[0]
+$dst = curl.exe -s "http://localhost:9883/api/track_points?uuid=$($rt.uuid)" | ConvertFrom-Json
+$n        = @($dst.points).Count
+$withts   = @($dst.points | Where-Object { [double]$_.ts -ge 315532800 }).Count
+$distinct = (@($dst.points | ForEach-Object { $_.ts }) | Sort-Object -Unique).Count
+"round-trip '$($rt.name)': points=$n with-ts=$withts distinct-ts=$distinct first.ts=$($dst.points[0].ts) last.ts=$($dst.points[-1].ts)"
+```
+
+**Pass:** the round-tripped DB row has 500 points, all with `ts >= 315532800`, `first.ts = 1128888553` and `last.ts = 1128912810` (endpoints exact and IN ORDER), and `distinct-ts` matching the source (~499) -- per-point timestamps survived the FSH round-trip intact.  `with-ts` < points, or a ~1.7e9 `depth_cm`, means the FSH encode or decode seam regressed.
+
+---
+
 ## Guard Tests
 
 ### Test G1 -- Delete FSH Group+WPS blocked (members in route) [was fsh.12]
@@ -795,6 +836,49 @@ Start-Sleep 3
 ```
 
 **Pass:** preflight aborts with the sentinel `ERROR - FSH operation blocked: N name collision(s):` followed by an `intra-clipboard waypoint name '...': waypoint 'BajaCalifornia~1' vs waypoint 'BajaCalifornia~2'` line and `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`  The sentinel names the two distinct *source* WPs (their full names differ -- they can ONLY collide after truncation to `BajaCalifornia~`, so the block itself proves the post-truncation comparison fired; the message does not display the bare truncated key, and that is fine).  FSH waypoints count unchanged; NO write to in-memory `$navFSH::fsh_db`.
+
+---
+
+### Test G12 -- Timed-track lossy-warn matrix on db_to_fsh (preference-conditional)
+
+The FSH twin of tracks.G4: proves `_preflightLossyTransform` fires the timed lossy lines identically for the `db_to_fsh` direction.  Uses `[TIMED_CAT32]` (uuid `65b3888535b54913`, `ts_source='gdb'` != `'e80'`).  Its 39-char name co-fires a `truncated_names` line (FSH shares the 15-char limit), so this asserts the timed line's presence/absence, not "exactly one line".  Two mutually-exclusive phases.
+
+```powershell
+$CAT = "65b3888535b54913"   # [TIMED_CAT32]
+"using TIMED_CAT32 uuid=$CAT"
+```
+
+#### fsh.G12a -- force_timed=1 fires depth_degraded, NOT ts_dropped
+
+```powershell
+curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=1" | Out-Null
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G12a+force_timed" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$CAT&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=header%3Atracks&right_click=header%3Atracks&cmd=10210" | Out-Null
+Start-Sleep 3
+curl.exe -s "http://localhost:9883/api/log?since=mark" | ConvertFrom-Json |
+    Select-Object -Expand lines | Where-Object { $_.text -match 'lossyTransformWarning:' } | ForEach-Object { $_.text }
+```
+
+**Pass:** the `lossyTransformWarning:` lines INCLUDE `1 track(s) have centimetre depths that will be quantized to 0.1 ft (written as timed tracks).` and do NOT include any `... DROPPED ...` line.  (A `... names truncated ...` line co-fires from the 39-char name; expected, ignored.)  Under `suppress=1` the paste proceeds.
+
+#### fsh.G12b -- force_timed=0 fires ts_dropped, NOT depth_degraded
+
+```powershell
+curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=0" | Out-Null
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G12b+stock_write" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$CAT&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=header%3Atracks&right_click=header%3Atracks&cmd=10210" | Out-Null
+Start-Sleep 3
+curl.exe -s "http://localhost:9883/api/log?since=mark" | ConvertFrom-Json |
+    Select-Object -Expand lines | Where-Object { $_.text -match 'lossyTransformWarning:' } | ForEach-Object { $_.text }
+
+curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=1" | Out-Null   # restore default
+```
+
+**Pass:** the `lossyTransformWarning:` lines INCLUDE `1 track(s) carry timestamps that will be DROPPED (stock-track write mode).` and do NOT include any `... quantized to 0.1 ft ...` line.  (Truncation line co-fires; ignored.)  The write preference is restored to `1` afterward.
 
 ---
 

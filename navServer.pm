@@ -16,8 +16,10 @@
 #   /clear       - clear render map
 #   /api/query   - SELECT against navMate SQLite DB
 #   /api/nmdb    - structured snapshot: collections, waypoints, routes, route_waypoints, tracks
+#   /api/track_points - per-point rows {position,lat,lon,depth_cm,temp_k,ts} for one track (?uuid=)
 #   /api/fsh     - navFSH in-memory state as JSON (waypoints, groups, routes, tracks)
 #   /api/timed_tracks - mod003 timed-track toggle: cmd=get / cmd=set&enabled=0|1 (v5.73+)
+#   /api/force_timed_tracks - mod003 navMate WRITE preference: cmd=get / cmd=set&val=0|1 (default 1)
 #   /api/e80config - headless E80 config save/restore/clear:
 #                  ?op=save|restore|clear&ip=<addr>&folder=<path>  (folder omitted for clear)
 #                  -> { ok:1, message:... } | { error:... }   (blocking; no dialogs)
@@ -340,7 +342,7 @@ sub handle_request
 		my ($rtwps,  $e4) = navDB::rawQuery($dbh,
 			"SELECT route_uuid, wp_uuid, position FROM route_waypoints ORDER BY route_uuid, position");
 		my ($tracks, $e5) = navDB::rawQuery($dbh,
-			"SELECT uuid, name, collection_uuid, ts_start, color, db_version, e80_version, kml_version, position, source, created_ts, modified_ts, point_count FROM tracks ORDER BY name");
+			"SELECT uuid, name, collection_uuid, ts_start, ts_end, ts_source, color, db_version, e80_version, kml_version, position, source, created_ts, modified_ts, point_count FROM tracks ORDER BY name");
 		navDB::disconnectDB($dbh);
 		my $err = $e1 || $e2 || $e3 || $e4 || $e5;
 		return json_response($request,{ error => $err }) if $err;
@@ -351,6 +353,28 @@ sub handle_request
 			route_waypoints  => $rtwps,
 			tracks           => $tracks,
 		});
+	}
+	elsif ($uri eq '/api/track_points')
+	{
+		# Per-point track data for headless timed-track assertions.  /api/nmdb
+		# carries only the track-level summary (ts_start/ts_end/point_count);
+		# this exposes the per-point {position,lat,lon,depth_cm,temp_k,ts} rows
+		# the mod003 timed-track round-trip tests assert (per-point ts survival,
+		# cm->0.1ft depth quantization on a force-timed write, stock points whose
+		# ts stays 0).  Kept off /api/nmdb to avoid bloating it with every track's
+		# hundreds of points.  uuid = the navMate-canonical track uuid.
+		my $params = $request->{params} || {};
+		my $uuid = $params->{uuid} // '';
+		$uuid =~ s/[^0-9A-Fa-f-]//g;		# hex + dash only -- no SQL injection surface
+		return json_response($request,{ error => 'missing uuid' }) if $uuid eq '';
+		my $dbh = navDB::connectDB();
+		return json_response($request,{ error => 'db connect failed' }) if !$dbh;
+		my ($pts, $err) = navDB::rawQuery($dbh,
+			"SELECT position, lat, lon, depth_cm, temp_k, ts FROM track_points ".
+			"WHERE track_uuid = '$uuid' ORDER BY position");
+		navDB::disconnectDB($dbh);
+		return json_response($request,{ error => $err }) if $err;
+		return json_response($request,{ uuid => $uuid, points => $pts });
 	}
 	elsif ($uri eq '/api/fsh')
 	{

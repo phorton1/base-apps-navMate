@@ -57,6 +57,9 @@ The suite is documentation, not code. Tests are specified as exact curl commands
 | tracks | [test/tracks/plan.md](../test/tracks/plan.md) | [test/tracks/runbook.md](../test/tracks/runbook.md) |
 | fsh    | [test/fsh/plan.md](../test/fsh/plan.md)   | [test/fsh/runbook.md](../test/fsh/runbook.md) |
 | hub    | [test/hub/plan.md](../test/hub/plan.md)   | [test/hub/runbook.md](../test/hub/runbook.md) |
+| reflash *(out-of-cycle)* | [test/reflash/plan.md](../test/reflash/plan.md) | [test/reflash/runbook.md](../test/reflash/runbook.md) |
+
+The **reflash** module is the mod003 timed-track *phase (b)* check: a do-once, run-by-hand confirmation that a timed track round-trips through a deliberately-reflashed bare-stock E80. It is NOT part of the recurring full cycle (its firmware pre-check records `NOT_RUN` on a normal mod003 bench); the firmware-independent timed-track coverage (phase a) runs every cycle inside `tracks` and `fsh`. See [Timed Tracks](timed_tracks.md).
 
 ## Resources
 

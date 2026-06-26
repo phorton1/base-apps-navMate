@@ -32,7 +32,8 @@ The fsh module's baseline:
 3. `op=suppress&val=1`
 4. `op=clear_e80` (with brief wait)
 5. `op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh`
-6. `cmd=mark+fsh+module+reset`
+6. `force_timed_tracks?cmd=set&val=1` -- pin the mod003 WRITE preference to its default, so the timed FSH tests (fsh.40 / fsh.G12) start from a known write mode.  (No device-toggle pin here: FSH has no on-device recorder; that hazard is E80-only.)
+7. `cmd=mark+fsh+module+reset`
 
 After setup: `/api/db` empty; `/api/nmdb` returns the full git-baseline DB; `/api/fsh` returns 50 waypoints / 4 groups / 3 routes / 123 tracks.
 
@@ -43,6 +44,7 @@ After setup: `/api/db` empty; `/api/nmdb` returns the full git-baseline DB; `/ap
 - **SS10.2** -- name collision (intra-clipboard, FSH-wide)
 - **SS12.x** -- route-waypoint UUID preservation through PASTE_NEW
 - **`db_to_fsh` lossy transform** -- name > 15, comment > 31, route color not in FSH palette (FSH inherits identical limits + palette as E80)
+- **`db_to_fsh` timed-track lossy transform (mod003, preference-conditional)** -- identical to the E80 case: a DB track with `ts_start > 0` fires `ts_dropped` (write-pref OFF) or `depth_degraded` (write-pref ON, `ts_source != 'e80'`).  `_preflightLossyTransform` shares one codepath across `db_to_e80` and `db_to_fsh`, so FSH inherits the timed categories for free.  See [`../../docs/timed_tracks.md`](../../docs/timed_tracks.md).
 - **`fsh_to_db` lossy transform** -- route/track color mismatch against existing DB record
 
 Full pre-flight semantic catalog lives in the legacy `apps/navMate/docs/notes/navOps_testplan.md`.
@@ -88,6 +90,7 @@ Two-section structure per master_runbook's Test Organization Convention: positiv
 | fsh.30a | Ensure [FSH_IsolatedWP1] on FSH (precondition for the FSH-wide collision guard) |
 | fsh.31  | UUID conflict clean-create path (parallels e80.26) |
 | fsh.32a | Ensure [FSH_IsolatedWP1] on FSH (precondition for the descendant-paste guards) |
+| fsh.40  | **Timed-track DB->FSH->DB round-trip** (mod003; headless, no hardware).  COPY `[TIMED_CAT32]` to the FSH tracks header under `force_timed=1` (FSH encode); COPY the FSH track back and PASTE_NEW to DB (FSH->DB decode); `/api/track_points` on the new DB row shows all 500 per-point `ts` preserved, endpoints exact and IN ORDER.  The FSH-spoke twin of tracks.15 and the load-bearing FSH->DB decode regression -- the seam that previously stored the unix ts into `depth_cm`. |
 
 ### Guard Tests
 
@@ -106,6 +109,7 @@ Renamed from previous numbers; old-number cross-reference kept inline for log/co
 | fsh.G9  | D6 spoke content-vs-destination: Route at FSH groups header blocked (parallels e80.G15) | fsh.35 |
 | fsh.G10 | D6 spoke content-vs-destination: Group at FSH named-group node blocked (parallels e80.G16) | fsh.36 |
 | fsh.G11 | Intra-batch post-truncation WP collision on FSH destination -- two `BajaCalifornia~N` DB WPs PASTE'd to FSH my_waypoints; `_collectNameConflicts` rejects via post-truncation lc-key comparison.  Parallels e80.G3. | fsh.37 |
+| fsh.G12 | **Timed-track lossy-warn matrix on `db_to_fsh`** (preference-conditional).  Two phases over `[TIMED_CAT32]`: `force_timed=1` -> `depth_degraded` present, `ts_dropped` absent; `force_timed=0` -> `ts_dropped` present, `depth_degraded` absent.  The FSH twin of tracks.G4 -- proves the shared `_preflightLossyTransform` codepath fires identically for `db_to_fsh`.  Cat32's long name co-fires `truncated_names` (ignored).  Restore `force_timed=1` after. | -- |
 
 ## Intra-module sequencing
 
@@ -127,3 +131,5 @@ Key sequencing decisions:
 - The 50 isolated WPs under FSH `my_waypoints` and the 79-member `test` group (none in route) give the safe-delete tests substantial state to exercise without consuming the small-and-useful structures.
 - FSH has a pseudo `my_waypoints` -- the top-level `/api/fsh.waypoints` hash is the ungrouped pool, analogous to E80's `my_waypoints` node. Group dissolve (cmd=10221) moves embedded wpts to that pool; routes referencing the same UUIDs are unaffected because FSH routes carry their own embedded wpt records.
 - Open observation from alpha: same-UUID PASTE-WP to FSH may hit the name-uniqueness guard before the UUID-match in-place-update check. Not blocking, but worth probing if `_doPaste` precedence is ever touched.
+- **The timed FSH tests need no timed `.fsh` file.**  fsh.40 takes the real `[TIMED_CAT32]` DB track and PASTEs it to the FSH tracks header, which writes timed points into the in-memory `$navFSH::fsh_db` via the same `encodeTrackPoint` the app uses; it then reads them back through the FSH->DB decode.  So the FSH-side timed data is produced from a REAL DB track at runtime -- no synthetic insert, no fixture file.  Round-trip coverage (encode then decode) is the result.
+- **Deferred:** a *real-card* timed FSH fixture -- a `.fsh` pulled from a mod003 E80's CF card, carrying timed points produced by the firmware rather than by navMate's own encoder -- would test FSH->DB decode in ISOLATION (decode of bytes navMate did not write).  It is a bench artifact (needs a card-pull); registered as a deferred entry in `uuid_index.md`.  The mod003 wire format is byte-identical to stock (length-preserving overload), so the runtime-encoded path exercises the same decode code; the real-card file only adds third-party-origin confidence.

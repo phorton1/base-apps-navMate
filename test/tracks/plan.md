@@ -25,8 +25,11 @@ The tracks module's baseline:
 3. `op=suppress&val=1`
 4. `op=clear_e80` (with ProgressDialog wait)
 5. `op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh`
-6. `cmd=mark+tracks+module+reset`
-7. **teensyBoat pre-check** -- if teensyBoat is unavailable at `http://localhost:9881`, the entire module records as `NOT_RUN (teensyBoat unavailable)` and stops.
+6. **pin both mod003 knobs** (the timed-track hazard guard, see Notes):
+   - `force_timed_tracks?cmd=set&val=1` -- pin the navMate WRITE preference to its default (force-timed), so the encode tests start from a known write mode.
+   - `timed_tracks?cmd=set&enabled=0` -- pin the E80 DEVICE recorder to STOCK, so an unpinned timed recorder cannot silently make tracks.1 record timed and shift the data under tracks.2-13.  Best-effort: meaningful only on a mod003 v5.73+ unit; on older/stock firmware the set returns an error and is a harmless no-op (stock firmware always records stock).  Do NOT fail the module on this error.
+7. `cmd=mark+tracks+module+reset`
+8. **teensyBoat pre-check** -- if teensyBoat is unavailable at `http://localhost:9881`, the entire module records as `NOT_RUN (teensyBoat unavailable)` and stops.
 
 After setup: `/api/db` empty; `/api/nmdb` returns the full git-baseline DB; `/api/fsh` returns the test.fsh fixture (50 WPs / 4 groups / 3 routes / 123 tracks); teensyBoat reachable and responding to `?cmd=SIM`.
 
@@ -36,6 +39,7 @@ After setup: `/api/db` empty; `/api/nmdb` returns the full git-baseline DB; `/ap
 - **SS10.3** -- DB-to-DB track copy blocked (covered in db module; referenced here for context).
 - **Track preflight** (`navClipboard::_pasteTracksToE80Allows`) -- hard rules: `point_count > 0`, non-empty `mta_uuid`.  Name length and color drift are NOT hard rules; both are lossy transforms reported via the `lossyTransformWarning` dialog as advisory consent, then applied at the wire seam (silent truncation via `_truncForE80`, color snap via `abgrToE80Index`).
 - **Lossy transform** -- DB-side long name (> `$E80_MAX_NAME` = 15) and non-palette color fire `_preflightLossyTransform`.  Tracks were added to the color-drift collector alongside routes 2026-05-28.
+- **Timed-track lossy transform (mod003, preference-conditional)** -- a DB track with `ts_start > 0` fires one of TWO new lossy categories on `db_to_e80`, depending on the WRITE preference (`force_timed_tracks`): with the preference OFF (opt-out, "ride on stock") the timestamps are DROPPED (`ts_dropped`); with it ON (default) and the track's `ts_source` is not `'e80'` (i.e. its cm depths were not already quantized on a mod003 unit) the real depth is QUANTIZED to the 0.1 ft grid (`depth_degraded`).  The two are mutually exclusive (they fork on the preference).  Exact strings in `nmDialogs::lossyTransformWarning`; this is the first guard layer whose predicate READS A SETTING.  See [`../../docs/timed_tracks.md`](../../docs/timed_tracks.md).
 - **D6 spoke content-vs-destination** -- track item pasted at a non-tracks-header E80 destination is rejected by the predicate layer in `_pasteRuleAllows`.
 
 ---
@@ -69,13 +73,23 @@ End-of-Section-1 state: E80 has E80Track1 (tracks.2/3 are COPY, not CUT); DB has
 | tracks.12 | Multi-CUT from E80 -> PASTE to DB (E80-side consumed; DB receives moved tracks) |
 | tracks.13 | DELETE via E80 tracks header (mass cleanup of whatever remains) |
 
+### Section 4 -- Timed tracks (mod003)
+
+These exercise the mod003 timed-track cross-spoke data path on the E80 spoke.  They start from the empty E80 left by tracks.13.  The timed DB fixture is the REAL baseline track `[TIMED_CAT32]` (`2005-10-09-Cat32MissionBayToSanDiegoBay`, uuid `65b3888535b54913`, 500 pts, varied per-point ts) -- baseline-first, no synthetic insert.  The E80 stores a track point's depth/temp as a faithful dumb store, so the encode/decode round-trip is firmware-independent.  Depth coverage lives ONLY in tracks.14a (no saved DB track carries depth, so it is recorded live with a teensyBoat-injected depth).
+
+| Test | What it verifies |
+|------|------------------|
+| tracks.14 | **Device-toggle recording decode** (firmware sub-gate: needs a mod003 v5.73+ unit AND teensyBoat).  14a: inject depth (`teensyBoat d=25` ft), flip recorder to timed (`timed_tracks?cmd=set&enabled=1`), record, download (E80->DB PASTE_NEW); `/api/track_points` shows per-point `ts` decoded (not lost into `depth_cm`) AND `depth_cm` ~762 (the injected 25 ft -- the one real depth check).  14b: flip back to stock, record, download; points decode with `ts=0`.  Covers BOTH spoke->hub decode branches from real on-device recordings.  If the unit is < v5.73, records `NOT_RUN (firmware precondition)`. |
+| tracks.15 | **DB->E80->DB round-trip on real Cat32** (firmware-independent).  PASTE `[TIMED_CAT32]` to the E80 tracks header under `force_timed=1`; COPY it back from E80 and PASTE_NEW to DB; `/api/track_points` on the new DB row shows all 500 per-point `ts` preserved, endpoints (1128888553 / 1128912810) exact and IN ORDER, and the ~499 distinct-ts count intact -- the varied timestamps catch a point-reorder bug. No depth assertion (Cat32 carries none; depth is tracks.14a). |
+
 ### Section 3 -- Guards
 
 | Test | What it verifies |
 |------|------------------|
 | tracks.G1 | PASTE track at non-tracks-header E80 destination rejected (D6 spoke content-vs-destination sub-rule).  E80 unchanged. |
-| tracks.G2 | Lossy-warn fires both `truncated_names` and `color_mismatch` lines for [DB_TRACK_LONG_NONPALETTE]; under `suppress=1` (auto-accept), paste succeeds with name truncated at wire seam and color snapped to nearest palette index.  Log evidence: two `lossyTransformWarning:` lines (emitted before the suppress short-circuit so they appear in automated-run logs). |
+| tracks.G2 | Lossy-warn fires both `truncated_names` and `color_mismatch` lines for [DB_TRACK_LONG_NONPALETTE]; under `suppress=1` (auto-accept), paste succeeds with name truncated at wire seam and color snapped to nearest palette index.  NOTE: this fixture track is itself TIMED (2006 `kml_timespan`), so with the baseline `force_timed=1` pin a THIRD `depth_degraded` lossy line co-fires (expected; assert name+color present, ignore the timed line). |
 | tracks.G3 | uuid-collision preflight rejects spoke->DB record-creating PASTE when the source uuid already exists in DB.  Setup re-establishes shared uuid (PASTE BOCAS1-001 from DB to E80) then exercises the rejection (COPY from E80, PASTE to DB).  Sentinel names PUSH / PASTE_NEW as the alternatives. |
+| tracks.G4 | **Timed-track lossy-warn matrix on `db_to_e80`** (preference-conditional).  Two phases over `[TIMED_CAT32]`: (a) `force_timed=1` -> the `depth_degraded` line is PRESENT (`"N track(s) have centimetre depths that will be quantized to 0.1 ft (written as timed tracks)."`) and `ts_dropped` is ABSENT; (b) `force_timed=0` -> `ts_dropped` PRESENT (`"N track(s) carry timestamps that will be DROPPED (stock-track write mode)."`), `depth_degraded` ABSENT.  Cat32's 39-char name co-fires a `truncated_names` line in both phases (expected, ignored -- like tracks.G2's two co-firing categories), so this asserts the timed line's presence/absence, not "exactly one line".  Restore `force_timed=1` after. |
 
 ## Intra-module sequencing
 
@@ -94,3 +108,6 @@ Tests build E80 state progressively from the empty baseline:
 - `_pasteTracksToE80Allows`'s `point_count > 0` and non-empty `mta_uuid` hard rules are NOT exercised here.  No real-world UI flow can produce a DB row in those states (every DB track has positive points by construction; every DB row has a non-empty primary-key uuid).  The defensive code remains; integration-test coverage is omitted as unreachable.  See `survey_report.txt` 2026-05-29.
 - `tracks.10` exercises the **natural color drift** from tracks.5's PASTE -- no out-of-band modify step.  The DB track had a non-palette color (`ffff6666`); the wire seam snapped it to a palette index; PUSH back to DB lands the palette-exact ABGR, which differs from the original.  This is a genuine diff sync without requiring chartplotter UI or external helpers.
 - `[E80_TK1]` / `[E80_TK2]` UUIDs are derived at runtime from `/api/db` tracks after tracks.1a / tracks.1b save; vary per cycle.
+- **`[TIMED_CAT32]` is a REAL baseline track** (`source=db`, uuid `65b3888535b54913`) -- chosen by a UUID pass over all 389 DB tracks as the only one with genuinely varied per-point timestamps (499 distinct of 500).  Its far-past 2005 date means it is unlikely to be disturbed by future DB edits.  It carries NO depth (like every saved track), and its 39-char name truncates on write -- both shape the tests above (depth -> tracks.14a via teensyBoat; G4 asserts timed-line presence, not "exactly one line").  No synthetic DB insert is used; this is baseline-first per `../master_runbook.md` (Baseline-first, construct-as-last-resort).
+- **Depth via teensyBoat (tracks.14a).**  No saved DB track has depth, so the only real depth check records live: `teensyBoat d=25` feeds 25 ft, the mod003 recorder stamps it into each timed point (stored as 0.1 ft), and it decodes back to ~762 cm.  This is the single place the cm<->0.1ft depth path is exercised on real data; the unit-conversion chain (NMEA -> E80 -> mod003) is unverified until first run, so a 0 result there pauses for a decision rather than silently passing.
+- **Firmware sub-gate (tracks.14 only).**  Recording a TIMED track requires the device recorder, which exists only on mod003 v5.73+.  tracks.14 reads `timed_tracks?cmd=get` for the connected unit's `version`; if `< 5.73` it records `NOT_RUN (firmware precondition)` and skips.  tracks.15 and tracks.G4 are firmware-INDEPENDENT (navMate encodes timed bytes the dumb-store E80 round-trips regardless), so they run on any connected unit.

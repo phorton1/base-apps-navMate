@@ -22,6 +22,8 @@ A **single-module run** is for development and iteration: fast feedback, no arch
 
 Order is preserved everywhere -- this doc, the runbook, the cycle results file. It mirrors the natural complexity progression: single-transport (db) -> cross-panel (e80, tracks) -> FSH spoke (fsh) -> three-panel orchestration (hub).
 
+The **reflash** module is deliberately NOT in this order. It is an out-of-cycle, do-once, run-by-hand confirmation against a deliberately-reflashed bare-stock E80 (mod003 timed-track phase b); on a normal mod003 bench its firmware pre-check just records `NOT_RUN`, so stepping the recurring cycle into it would add only noise. The firmware-independent timed-track coverage (phase a) already runs every cycle inside `tracks` (`tracks.14/15/G4`) and `fsh` (`fsh.40/G12`). See `master_plan.md` *Out-of-cycle modules* and `reflash/plan.md`.
+
 ---
 
 ## Inter-Module Reset

@@ -162,3 +162,7 @@ To run a single module standalone:
 3. Read results live; produce NO `cycle_NN.md` -- single-module runs are interactive, not archival
 
 Single-module runs do not consume cycle numbers. Only completed full cycles increment N.
+
+### Out-of-cycle modules
+
+The **reflash** module (mod003 timed-track phase b) is run ONLY as a standalone single-module run, by hand, after a deliberate reflash of a bench E80 to bare-stock firmware. It is intentionally NOT one of Steps 1-5 above: on a normal mod003 bench its firmware pre-check records `NOT_RUN`, so the recurring cycle skips it entirely. Run it via its own `reflash/runbook.md` baseline + firmware pre-check. See `full_cycle_plan.md` *Module Order*.

@@ -22,11 +22,21 @@ Modules are ordered consistently throughout the suite (overview docs, folder lis
 |-------|--------|----------|--------|
 | 1     | db     | DB-internal ops + DB-only guards | Solid |
 | 2     | e80    | DB <-> E80 cross-panel ops + DB-E80 guards | Solid |
-| 3     | tracks | E80 <-> DB / FSH -> E80 tracks (teensyBoat + writer-session protocol; owns all E80 track ops) | Solid |
-| 4     | fsh    | DB <-> FSH cross-panel ops + DB-FSH guards (incl. FSH track writes) | Solid |
+| 3     | tracks | E80 <-> DB / FSH -> E80 tracks (teensyBoat + writer-session protocol; owns all E80 track ops; incl. mod003 timed-track E80 coverage) | Solid |
+| 4     | fsh    | DB <-> FSH cross-panel ops + DB-FSH guards (incl. FSH track writes + mod003 timed-track FSH coverage) | Solid |
 | 5     | hub    | Three-panel ops routed through navMate | Solid |
 
 First clean all-PASS full cycle landed 2026-05-17 (cycle 20). All 141 attempted tests passed; the 2 NOT_RUNs in e80 are by design (`e80.27 db_versioning` infrastructure absent, `e80.28a` precondition-met no-op).
+
+### Out-of-cycle modules
+
+Some modules are environment-specific and are NOT stepped into by the recurring full cycle (they would only ever record `NOT_RUN` on a normal bench):
+
+| Module | Bound by | Run when |
+|--------|----------|----------|
+| reflash | mod003 timed-track **phase (b)**: a timed DB track round-trips through a deliberately-reflashed BARE-STOCK (non-mod003) E80, + write-safety (the value-extreme timed-depth write does not boot-loop the unit) | STANDALONE / by hand, ONCE, after a deliberate reflash to stock firmware. Firmware pre-check records `NOT_RUN` on a mod003 (>= v5.73) unit. See `reflash/plan.md`. |
+
+The mod003 timed-track **phase (a)** coverage -- which is firmware-independent and runs every cycle -- lives inside the `tracks` and `fsh` modules (`tracks.14/15/G4`, `fsh.40/G12`), not in a separate module.
 
 ---
 
@@ -52,6 +62,10 @@ Two fixture artifacts back the test suite:
 - **`_fixtures/test.fsh`** -- a frozen FSH archive, dedicated to testing. Originally a copy of `FSH/test/working_oldE80.fsh` (already promoted to navMate, with stable 16-hex UUIDs). The fixture is modified deliberately when tests need new shapes, not as a side effect of other work.
 
 The asymmetry is intentional: maintaining a parallel test-specific DB is too expensive (schema-evolution overhead), while a dedicated test FSH is cheap and isolates FSH-side tests from real-world DB drift.
+
+The mod003 timed-track tests use a REAL baseline track, found by a UUID pass rather than constructed:
+
+- **`[TIMED_CAT32]`** (`65b3888535b54913`, `source=db`) -- `2005-10-09-Cat32MissionBayToSanDiegoBay`, the one DB track (of 389) with genuinely varied per-point timestamps (499 distinct of 500). Its far-past 2005 date makes it durable across DB edits. It carries no depth (like every saved track), so depth coverage is recorded live in tracks.14a via teensyBoat `d=` injection -- the one place real per-point depth exists. This is baseline-first per `master_runbook.md`; an earlier design used a synthetic `op=seed_timed_track` DB insert, dropped 2026-06-26 in favour of the real track. A *real-card* timed FSH file (bytes written by mod003 firmware, not navMate's encoder) remains a deferred bench artifact, noted in `uuid_index.md`.
 
 ---
 

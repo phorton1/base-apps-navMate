@@ -78,6 +78,7 @@ UUIDs verified 2026-05-08 from live `/api/nmdb` (schema 10, git-baseline navMate
 | [Name] | UUID | Notes |
 |--------|------|-------|
 | [TestTrack] | 1a4eed924904ebbe | "2005-11-25-SanDiego2Oceanside" -- in MandalaLogs/Tracks; 500 pts, palette color (ff00ff00 green) |
+| [TIMED_CAT32] | 65b3888535b54913 | "2005-10-09-Cat32MissionBayToSanDiegoBay" -- the mod003 timed-track fixture. 500 pts, `ts_source=gdb`, per-point timestamps that VARY (1128888553..1128912810, 499 distinct). Chosen by a UUID pass as the ONLY DB track with varied per-point ts (catches point-reorder bugs); far-past 2005 date makes it durable. Carries NO depth (like every saved track) and its 39-char name truncates on write. Used by tracks.14/15/G4, fsh.40/G12, reflash. |
 | [DB_TRACK_SHORT] | 8a4e3c4a2201fac2 | "BOCAS1-001" -- 11 chars, 77 pts, color=ffff6666; short-name positive PASTE-to-E80 candidate |
 | [DB_TRACK_LONG_NONPALETTE] | 824e8a104b04c37c | "2006-01-11-SanDiego2DanaPoint" -- 31 chars, 231 pts, color=ffffff00; exercises BOTH lossy-warn lines (name truncation + color snap) in a single paste |
 | [DB_TRACK_MULTI_A] | 8a4e3c4a2201fac2 | = [DB_TRACK_SHORT]. The single-PASTE track in tracks.5; NOT used in multi-PASTE because by then it lives on E80 (uuid-preserving multi-PASTE collides). |
@@ -167,8 +168,15 @@ These entries have no static UUID. The module's baseline setup creates them; the
 | [E80_FRESH_WP2] | setup:paste_new_wp -- e80 module | Second fresh-UUID WP. |
 | [E80_RT_FRESH] | setup:paste_new_route -- e80 module | Fresh-UUID route from PASTE_NEW (preserves member WP UUIDs by reference). |
 | [E80_RP1] / [E80_RP2] / [E80_RP3] | setup:paste_new_route -- e80 module | Route points in the fresh-UUID route; specific WP UUIDs documented in the e80 runbook's relevant test. |
-
 Setup-derived UUIDs are derived from `/api/db` after the setup step completes and noted in the module's working log; they are NOT pre-resolved in this index.
+
+(The mod003 timed-track fixture is a REAL baseline track, `[TIMED_CAT32]` -- see the DB-side Track table above -- not a setup-derived insert.  An earlier design used a synthetic `op=seed_timed_track` insert; that was dropped in favour of baseline-first per Patrick 2026-06-26.)
+
+### Deferred fixtures (not yet produced)
+
+| [Name] | source | Notes |
+|--------|--------|-------|
+| [FSH_TIMED_TRACK] | DEFERRED: bench card-pull | A real timed FSH file -- a `.fsh` pulled off a mod003 E80's CF card, carrying timed points written by the FIRMWARE (not by navMate's encoder). Would test FSH->DB decode in isolation. Not required by the current suite: `fsh.40` produces an equivalent timed FSH track in-memory by PASTEing `[TIMED_CAT32]` to the FSH tracks header, and the mod003 wire format is byte-identical-length to stock, so the same decode code is exercised. Drop the file into `_fixtures/` and register its FSH-native uuid here when a card-pull is available. |
 
 ---
 
