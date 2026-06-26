@@ -12,8 +12,10 @@
 # READS the item; navMate is the writer.  This module wraps Pub::Ray::NET::d_DB's
 # blocking getItem/putItem so the wx main thread never blocks:
 #
-#   - interactive (menu): doToggle -> SingleChoiceDialog -> worker thread behind a
-#     Pub::WX::ProgressDialog -> onIdle raises the result (mirrors nmE80DirectOps).
+#   - interactive (menu): a TWO-PHASE worker.  doToggle reads the CURRENT setting on a
+#     worker thread (behind a ProgressDialog); onIdle then shows a checkbox dialog
+#     reflecting it; on Apply (only when the value changed) a second worker writes it and
+#     onIdle confirms.  Mirrors nmE80DirectOps' worker / ProgressDialog / onIdle machinery.
 #   - headless (/api):    apiGet / apiSet run the blocking calls directly on the
 #     HTTP thread, no dialogs.
 #
@@ -48,8 +50,9 @@ my $DLG_TITLE   = 'Timed Track Recording';
 # also enforces the single-ProgressDialog discipline for the interactive path.
 my $busy :shared = 0;
 
-# interactive result pending: { progress, frame, want_value }.  Main-thread only;
-# nmFrame::onIdle calls onIdle() which raises the result once the dialog closes.
+# interactive state pending between a worker finishing and onIdle reacting (main thread
+# only): { phase, progress, frame, version }.  phase 'read' -> onIdle shows the checkbox;
+# phase 'write' -> onIdle confirms the result.  Reacted to once the ProgressDialog closes.
 my $pending;
 
 
@@ -206,6 +209,8 @@ sub _applyToggle
 #-------------------------------------------------------
 
 sub doToggle
+    # Phase 1 entry: validate the connection / firmware, then launch the worker that
+    # READS the current setting.  onIdle presents the checkbox once the read completes.
 {
     my ($frame) = @_;
     $frame ||= getAppFrame();
@@ -232,38 +237,119 @@ sub doToggle
         return;
     }
 
-    my @choices = (
-        "Enable  -- the E80 stamps each track point with date/time and depth",
-        "Disable -- the E80 records stock tracks (position + depth, no time)");
-    my $dlg = Wx::SingleChoiceDialog->new($frame,
-        "Timed-track recording on the connected E80 (v$ver):", $DLG_TITLE, \@choices);
-    my $sel = ($dlg->ShowModal() == wxID_OK) ? $dlg->GetSelection() : -1;
-    $dlg->Destroy();
-    return if $sel < 0;
-
-    my $want_value = ($sel == 0) ? 0 : 1;       # enable => 0 (timed), disable => 1 (stock)
-    _launch($frame, $want_value);
+    _launchRead($frame, $ver);
 }
 
 
-sub _launch
-    # Spawn the worker that runs the blocking d_DB transaction behind a
-    # ProgressDialog, and arm the result that nmFrame::onIdle raises on close.
+sub _launchRead
+    # Phase 1 worker: read the current toggle value behind a ProgressDialog, then arm
+    # onIdle (phase 'read') to present the checkbox once the dialog closes.
 {
-    my ($frame, $want_value) = @_;
+    my ($frame, $version) = @_;
     return if !_acquire();
 
     my $progress = Pub::WX::ProgressDialog::newProgressData(0, 1);   # workers=1: close on worker-done
     $progress->{active} = 1;
 
-    my $dlg = Pub::WX::ProgressDialog->new($frame, "Updating E80 timed-track setting...", 1, $progress);
+    my $dlg = Pub::WX::ProgressDialog->new($frame, "Reading E80 timed-track setting...", 0, $progress);
     if (!$dlg)
     {
         _release();
         return;
     }
 
-    $pending = { progress => $progress, frame => $frame, want_value => $want_value };
+    $pending = { phase => 'read', progress => $progress, frame => $frame, version => $version };
+
+    threads->create(sub {
+        _readWorker($progress);
+        $progress->{workers} = 0;       # success -> dialog auto-closes; {error} -> terminal
+        _release();
+    })->detach();
+}
+
+
+sub _readWorker
+    # Worker core for phase 1: read the toggle's current value into the (shared) $progress
+    # hash -- {read_enabled} (1 = timed recording on) on success, {error} on failure.
+    # BLOCKS -- runs on the spawned worker, never the wx main thread.
+{
+    my ($progress) = @_;
+    my $db = _db();
+    if (!$db || !$db->{connected})
+    {
+        $progress->{error} = "E80 DATABASE service is not connected";
+        return;
+    }
+    my ($value, $uuid, $err) = _readValue($db);
+    if ($err)
+    {
+        $progress->{error} = $err;
+        return;
+    }
+    $progress->{read_enabled} = ($value == 0) ? 1 : 0;      # 0/absent => timed enabled
+}
+
+
+sub _askToggle
+    # The checkbox dialog (main thread).  Shows the connected firmware and the CURRENT
+    # setting, with a checkbox pre-set to it -- so the dialog reflects reality first.
+    # Returns the desired enabled value (1 or 0) if the user clicked Apply, else undef.
+{
+    my ($frame, $version, $cur_enabled) = @_;
+
+    my $dlg = Wx::Dialog->new($frame, -1, $DLG_TITLE, [-1,-1], [440,250], wxDEFAULT_DIALOG_STYLE);
+
+    Wx::StaticText->new($dlg, -1, "Connected E80:  v$version", [20,15]);
+    Wx::StaticText->new($dlg, -1,
+        "When timed-track recording is ON, the E80 stamps each recorded\n"
+        . "track point with the wall-clock date/time and true depth.  When\n"
+        . "OFF, it records stock tracks (position and depth only, no time).",
+        [20,42], [400,70]);
+
+    my $cur_ctrl = Wx::StaticText->new($dlg, -1,
+        "Current setting:  " . ($cur_enabled ? "ENABLED" : "DISABLED"), [20,100]);
+    my $font = $cur_ctrl->GetFont();
+    $font->SetWeight(wxFONTWEIGHT_BOLD);
+    $cur_ctrl->SetFont($font);
+
+    my $cb = Wx::CheckBox->new($dlg, -1,
+        "Record timed tracks (date/time + depth on each point)", [20,130], [400,24]);
+    $cb->SetValue($cur_enabled ? 1 : 0);
+
+    my $ok = Wx::Button->new($dlg, wxID_OK,     "Apply",  [225,175], [85,28]);
+    Wx::Button->new($dlg, wxID_CANCEL, "Cancel", [320,175], [85,28]);
+    $ok->SetDefault();
+
+    my $rslt = $dlg->ShowModal();
+    my $want = $cb->GetValue() ? 1 : 0;
+    $dlg->Destroy();
+
+    return ($rslt == wxID_OK) ? $want : undef;
+}
+
+
+sub _launchWrite
+    # Phase 2 worker: write $want_value (0 = enable timed, nonzero = stock) behind a
+    # ProgressDialog, and arm onIdle (phase 'write') to confirm once the dialog closes.
+{
+    my ($frame, $want_value) = @_;
+    if (!_acquire())
+    {
+        okDialog($frame, "Another E80 operation is in progress -- please wait.", $DLG_TITLE);
+        return;
+    }
+
+    my $progress = Pub::WX::ProgressDialog::newProgressData(0, 1);   # workers=1: close on worker-done
+    $progress->{active} = 1;
+
+    my $dlg = Pub::WX::ProgressDialog->new($frame, "Updating E80 timed-track setting...", 0, $progress);
+    if (!$dlg)
+    {
+        _release();
+        return;
+    }
+
+    $pending = { phase => 'write', progress => $progress, frame => $frame };
 
     threads->create(sub {
         _applyToggle($want_value, $progress);
@@ -274,25 +360,44 @@ sub _launch
 
 
 sub onIdle
-    # Called from nmFrame::onIdle.  Raises the result once the ProgressDialog has
-    # fully closed (mirrors nmE80DirectOps::onIdle).
+    # Called from nmFrame::onIdle.  When a phase's ProgressDialog has fully closed, reacts:
+    #   phase 'read'  -> present the checkbox; on Apply-with-change launch the write worker.
+    #   phase 'write' -> confirm the new state.
+    # Failures were already shown in the ProgressDialog's terminal (red) state, so this
+    # stays silent on them -- mirroring nmE80DirectOps::onIdle.
 {
     my ($frame) = @_;
     return if !$pending;
-    return if Pub::WX::ProgressDialog::isActive();
+    return if Pub::WX::ProgressDialog::isActive();      # dialog still up -> phase not finished
 
     my $p = $pending;
     $pending = undef;
     return if $nmDialogs::suppress_confirm;
 
     my $progress = $p->{progress};
+    return if $progress && (($progress->{error} // '') || ($progress->{cancelled} // 0));
     my $f = $p->{frame} || $frame;
-    if ($progress && ($progress->{error} // ''))
+
+    if (($p->{phase} // '') eq 'read')
     {
-        okDialog($f, "Could not change timed-track recording:\n\n$progress->{error}", $DLG_TITLE);
+        my $cur_enabled = ($progress && $progress->{read_enabled}) ? 1 : 0;
+        my $want = _askToggle($f, $p->{version}, $cur_enabled);
+        return if !defined($want);                      # cancelled -- no write
+
+        if ($want == $cur_enabled)
+        {
+            okDialog($f, "Timed-track recording is already "
+                . ($cur_enabled ? "ENABLED" : "DISABLED")
+                . " on the E80 -- no change made.", $DLG_TITLE);
+            return;
+        }
+
+        my $want_value = $want ? 0 : 1;                 # enable => value 0 (timed), disable => 1 (stock)
+        _launchWrite($f, $want_value);
         return;
     }
 
+    # phase 'write': confirm the result of the write
     my $state = ($progress && $progress->{result_enabled}) ? "ENABLED" : "DISABLED";
     my $msg   = ($progress && $progress->{result_nochange})
         ? "Timed-track recording was already $state on the E80."

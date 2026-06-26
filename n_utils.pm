@@ -35,6 +35,7 @@ BEGIN
 		$TRACK_TIMED_MIN
 		trackPointIsTimed
 		trackPointsText
+		trackEndpointsText
 		routePointsText
 		uuidRefText
 		@E80_ROUTE_COLOR_ABGR
@@ -405,6 +406,41 @@ sub trackPointsText
 		}
 		$text .= sprintf("  %3d  %9.6f  %10.6f  %8s  %6s%s\n",
 			$i + 1, $lat, $lon, $d_ft, $t_f, $dt);
+	}
+	return $text;
+}
+
+
+sub trackEndpointsText
+	# Renders an E80/FSH track's start- and end-point summary: the north/east
+	# geometry line then the depth/temperature for each end.  mod003 timed tracks
+	# OVERLOAD the stored depth_start/depth_end -- when one reads as a unix time
+	# (trackPointIsTimed) it is that end's timestamp and the companion temp_k field
+	# is its real depth in 0.1 ft, not a temperature -- so it is shown as
+	# time_/depth_ rather than depth_/temp_k_.  Shared by winE80 and winFSH so both
+	# on-device track views decode the overload identically.
+{
+	my ($track) = @_;
+	my $text = '';
+	for my $which ('start', 'end')
+	{
+		my $north = $track->{"north_$which"};
+		my $east  = $track->{"east_$which"};
+		$text .= northEastLineText($north, $east, nkey => "north_$which", ekey => "east_$which")
+			if defined $north && defined $east;
+
+		my $depth = $track->{"depth_$which"};
+		my $temp  = $track->{"temp_k_$which"};
+		if (trackPointIsTimed($depth))
+		{
+			$text .= sprintf("  %-12s = %s\n",      "time_$which",  tsText($depth));
+			$text .= sprintf("  %-12s = %.1f ft\n", "depth_$which", ($temp // 0) / 10);
+		}
+		else
+		{
+			$text .= sprintf("  %-12s = %s\n", "depth_$which",  depthText($depth)) if $depth;
+			$text .= sprintf("  %-12s = %s\n", "temp_k_$which", tempKText($temp))  if $temp;
+		}
 	}
 	return $text;
 }

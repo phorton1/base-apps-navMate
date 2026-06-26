@@ -745,21 +745,8 @@ sub _fshTrackText
 	$text .= sprintf("  %-12s = %s\n", 'color',    $track->{color})   if defined $track->{color};
 	$text .= sprintf("  %-12s = %d m  (%.1f km)\n", 'length', $track->{length}, $track->{length} / 1000)
 		if defined $track->{length};
-	$text .= northEastLineText($track->{north_start}, $track->{east_start},
-			nkey => 'north_start', ekey => 'east_start')
-		if defined $track->{north_start} && defined $track->{east_start};
-	$text .= sprintf("  %-12s = %s\n", 'depth_start',  depthText($track->{depth_start}))
-		if $track->{depth_start};
-	$text .= sprintf("  %-12s = %s\n", 'temp_k_start', tempKText($track->{temp_k_start}))
-		if $track->{temp_k_start};
-	$text .= northEastLineText($track->{north_end}, $track->{east_end},
-			nkey => 'north_end', ekey => 'east_end')
-		if defined $track->{north_end} && defined $track->{east_end};
-	$text .= sprintf("  %-12s = %s\n", 'depth_end',  depthText($track->{depth_end}))
-		if $track->{depth_end};
-	$text .= sprintf("  %-12s = %s\n", 'temp_k_end', tempKText($track->{temp_k_end}))
-		if $track->{temp_k_end};
-	$text .= "\n" . trackPointsText($points) if @$points;
+	$text .= trackEndpointsText($track);
+	$text .= "\n" . trackPointsText($points, variable => 1) if @$points;
 	return $text;
 }
 

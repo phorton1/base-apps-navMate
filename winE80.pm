@@ -709,39 +709,7 @@ sub _e80TrackText
 	$text .= sprintf("  %-12s = %s\n", 'color',    $track->{color})   if defined $track->{color};
 	$text .= sprintf("  %-12s = %d m  (%.1f km)\n", 'length', $track->{length}, $track->{length} / 1000)
 		if defined $track->{length};
-	$text .= northEastLineText($track->{north_start}, $track->{east_start},
-			nkey => 'north_start', ekey => 'east_start')
-		if defined $track->{north_start} && defined $track->{east_start};
-	# start point depth/temp -- mod003 timed tracks OVERLOAD these: when the
-	# stored depth reads as a unix time it is the first point's timestamp and
-	# the "temp" field is its real depth in 0.1 ft (see trackPointsText).
-	if (trackPointIsTimed($track->{depth_start}))
-	{
-		$text .= sprintf("  %-12s = %s\n", 'time_start',  tsText($track->{depth_start}));
-		$text .= sprintf("  %-12s = %.1f ft\n", 'depth_start', ($track->{temp_k_start} // 0) / 10);
-	}
-	else
-	{
-		$text .= sprintf("  %-12s = %s\n", 'depth_start',  depthText($track->{depth_start}))
-			if $track->{depth_start};
-		$text .= sprintf("  %-12s = %s\n", 'temp_k_start', tempKText($track->{temp_k_start}))
-			if $track->{temp_k_start};
-	}
-	$text .= northEastLineText($track->{north_end}, $track->{east_end},
-			nkey => 'north_end', ekey => 'east_end')
-		if defined $track->{north_end} && defined $track->{east_end};
-	if (trackPointIsTimed($track->{depth_end}))
-	{
-		$text .= sprintf("  %-12s = %s\n", 'time_end',   tsText($track->{depth_end}));
-		$text .= sprintf("  %-12s = %.1f ft\n", 'depth_end', ($track->{temp_k_end} // 0) / 10);
-	}
-	else
-	{
-		$text .= sprintf("  %-12s = %s\n", 'depth_end',  depthText($track->{depth_end}))
-			if $track->{depth_end};
-		$text .= sprintf("  %-12s = %s\n", 'temp_k_end', tempKText($track->{temp_k_end}))
-			if $track->{temp_k_end};
-	}
+	$text .= trackEndpointsText($track);
 	$text .= "\n" . trackPointsText($points, variable => 1) if @$points;
 	return $text;
 }
