@@ -12,7 +12,8 @@
 **[Testing](testing.md)** --
 **[winFSH](winFSH.md)** --
 **[winMultiEditor](winMultiEditor.md)** --
-**[E80Config](e80_config.md)**
+**[E80Config](e80_config.md)** --
+**[Timed Tracks](timed_tracks.md)**
 
 repos: **[phorton1](https://github.com/phorton1)** --
 **[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
@@ -255,6 +256,8 @@ Import / Export Text both show a progress dialog ticking once per table.
 | Refresh Window | Rebuilds the winE80 tree from current in-memory WPMGR/TRACK data; no network traffic |
 | Refresh E80-DB | Re-queries all waypoints, routes, groups, and tracks from the E80 via WPMGR and TRACK protocols; shows a progress dialog; requires an active E80 connection |
 | Clear | Deletes all routes, groups, waypoints, and tracks from the E80; prompts for confirmation showing item counts before proceeding; uses a progress dialog; enabled only when WPMGR is connected and the E80 has at least one item |
+| About E80 | Opens a dialog listing the E80 units on the network with identity and firmware detail; enabled whenever any E80 is reachable. See [About E80](#about-e80) |
+| Timed Track Recording | Turns the E80's timed-track (date/time + depth per point) recording on or off; custom firmware only, master-only at v5.73. See [Timed Tracks](timed_tracks.md) |
 
 ### FSH Menu
 
@@ -373,6 +376,28 @@ All E80 deletes show a modal `ProgressDialog`. The dialog's expected-step count
 tracks the primary DEL_ITEM operation plus the GET_ITEM commands the E80
 automatically generates (one per modified waypoint or route point) as MODIFY
 events after the delete.
+
+### About E80
+
+**About E80** (E80 menu, `nmE80About.pm`) opens a modal dialog listing the E80 units currently
+advertising on RAYDP, with full identity and firmware detail for the selected unit, read in two
+tiers:
+
+- **RAYDP tier** -- every unit, no network round-trip -- from the in-memory RAYDP identification
+  records: machine label, firmware version, IP, master/slave role, and the **implemented** services
+  that unit advertises (its `ports_by_addr` entries marked implemented, filtered to the unit's IP).
+- **SysInfo tier** -- custom firmware only, lazy (one diagnostic peek per selected unit, on a worker
+  thread) -- model, version, build date, build descriptor, and build host, read live from the unit's
+  SysInfo record over the
+  [mod001 diagnostic channel](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/e80_firmware/deployment/mod001.md).
+  The record's firmware-internal layout is documented in the Ray library,
+  [The SysInfo singleton](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/e80_firmware/architecture/runtime.md#the-sysinfo-singleton);
+  navMate decodes it but does not duplicate that layout here. A stock unit has no diagnostic channel,
+  so its SysInfo tier reads "unavailable" and only the RAYDP tier shows.
+
+About E80 has **no firmware floor** -- it is enabled whenever any E80 is reachable, since the RAYDP
+tier works on any unit (contrast the diagnostic-channel operations in [E80Config](e80_config.md) and
+the master-only [Timed Tracks](timed_tracks.md) switch).
 
 ---
 

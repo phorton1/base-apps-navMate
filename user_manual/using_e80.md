@@ -61,16 +61,30 @@ Two more E80 menu commands worth knowing:
 - **E80 -> Clear** wipes all routes, groups, waypoints, and tracks off the plotter, after a
   confirmation that shows you the counts first -- the quick way to start a trip with a clean unit.
 
+## Seeing what is on the network
+
+**E80 -> About E80** opens a window listing every plotter navMate can currently see on the network
+-- each with its name, firmware version, network address, and whether it is the master. Pick a
+plotter to see its details.
+
+**TODO: Screenshot** <!-- [SCREENSHOT] images/about_e80.png -- the About E80 window listing a plotter and its details -->
+
+On a plotter running the [custom firmware](custom_firmware.md), About E80 also reads the unit's
+**model**, **firmware build date**, and the **builder handle** you chose when you built it -- a
+quick way to confirm a plotter is running exactly the firmware you think it is, without walking over
+to the unit.
+
 ## Advanced Features -- Custom Firmware
 
-The two features below -- saving the plotter's display configuration, and capturing its screen --
-are **not part of the stock E-Series software**. They work only on a plotter running
-optional **custom firmware** that you can build and install yourself, for free, using navMate's own
-tool. Nothing of Raymarine's is bundled: you supply your own firmware, navMate modifies a copy of
-it, and you flash the result onto your unit at your own risk.
+The three features below -- saving the plotter's display configuration, capturing its screen, and
+recording timed tracks -- are **not part of the stock E-Series software**. They work only on a
+plotter running optional **custom firmware** that you can build and install yourself, for free,
+using navMate's own tool. Nothing of Raymarine's is bundled: you supply your own firmware, navMate
+modifies a copy of it, and you flash the result onto your unit at your own risk.
 
-If your plotter is running the stock firmware, the two menu commands below will simply have no
-effect. Once it is running the custom firmware, they work exactly as described.
+If your plotter is running the stock firmware, these menu commands are **greyed out**. They become
+available the moment navMate sees the plotter is running the custom firmware, and then work exactly
+as described.
 
 **Click [here](custom_firmware.md) to learn how to build the [Custom Firmware](custom_firmware.md)**
 
@@ -88,5 +102,18 @@ instrument panels you have set up on the unit. From the **E80** menu:
 
 **Grab Screen** takes a picture of whatever the plotter is showing right now and saves it as an
 image file -- useful for notes, sharing, or documentation.
+
+### Recording timed tracks
+
+A stock E-Series track is just a string of positions. With the custom firmware, navMate can ask the
+plotter to record **timed tracks** instead -- each point also stamped with the date, time, and
+depth as you passed it. Bring such a track back into navMate and you can see exactly when you were
+where, and how deep the water was.
+
+From the **E80** menu, **Timed Track Recording...** shows whether the plotter is recording timed
+tracks right now, and lets you turn it on or off. The setting lives on the plotter and stays as you
+leave it.
+
+**TODO: Screenshot** <!-- [SCREENSHOT] images/timed_tracks.png -- the Timed Track Recording dialog showing the current setting -->
 
 **Next:** [Home](readme.md)

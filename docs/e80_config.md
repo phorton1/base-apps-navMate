@@ -12,7 +12,8 @@
 **[Testing](testing.md)** --
 **[winFSH](winFSH.md)** --
 **[winMultiEditor](winMultiEditor.md)** --
-**E80Config**
+**E80Config** --
+**[Timed Tracks](timed_tracks.md)**
 
 repos: **[phorton1](https://github.com/phorton1)** --
 **[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
@@ -99,19 +100,33 @@ separator:
 | `$COMMAND_RESTORE_E80_CONFIG` | Restore Configuration   |
 | `$COMMAND_CLEAR_E80_CONFIG`   | Clear Configuration     |
 
-The items are enabled only when at least one E80 is reachable (see Device
-selection); with none present they are greyed. Enable state is recomputed when
-the E80 menu is opened.
+The items are enabled only when at least one reachable E80 meets the operation's
+**firmware floor**: Save / Restore / Clear Configuration need **v5.71+**, and Grab
+Screen needs **v5.72+** -- the versions at which the diagnostic channel, and then
+screen capture, become available on the custom firmware (the channel itself is the
+Ray library's
+[mod001 diagnostics peek](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/e80_firmware/deployment/mod001.md)).
+Because these are **multi-device** operations, the floor is a per-candidate property
+-- a unit qualifies only when its own RAYDP-reported version meets it; with no
+qualifying unit present the items are greyed. Enable state is recomputed when the E80
+menu is opened.
+
+(This differs from **Timed Track Recording**, which is **master-only** -- it gates on
+the single connected unit at v5.73, not on the multi-device FILESYS set; see
+[Timed Tracks](timed_tracks.md).)
 
 ### Device selection
 
-The target E80 is chosen from the units advertising the RAYDP **FILESYS**
-service. Every E80 on the LAN advertises FILESYS -- only some advertise other
-services -- so it is the reliable basis for discovery, the same source
-`winFILESYS` uses.
+The target E80 is chosen from the units advertising the RAYDP **FILESYS** service
+that also meet the operation's firmware floor. Every E80 on the LAN advertises
+FILESYS -- only some advertise other services -- so it is the reliable basis for
+discovery, the same source `winFILESYS` uses; navMate then filters that list by each
+unit's RAYDP-reported version, so a too-old unit is never offered as a target. (If
+units are present but none qualify, the chooser is not shown and the message names the
+firmware the operation needs.)
 
-- **0 units** -- the menu items are disabled.
-- **1 unit** -- that unit is used directly; no chooser is shown.
+- **0 qualifying units** -- the menu items are disabled.
+- **1 qualifying unit** -- that unit is used directly; no chooser is shown.
 - **2 or more** -- a chooser (modeled on `winFILESYS`) selects the target.
 
 A unit's identity is its colloquial name from `%KNOWN_SERVER_IPS`

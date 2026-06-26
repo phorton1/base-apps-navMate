@@ -12,7 +12,8 @@
 **[Testing](testing.md)** --
 **[winFSH](winFSH.md)** --
 **[winMultiEditor](winMultiEditor.md)** --
-**[E80Config](e80_config.md)**
+**[E80Config](e80_config.md)** --
+**[Timed Tracks](timed_tracks.md)**
 
 repos: **[phorton1](https://github.com/phorton1)** --
 **[Ray Library](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md)** --
@@ -277,7 +278,10 @@ track_points (
 
 `depth_cm`, `temp_k`, and `ts` in `track_points` are `0` when absent (schema 13.0;
 previously nullable). E80 TRACK protocol downloads carry this data; KML imports do
-not. `0` is the canonical "no reading" sentinel -- consistent with `depth_cm` /
+not -- and on the E80 the per-point time and depth are recorded only when
+**timed-track recording** is enabled on the (custom-firmware) unit (see
+[Timed Tracks](timed_tracks.md)); a stock track downloads with these `0`. `0` is the
+canonical "no reading" sentinel -- consistent with `depth_cm` /
 `temp_k` on `waypoints`, and safe because no real marine reading is `0` Kelvin and
 these columns have no aggregate consumers that a `0` would skew. See the no-NULLs
 invariant under [Design Decisions](#design-decisions).

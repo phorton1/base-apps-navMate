@@ -4,12 +4,12 @@
 **[Using Your E-Series](using_e80.md)**
 
 navMate can build a small, optional **custom firmware** for your Raymarine E-Series (E80 / E120)
-plotter. Installing it unlocks two extra conveniences in navMate -- saving and restoring the
-plotter's display configuration, and capturing the plotter's screen (see
+plotter. Installing it unlocks three extra conveniences in navMate -- saving and restoring the
+plotter's display configuration, capturing the plotter's screen, and recording timed tracks (see
 [Using Your E-Series](using_e80.md)) -- that the stock Raymarine software does not provide.
 
 This is entirely optional, and it is free. You do not need to modify your plotter to use navMate
-for everything else; the custom firmware only adds those two features.
+for everything else; the custom firmware only adds those three features.
 
 > **Please read this first.** Modifying and re-flashing a chartplotter's firmware carries real
 > risk -- a failed or interrupted update can leave the unit unusable. We have taken great care to
@@ -109,7 +109,8 @@ choose which one to install:
 Follow Raymarine's normal on-screen update procedure for the flashing itself.
 
 When the unit comes back up, open its **Unit Info** screen: you should see version **v5.73** and, if
-you entered one, your **builder handle**.
+you entered one, your **builder handle**. (You can also confirm this from navMate itself, without
+touching the plotter, with **E80 -> About E80** -- see [Using Your E-Series](using_e80.md).)
 
 ## Going back to stock
 
