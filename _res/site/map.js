@@ -273,7 +273,7 @@ new OverlayControl().addTo(map);
 
 
 const TS_FIELDS = new Set(['created_ts', 'ts_start', 'ts_end']);
-const SKIP_FIELDS = new Set(['obj_type', 'name', 'rp_names', 'data_source', 'depth_cm', 'rp_uuids']);
+const SKIP_FIELDS = new Set(['obj_type', 'name', 'rp_names', 'data_source', 'depth_cm', 'ts', 'rp_uuids']);
 const TYPE_ABBREV = { waypoint: 'WP', route: 'Route', track: 'TRK' };
 
 function escHtml(s) {
@@ -633,12 +633,15 @@ async function renderAll(geojson)
             const isSentinel = ([lat, lon]) => Math.abs(lat) < 0.01 && Math.abs(lon) < 0.01;
             const rawPts = geom.coordinates.map(([lon, lat]) => [lat, lon]);
             const rawDepths = Array.isArray(props.depth_cm) ? props.depth_cm : [];
+            const rawTss    = Array.isArray(props.ts)       ? props.ts       : [];
             const coords = [];
             const depths = [];
+            const tss    = [];
             for (let i = 0; i < rawPts.length; i++) {
                 if (isSentinel(rawPts[i])) continue;
                 coords.push(rawPts[i]);
                 depths.push(i < rawDepths.length ? rawDepths[i] : null);
+                tss.push(i < rawTss.length ? rawTss[i] : null);
             }
             let lineCoords = coords;
             if (rawPts.length !== coords.length) {
@@ -667,7 +670,9 @@ async function renderAll(geojson)
                     const idx = nearestPointIdx(coords, e.latlng);
                     const d = depths[idx];
                     const dStr = d ? (d / 30.48).toFixed(1) + ' ft' : '--';
-                    showInfo(props, 'point ' + (idx + 1) + ' / ' + total + ' - ' + dStr);
+                    const t = tss[idx];
+                    const tStr = t ? new Date(t * 1000).toISOString().replace('T',' ').replace('.000Z',' UTC') + ' - ' : '';
+                    showInfo(props, 'point ' + (idx + 1) + ' / ' + total + ' - ' + tStr + dStr);
                 });
                 line.on('mouseout', () => {
                     if (editSubject && editSubject.layer === line) return;

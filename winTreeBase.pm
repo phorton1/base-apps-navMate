@@ -1123,6 +1123,39 @@ sub _buildTrackFeature
     my $pts = ref $track->{points} eq 'ARRAY' ? $track->{points} : [];
     return undef if !@$pts;
     my $comp = $track->{companion_uuid} // $track->{trk_uuid};
+
+    # Per-point depth (cm) and timestamp for the map hover/info-box, plus a
+    # track-level timed-vs-stock kind.  DB points are already decoded hub
+    # columns ({depth_cm, ts}); E80/FSH points are RAW and carry the mod003
+    # timed overload (the depth field holds the unix time, temp_k the real
+    # depth in 0.1 ft), so they must decode through decodeTrackPoint (see
+    # n_utils).  Do NOT run DB points through decodeTrackPoint: its
+    # depth // depth_cm fallback would read the small decoded depth_cm, judge
+    # it "stock", and silently zero the real DB ts.  depth_cm here means
+    # decoded cm for all three sources, so the map's cm->ft math is uniform.
+    my $is_db = $this->_wpDataSource() eq 'db';
+    my (@depth_cm, @ts);
+    my $timed = 0;
+    for my $pt (@$pts)
+    {
+        my ($d, $t);
+        if ($is_db)
+        {
+            $d = _trackPointDepthCm($pt);
+            $t = $pt->{ts};
+        }
+        else
+        {
+            my $hub = decodeTrackPoint($pt);
+            $d = $hub->{depth_cm};
+            $d = undef if defined($d) && ($d == 0xFFFFFFFF || $d == -1);
+            $t = $hub->{ts};
+        }
+        $timed = 1 if ($t // 0) > 0;
+        push @depth_cm, defined($d)      ? $d + 0 : undef;
+        push @ts,       ($t // 0) > 0    ? $t + 0 : undef;
+    }
+
     return {
         type       => 'Feature',
         properties => {
@@ -1132,7 +1165,9 @@ sub _buildTrackFeature
             data_source => $this->_wpDataSource(),
             color       => $this->_trackColorABGR($track),
             point_count => scalar(@$pts) + 0,
-            depth_cm    => [ map { _trackPointDepthCm($_) } @$pts ],
+            depth_cm    => \@depth_cm,
+            ts          => \@ts,
+            track_kind  => $timed ? 'timed' : 'stock',
             ($comp ? (companion_uuid => $comp) : ()),
         },
         geometry   => { type => 'LineString',
