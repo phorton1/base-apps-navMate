@@ -15,8 +15,7 @@ Sometimes you want to change the same thing on a lot of items at once -- recolor
 waypoint in a group, give a batch of marks the same symbol, or clear the comment off a dozen
 routes. The **Multi-Editor** does exactly that.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/multi_editor.png -- the Multi-Editor dialog open over a multi-item
-     selection, showing the color, symbol, and comment fields -->
+![multi_editor.jpg](images/multi_editor.jpg)
 
 ## When you can use it
 

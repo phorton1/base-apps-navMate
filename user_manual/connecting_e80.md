@@ -49,18 +49,21 @@ setting that up by hand is fiddly. navMate includes the **E-Series Network Wizar
 you: it listens for your plotter on the cable, reads its address, and puts your computer's network
 adapter onto the matching range -- so there are no IP numbers to puzzle over.
 
+![net_wizard.jpg](images/net_wizard.jpg)
+
 You can run the wizard whichever way is handiest:
 
 - At the end of **installation**, tick "Run the network wizard now" on the final screen.
-- Anytime, from the **Start menu or the desktop** shortcut for the network wizard.
+- Anytime, from the **Start menu or the desktop**
+<img src="images/netwizard_icon.png" width="18" height="18" alt="netwizard_icon"> icon.
+ for the network wizard.
 - From inside navMate, via **Utils -> E-Series Network Wizard**.
 
 Because it adjusts a Windows network setting, the wizard asks for administrator permission when
 it starts -- click **Yes** at the Windows prompt. Then just follow its steps: it searches for your
 plotter, sets up the connection, and tells you when it is done.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/e80_connect_setup.png -- the E-Series Network Wizard after it
-     has found a plotter and is ready to configure the network -->
+
 
 ## Confirming the connection
 

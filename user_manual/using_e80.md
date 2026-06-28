@@ -24,8 +24,8 @@ Once your computer and plotter are connected ([previous chapter](connecting_e80.
 window** -- open it with **View -> E80** -- shows a live view of what is on the plotter: its
 waypoints, groups, routes, and tracks, right next to your database window.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/win_e80.png -- the E80 window beside the database window, with a group
-     selected on each side -->
+![winE80.jpg](images/winE80.jpg)
+
 
 ## The trip cycle
 
@@ -67,7 +67,7 @@ Two more E80 menu commands worth knowing:
 -- each with its name, firmware version, network address, and whether it is the master. Pick a
 plotter to see its details.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/about_e80.png -- the About E80 window listing a plotter and its details -->
+![about_e80.jpg](images/about_e80.jpg)
 
 On a plotter running the [custom firmware](custom_firmware.md), About E80 also reads the unit's
 **model**, **firmware build date**, and the **builder handle** you chose when you built it -- a
@@ -98,10 +98,17 @@ instrument panels you have set up on the unit. From the **E80** menu:
   or borrowed unit just the way you like it.
 - **Clear Configuration** resets the unit to its defaults.
 
+This makes it easy to configure multiple E80's to share the same **PageSets** and **PanelSets**
+and/or to restore them after a *Factory Reset* instead of laboriously configuring each E-Series
+plotter's configuration with the *awkward E-Series Setup Menu* each time.
+
+
 ### Capturing the screen
 
 **Grab Screen** takes a picture of whatever the plotter is showing right now and saves it as an
 image file -- useful for notes, sharing, or documentation.
+
+![e80_screen1.png](images/e80_screen1.png)
 
 ### Recording timed tracks
 
@@ -114,6 +121,7 @@ From the **E80** menu, **Timed Track Recording...** shows whether the plotter is
 tracks right now, and lets you turn it on or off. The setting lives on the plotter and stays as you
 leave it.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/timed_tracks.png -- the Timed Track Recording dialog showing the current setting -->
+![timed_track_dlg.jpg](images/timed_track_dlg.jpg)
+
 
 **Next:** [Home](readme.md)

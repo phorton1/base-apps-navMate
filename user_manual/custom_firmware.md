@@ -62,10 +62,10 @@ You will get a **.zip** file. **Unzip it.** Inside you will find two files:
 
 ## Step 2 -- Build the custom firmware
 
-Open **e80Mod** from navMate's menu: **Utils -> E-Series Firmware**. (It is a small separate
-program; you can also run it on its own.)
+Open **e80Mod** from navMate's menu: **Utils -> E-Series Firmware**. You can also run it on its own with the
+<img src="images/netwizard_icon.png" width="18" height="18" alt="netwizard_icon"> icon.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/e80mod_pick.png -- the e80Mod "Choose your firmware" page -->
+![e80mod_page1.jpg](images/e80mod_page1.jpg)
 
 It walks you through a few short steps:
 

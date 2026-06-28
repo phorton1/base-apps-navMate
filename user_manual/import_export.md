@@ -27,8 +27,6 @@ high-resolution imagery.
   matched by identity** -- navMate updates the items it recognizes and adds new ones, rather
   than wiping out what you already have.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/export_kml.png -- a navMate export opened in Google Earth, showing
-     waypoints and a route -->
 
 ## GPS files (GPX)
 

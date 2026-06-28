@@ -1,5 +1,7 @@
 # navMate - Lifelong Navigation Knowledge Management
 
+**Click [here](../user_manual/readme.md) for the [User Manual](../user_manual/readme.md)**
+
 **Home** --
 **[Architecture](architecture.md)** --
 **[Data Model](data_model.md)** --
@@ -37,6 +39,9 @@ protocols and navigation systems behind a common transport abstraction. The know
 base, data model, and UI are the product. Everything else is a boundary adapter.
 
 ## Documentation Outline
+
+- **[User Manual](../user_manual/readme.md)** -
+  User level documentation for navMate.
 
 - **[Architecture](architecture.md)** -
   Architectural vision: scope, UI layers, transport abstraction, relationship to

@@ -21,8 +21,7 @@ entirely: the thousands of waypoints, the years of tracks, the anchorages and ha
 favorite spots you have learned over decades. That knowledge does not belong to any one
 device -- and in navMate it never gets lost when you upgrade a plotter or change boats.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/overview.png -- navMate running: a database tree window beside the
-     Leaflet map, with a route and some waypoints visible -->
+[![navMate1.jpg](images/navMate1.jpg)](images/navMate1.png)
 
 ## What navMate does well
 

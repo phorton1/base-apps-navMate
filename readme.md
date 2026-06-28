@@ -5,29 +5,38 @@ boat and every chartplotter you have ever owned.*
 
 <!-- TODO: hero screenshot -> images/navMate-hero.png (the Leaflet chart with a route loaded) -->
 
-**navMate** is a free desktop application for managing your complete navigation data in one
-place, and moving it to and from your Raymarine chartplotter. Plan on your computer with the
-whole world in view, push the waypoints and routes you need out to your E80, and pull your
-tracks back off the boat at the end of a passage -- and keep all of it, forever.
+**navMate** is a free desktop application for managing your complete navigation data -- your
+waypoints, groups, routes, and tracks -- in one place. Plan and organize on your computer with
+the whole world in view, and keep all of it, forever. navMate works entirely on its own: you do
+**not** need a chartplotter, a boat, or a network connection to use it.
+
+When you *do* have a Raymarine E-Series plotter, navMate adds a significant capability on top of
+that: it connects to the plotter over the network so you can push the waypoints and routes you
+need out to your E80, and pull your tracks back off the boat at the end of a passage.
 
 ## Works with
 
-- **Raymarine E80 / E120** chartplotters, over a standard Ethernet cable (SeatalkHS / RAYNET).
-- **Windows 10 / 11.** Self-contained -- nothing else to install.
+- **Windows 10 / 11.** A self-contained desktop application -- nothing else to install, and
+  fully useful on its own, with or without a chartplotter connected.
+- **Raymarine E80 / E120** chartplotters, over a standard Ethernet cable (SeatalkHS / RAYNET) --
+  optional, for users who want to move data to and from their plotter.
+- **Developers** can also run navMate directly from its Perl source -- see the
+  [Developer / Technical docs](docs/readme.md).
 
 <!-- TODO: list additional devices/protocols here as they are supported -->
 
 ## Download
 
-<!-- TODO: link to the latest GitHub Release once the first release is published -->
-**Download the latest navMate installer** -- *coming soon.*
+**[Download the latest navMate installer](https://github.com/phorton1/base-apps-navMate/releases)**
+from the GitHub Releases page -- grab the installer from the most recent release at the top
+of the list and run it.
 
 New here? Start with **[Getting Started](user_manual/getting_started.md)** -- the quickest
-path from a downloaded installer to your first connection with the E80.
+path from a downloaded installer to your first look around navMate.
 
 ## Documentation
 
-- **[User Manual](user_manual/readme.md)** -- install navMate, connect to your E80, and use it.
+- **[User Manual](user_manual/readme.md)** -- install navMate, use it on its own, and connect to an E-Series.
 - **[Getting Started](user_manual/getting_started.md)** -- download to first connection.
 - **[Developer / Technical docs](docs/readme.md)** -- architecture, data model, and the
   reverse-engineered Raymarine SeatalkHS protocol, for the curious and for contributors.

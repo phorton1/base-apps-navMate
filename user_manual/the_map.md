@@ -15,8 +15,9 @@ navMate shows your navigation data on a **map** -- an interactive, satellite-ima
 view that opens in your web browser right alongside the application windows.
 
 - **Waypoints** appear as small symbols -- the same anchor, hazard, fish, and marker icons
-  your E-Series uses. A waypoint set up as a *label* shows its name as text; a *sounding*
-  shows its depth.
+  your E-Series uses.
+  - A waypoint set up as a *label* shows its name as text
+  - A waypoint set up as a *sounding* shows its depth
 - **Routes** are drawn as solid colored lines connecting their waypoints in the order you'll travel them.
 - **Tracks** -- the breadcrumb trail of where the boat actually went -- are drawn as solid
   colored lines.
@@ -32,9 +33,10 @@ any time with **View -> Open Map**. It runs locally on your own computer -- navM
 need an internet connection to work, though the satellite imagery itself is fetched online
 when you are connected.
 
-![The navMate map with a fleet of recorded tracks shown; the pointer rests on the white 2008-02-03 Las Hadas to Zihuatanejo track and its info card shows the run's start and end times](images/the_map-intro.jpg)
+![the_map-intro,jpg](images/the_map-intro.jpg)
 
 ## What you see on the map
+
 
 The map has a few on-screen controls:
 

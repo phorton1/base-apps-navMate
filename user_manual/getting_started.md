@@ -17,42 +17,75 @@ Connecting an E-Series plotter comes later, in [its own chapter](connecting_e80.
 
 ## 1. Install navMate
 
-Run the navMate installer and follow the prompts. Everything navMate needs is included -- you
-do not need to install Perl or any other software first.
+Download the installer from the
+**[navMate Releases page](https://github.com/phorton1/base-apps-navMate/releases)** -- grab
+the installer from the most recent release at the top of the list. Then run it and follow the
+prompts. Everything navMate needs is included -- you do not need to install Perl or any other
+software first.
+
+![installer.jpg](images/installer.jpg)
 
 The first time it runs, navMate creates a folder for your data under your Windows **Documents**
 folder, at `Documents\phorton1\navMate`. Your entire knowledge base lives in a single database
 file there (`navMate.db`), which makes it easy to find and easy to back up: copy that one file
 and you have copied everything.
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/installer.png -- the navMate installer welcome page -->
+The installer places four icons on your desktop:
+
+- <img src="images/blue_icon.png" width="18" height="18" alt="navMate"> -
+  run *navMate*
+- <img src="images/grey_icon.png" width="18" height="18" alt="navMate"> -
+  run navMate with a debugging **console window**
+- <img src="images/netwizard_icon.png" width="18" height="18" alt="navMate"> -
+  run the **Network Wizard** to find your E-Series chartplotter
+- <img src="images/modder_icon.png" width="18" height="18" alt="navMate"> -
+  run the **Custom Firmware Builder** to create new firmware for your
+  E-Series plottor to enable new capabilities
+
+
+
 
 ## 2. First run
 
-The first time navMate starts you will see:
+Click the <img src="images/blue_icon.png" width="18" height="18" alt="navMate"> icon to launch navMate,
+then select the **View - Database** menu item to open the *Database Window*.
 
-- a **console window** -- text and status messages; you can mostly ignore it; and
-- the **database window** -- your navigation data shown as a tree.
+![empty_startup.jpg](images/empty_startup.jpg)
 
-The **map** does not open on its own. It opens in your web browser as soon as you show
-something on it (see [The Map](the_map.md)), or whenever you choose **View -> Open Map**.
+You may then click on the **+** indicators in the outline to expand them, and
+click on the Waypoints, Groups, Routes, and Tracks to see information about them
+and edit them in the right side of the database window:
 
-On a brand-new install the database starts nearly empty. That is expected -- the next chapters
-show you how to fill it.
+![example_database.jpg](images/example_database.jpg)
 
-**TODO: Screenshot** <!-- [SCREENSHOT] images/first_run.png -- the database and console windows on first launch -->
-
-## 3. Try it without a plotter
-
-The quickest way to see navMate work is to bring in some data you already have:
-
-- If you use **Google Earth**, export a `.kml` file and choose **Database -> Import KML**.
-- If you have a **GPS file** (`.gpx`) from another device or app, right-click a folder in the
-  database tree and choose **Import GPS file**.
-- Or simply right-click and choose **New -> Waypoint** to drop a mark by hand.
-
-Tick the checkbox next to anything in the tree and it appears on the map. That is the
-whole loop -- organize on the left, see it on the right -- and it works with no boat, no plotter,
+The [**map**](the_map.md) does not open on its own. It opens in your web browser as soon as you
+**double click** on something in the outline or use the  **View -> Open Map** menu item.
+Once the map is open, tick the checkbox next to anything in the tree and it appears on the map.
+That is the whole loop -- organize on the left, see it on the right -- and it works with no boat, no plotter,
 and no network in sight.
+
+On a brand-new install the database starts with an example database containing a
+variety of folders, Waypoints, Groups, Routes, and Tracks.
+
+
+Feel free to explore it!
+
+
+## 3. Import Your own Data
+
+Although there is plenty of data in the example database to play around with,
+there are also a variety of ways for you to bring your own data into navMate:
+
+- if you have a **ARCHIVE.FSH** from an existing E-Series plotter, use **FSH - Open File**
+  to open it in an *FSH Window*.
+- If you use **Google Earth**, export a `.kml` file and choose **Database -> Import KML**.
+- If you have a **GPS file** (`.gpx/.gdb`) from another device or app, right-click a folder in the
+  database tree and choose **Import GPS file**.
+
+Feel free to try any command at any time.  If you ever want to return to the original
+example database, use the **Database - Import from Text** command to recreate the
+example database from the **example_database.txt** file in your
+*\My Documents\phorton1\navMate folder.
+
 
 **Next:** [The Map](the_map.md)
