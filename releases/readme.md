@@ -21,11 +21,30 @@ history is authoritative: `git log navMate<older>..navMate<newer>`.
 
 | date | version | notes |
 | ---- | ------- | ----- |
+| 2026-06-28 | 0.9.7 | Timed Track Recording -- date/time + water depth at each track point; plus an About E80 dialog and a Help menu |
 | 2026-06-17 | 0.9.6 | e80Mod -- the E-Series Firmware Builder: build a custom v5.72 plotter firmware from your own stock v5.69, offline |
 | 2026-06-15 | 0.9.5 | first public pre-release -- Leaflet map waypoint editor, seeded example database, E-Series network wizard |
 
 Each release is the same tag `navMate<version>` stamped across the five repos it was built
 from, so it is fully reproducible. Provenance per release is recorded here at release time:
+
+### navMate0.9.7 -- 2026-06-28 (pre-release)
+
+Adds **Timed Track Recording**: on a custom-firmware plotter, navMate can record the date/time
+and water depth at every point of a track, view that detail in the E80 and FSH windows, and
+carry it losslessly between the database, the plotter, and `.fsh` files. Also adds an **About
+E80** dialog (per-unit identity and firmware build details) and a **Help** menu (User Manual +
+About navMate), and updates the **User Manual** with screenshots and some cleaned-up concepts.
+
+Built from (the `navMate0.9.7` tag in each repo):
+
+```
+navMate            83aca77
+Pub                0c26037
+Pub::Ray           ead8a65
+base_dist/navMate  a6232b6   (private)
+Perl               a3c6c457  (private)
+```
 
 ### navMate0.9.6 -- 2026-06-17 (pre-release)
 
