@@ -78,32 +78,6 @@ base, data model, and UI are the product. Everything else is a boundary adapter.
   organization (db, e80, tracks, fsh, hub), shared headers, fixtures, full-cycle
   orchestrator, and results archival.
 
-## Credits
-
-- **[wxPerl / wxWidgets](https://www.wxwidgets.org/)** - the cross-platform GUI
-  toolkit used for navMate's windows, panels, and dialogs.
-- **[SQLite](https://www.sqlite.org/)** (via `DBD::SQLite`) - the embedded
-  database engine that holds the navigation knowledge base.
-- **[Leaflet](https://leafletjs.com/)** (v1.9.4) - open-source JavaScript library
-  for the interactive map canvas (BSD 2-Clause license). Tile imagery sourced
-  separately from Google Maps and Esri.
-- **[Leaflet-Geoman](https://geoman.io/leaflet-geoman)** (v2.16.0) - open-source
-  Leaflet plugin for geometry editing: vertex drag, insert, delete, and custom
-  track editing operations (MIT license).
-- **[Google Maps](https://developers.google.com/maps)** - satellite tile imagery
-  via the Maps JavaScript API (`lyrs=s`). Requires a Google Maps Platform API key;
-  usage subject to Google Maps Platform Terms of Service.
-- **[Esri](https://www.esri.com/)** - place name label overlay tiles via the
-  ArcGIS Online REST tile service. Free for display use; attribution required.
-
-## License
-
-Copyright (C) 2026 Patrick Horton
-
-navMate is free software, released under the
-[GNU General Public License v3](../LICENSE.TXT) or any later version.
-See [LICENSE.TXT](../LICENSE.TXT) or <https://www.gnu.org/licenses/> for details.
-
 ## Please Also See
 
 - [**phorton1/base-apps-navMate**](https://github.com/phorton1/base-apps-navMate) -
@@ -111,7 +85,9 @@ See [LICENSE.TXT](../LICENSE.TXT) or <https://www.gnu.org/licenses/> for details
 
 - [**Ray Library**](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/readme.md) -
   the reverse-engineered SeatalkHS protocols, FSH file format, and CSV
-  conversion library that navMate's E80 and FSH spokes are built on.
+  conversion library that navMate's E80 and FSH spokes are built on. See especially its
+  [**docs/e80_firmware**](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/e80_firmware/readme.md)
+  folder, which documents the E-Series firmware internals behind navMate's custom-firmware features.
 
 - [**shark**](https://github.com/phorton1/base-apps-shark/blob/master/docs/shark.md) -
   the SeatalkHS engineering tool; the laboratory in which the protocols

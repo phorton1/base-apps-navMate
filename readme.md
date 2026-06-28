@@ -41,11 +41,45 @@ path from a downloaded installer to your first look around navMate.
 - **[Developer / Technical docs](docs/readme.md)** -- architecture, data model, and the
   reverse-engineered Raymarine SeatalkHS protocol, for the curious and for contributors.
 
+## Credits
+
+navMate stands on the work of these open-source projects:
+
+- **[wxPerl / wxWidgets](https://www.wxwidgets.org/)** -- the cross-platform GUI toolkit
+  used for navMate's windows, panels, and dialogs.
+- **[SQLite](https://www.sqlite.org/)** (via `DBD::SQLite`) -- the embedded database engine
+  that holds the navigation knowledge base.
+- **[Leaflet](https://leafletjs.com/)** (v1.9.4) -- open-source JavaScript library for the
+  interactive map (BSD 2-Clause license). Tile imagery sourced separately from Google Maps
+  and Esri.
+- **[Leaflet-Geoman](https://geoman.io/leaflet-geoman)** (v2.16.0) -- open-source Leaflet
+  plugin for geometry editing: vertex drag, insert, delete, and custom track editing
+  operations (MIT license).
+- **[parsefsh](https://github.com/rahra/parsefsh)** by Bernhard R. Fischer -- the open-source
+  C project that first decoded the Raymarine FSH archive format; navMate's FSH support
+  (through the Pub::Ray library) is built on that groundwork (GPL).
+- **[Google Maps](https://developers.google.com/maps)** -- satellite tile imagery via the
+  Maps JavaScript API (`lyrs=s`). Requires a Google Maps Platform API key; usage subject to
+  the Google Maps Platform Terms of Service.
+- **[Esri](https://www.esri.com/)** -- place-name label overlay tiles via the ArcGIS Online
+  REST tile service. Free for display use; attribution required.
+
 ## License
 
-navMate is released under the **GPL v3**. See [LICENSE.TXT](LICENSE.TXT).
+Copyright (C) 2026 Patrick Horton
 
-<!-- TODO: Credits -- the open-source libraries navMate stands on (wxPerl, Leaflet, SQLite, ...) -->
+navMate is free software, released under the
+[GNU General Public License v3](LICENSE.TXT) or any later version.
+See [LICENSE.TXT](LICENSE.TXT) or <https://www.gnu.org/licenses/> for details.
+
+## Please Also See
+
+- [**Pub::Ray (base-Pub-Ray)**](https://github.com/phorton1/base-Pub-Ray) -- the
+  reverse-engineered Raymarine SeatalkHS / RAYNET protocols, the FSH file format, and the CSV
+  conversion library that navMate's E80 and FSH spokes are built on. See especially its
+  [**docs/e80_firmware**](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/e80_firmware/readme.md)
+  folder, which documents the E-Series firmware internals behind navMate's custom-firmware
+  features.
 
 ---
 
