@@ -65,6 +65,9 @@ BEGIN
 		$COMMAND_SYM_MAPPING
 		$COMMAND_FORCE_SYM_RESET
 
+		$COMMAND_HELP_USER_MANUAL
+		$COMMAND_ABOUT_NAVMATE
+
 		$WIN_FSH
 		$COMMAND_NEW_FSH
 		$COMMAND_OPEN_FSH_FILE
@@ -116,6 +119,9 @@ our $COMMAND_COMPACT_DB_POSITIONS = 10093;
 
 our $COMMAND_SYM_MAPPING		= 10094;
 our $COMMAND_FORCE_SYM_RESET	= 10095;
+
+our $COMMAND_HELP_USER_MANUAL	= 10101;
+our $COMMAND_ABOUT_NAVMATE		= 10102;
 
 our $COMMAND_NEW_FSH			= 10080;
 our $COMMAND_OPEN_FSH_FILE		= 10081;
@@ -177,6 +183,8 @@ my $command_data = {
 	$COMMAND_COMPACT_DB_POSITIONS => ['Compact Positions',	'Renumber every container\'s child positions to 1.0, 2.0, 3.0...'],
 	$COMMAND_SYM_MAPPING		=> ['Waypoint Sym Mapping...',	'View and edit the wp_type -> sym mapping; conservative update of mapped waypoints'],
 	$COMMAND_FORCE_SYM_RESET	=> ['Force Reset Syms by Type...', 'Force every waypoint of a chosen wp_type to its mapped sym, overwriting hand-set syms'],
+	$COMMAND_HELP_USER_MANUAL	=> ['User Manual',			'Open the navMate User Manual on GitHub in your web browser'],
+	$COMMAND_ABOUT_NAVMATE		=> ['About navMate',			'Show the navMate version and a link to the project web site'],
 };
 
 
@@ -187,6 +195,7 @@ my $main_menu = [
 	'e80_menu,&E80',
 	'fsh_menu,&FSH',
 	'utils_menu,&Utils',
+	'help_menu,&Help',
 ];
 
 my $view_menu = [
@@ -265,6 +274,12 @@ my $utils_menu = [
 	$COMMAND_RUN_E80MOD,
 ];
 
+my $help_menu = [
+	$COMMAND_HELP_USER_MANUAL,
+	$ID_SEPARATOR,
+	$COMMAND_ABOUT_NAVMATE,
+];
+
 
 $resources = { %$resources,
 	app_title                => $appName,
@@ -276,6 +291,7 @@ $resources = { %$resources,
 	e80_menu                 => $e80_menu,
 	fsh_menu                 => $fsh_menu,
 	utils_menu               => $utils_menu,
+	help_menu                => $help_menu,
 	filesys_context_menu     => $filesys_context_menu,
 };
 

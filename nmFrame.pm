@@ -43,6 +43,9 @@ use base qw(Pub::WX::Frame);
 
 my $next_db_instance = 0;
 
+my $REPO_URL        = 'https://github.com/phorton1/base-apps-navMate';
+my $USER_MANUAL_URL = "$REPO_URL/blob/master/user_manual/readme.md";
+
 
 sub new
 {
@@ -92,6 +95,8 @@ sub new
 	EVT_MENU($this, $COMMAND_RESTORE_OUTLINE,	\&onCommand);
 	EVT_MENU($this, $COMMAND_SAVE_SELECTION,	\&onCommand);
 	EVT_MENU($this, $COMMAND_RESTORE_SELECTION,	\&onCommand);
+	EVT_MENU($this, $COMMAND_HELP_USER_MANUAL,	\&onCommand);
+	EVT_MENU($this, $COMMAND_ABOUT_NAVMATE,		\&onCommand);
 	EVT_UPDATE_UI($this, $COMMAND_REFRESH_WIN_E80,		\&onCommandEnable);
 	EVT_UPDATE_UI($this, $COMMAND_REFRESH_E80_DB,		\&onCommandEnable);
 	EVT_UPDATE_UI($this, $COMMAND_CLEAR_E80_DB,			\&onCommandEnable);
@@ -513,6 +518,58 @@ sub onCommand
 			}
 		}
 	}
+	elsif ($id == $COMMAND_HELP_USER_MANUAL)
+	{
+		Wx::LaunchDefaultBrowser($USER_MANUAL_URL);
+	}
+	elsif ($id == $COMMAND_ABOUT_NAVMATE)
+	{
+		_doAboutNavMate($this);
+	}
+}
+
+
+sub _navMateVersion
+	# The product version for display: the Cava-stamped version (e.g. "0.9.6.34")
+	# in an installed copy, or "dev" when running from source.
+{
+	if ($Cava::Packager::PACKAGED)
+	{
+		my $v = Cava::Packager::GetInfoProductVersion();
+		return (defined($v) && $v ne '') ? $v : 'unknown';
+	}
+	return 'dev';
+}
+
+
+sub _doAboutNavMate
+	# A small modal About box: the app name, version (Cava-stamped or "dev"), a
+	# one-line description, and a clickable link to the project on GitHub.
+{
+	my ($this) = @_;
+
+	my $dlg = Wx::Dialog->new($this, -1, 'About navMate',
+		wxDefaultPosition, [420, 230], wxDEFAULT_DIALOG_STYLE);
+
+	my $title_font = Wx::Font->new(14, wxFONTFAMILY_DEFAULT,
+		wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
+	my $name = Wx::StaticText->new($dlg, -1, 'navMate', [20, 18]);
+	$name->SetFont($title_font);
+
+	Wx::StaticText->new($dlg, -1, 'Version: '._navMateVersion(), [20, 52]);
+	Wx::StaticText->new($dlg, -1,
+		'A navigation-knowledge hub for Raymarine E-Series chartplotters.',
+		[20, 80], [380, 36]);
+
+	Wx::HyperlinkCtrl->new($dlg, -1, $REPO_URL, $REPO_URL, [20, 124]);
+
+	Wx::StaticText->new($dlg, -1, 'Copyright (c) 2026 Patrick Horton', [20, 150]);
+
+	my $ok = Wx::Button->new($dlg, wxID_OK, 'OK', [320, 162], [80, 28]);
+	$ok->SetDefault();
+
+	$dlg->ShowModal();
+	$dlg->Destroy();
 }
 
 
