@@ -40,6 +40,12 @@ selectors come up with every instrument window defaulted.
 - For **restore**, the target unit's keyed store must have settled (its own
   records present). In practice, wait a minute or two after a factory reset before
   restoring.
+- The target must be running the diagnostics-channel firmware the library
+  supports. The configuration store is located **at runtime**, so the library is
+  not pinned to a particular unit or boot -- the same build works against any
+  supported unit. If the store cannot be located and verified on the target, the
+  operation fails cleanly (returns 0 with `error` set) rather than acting on
+  unverified memory.
 
 ## Loading and calling
 

@@ -100,7 +100,13 @@ my $PAGESET_IDOFF  = 564;           # block+564 = set id (uint32), for the manif
 my $PAGESET_NAMEOFF= 568;           # block+568 = 25-byte set name, for the manifest
 
 # ---- keyed flob store: gestalt layer 2 (panelsets) ----
-my $FLOB           = 0x0471c66c;    # CFlobFilesystem singleton (bss)
+my $FLOB_MOUNTSTATE = 0x000942f0;   # localFlob_mountState_ptr: *() = {init_flag, CFlobFilesystem*}.
+                                    # The live keyed-store `this` = *(*($FLOB_MOUNTSTATE)+4). The
+                                    # store is a heap object (CFlobFilesystem_ctor rm_malloc 0x48),
+                                    # so its address is per-boot/per-unit -- resolved at runtime by
+                                    # _flobBase, NEVER hardcoded. (The old fixed 0x0471c66c was one
+                                    # unit's stale heap placement.)
+my $FLOB_VTABLE     = 0x0155e214;   # CFlobFilesystem vtable; integrity-checks the resolved store
 my $FLOB_HEAD_OFF  = 0x34;          # +0x34 = RB-tree header / nil sentinel (CFlobGuidList)
 my $FLOB_SIZE_OFF  = 0x38;          # +0x38 = record count
 my $FLOB_READKEY   = 0x004bbff4;    # readByKey(FS, &outId, keyPtr, dest, len)   -> 0x40000
@@ -1139,6 +1145,31 @@ sub _flobInorder
 }
 
 
+sub _flobBase
+    # Resolve THIS session's live keyed-store CFlobFilesystem `this`, cached in $this->{flob}.
+    # The store is a heap object, so its address is per-boot/per-unit and must never be hardcoded;
+    # the firmware reaches it through a stable mount-state pointer (localFlob_mount):
+    #   store = *( *($FLOB_MOUNTSTATE) + 4 )
+    # The resolved object's word0 is verified against the CFlobFilesystem vtable. Returns addr/undef.
+{
+    my ($this) = @_;
+    return $this->{flob} if $this->{flob};
+    my $g = _peek1($this, $FLOB_MOUNTSTATE);
+    return undef if !_validPtr($g);
+    my $base = _peek1($this, $g + 4);
+    return undef if !_validPtr($base);
+    my $vt = _peek1($this, $base);
+    if (!defined($vt) || $vt != $FLOB_VTABLE)
+    {
+        display($dbg_flob, 1, sprintf("flob: store at 0x%08x has vtable %s, expected 0x%08x -- unresolved",
+            $base, defined($vt) ? sprintf("0x%08x", $vt) : "(none)", $FLOB_VTABLE));
+        return undef;
+    }
+    display($dbg_flob, 1, sprintf("flob: live store this = 0x%08x (mount-state 0x%08x)", $base, $g));
+    return $this->{flob} = $base;
+}
+
+
 sub _flobEnumerate
     # Enumerate the keyed flob store's RB-tree (in-order, peek-only, node-capped). Returns a list of
     #   { key => [owner0, owner1, type, key3], len, id, recptr }   sorted lexicographically by key.
@@ -1147,9 +1178,11 @@ sub _flobEnumerate
     # the bar genuinely moves AND the label shows the running count.
 {
     my ($this, $progress) = @_;
-    my $head = _peek1($this, $FLOB + $FLOB_HEAD_OFF);
+    my $base = _flobBase($this);
+    return () if !defined($base);
+    my $head = _peek1($this, $base + $FLOB_HEAD_OFF);
     return () if !_validPtr($head);
-    my $count = _peek1($this, $FLOB + $FLOB_SIZE_OFF) || 0;
+    my $count = _peek1($this, $base + $FLOB_SIZE_OFF) || 0;
     _progressAddTotal($progress, int($count / 10)) if $progress;     # one scan tick per 10 records
     my $root = _peek1($this, $head + 4);                # header->_Parent = root
     my @recs;
@@ -1163,9 +1196,11 @@ sub _flobReadByKey
     # Read the body of keyed record {owner0,owner1,type,key3} of $len bytes. Returns raw bytes or undef.
 {
     my ($this, $keyref, $len) = @_;
+    my $base = _flobBase($this);
+    return undef if !defined($base);
     _poke($this, $SCRATCH_PATH, pack('v4', @$keyref));      # key buffer
     _poke($this, $SCRATCH_OUTID, pack('V', 0xabababab));
-    my $ret = _call($this, $FLOB_READKEY, $FLOB, $SCRATCH_OUTID, $SCRATCH_PATH, $SCRATCH_BUF, $len);
+    my $ret = _call($this, $FLOB_READKEY, $base, $SCRATCH_OUTID, $SCRATCH_PATH, $SCRATCH_BUF, $len);
     return undef if !defined($ret) || $ret != $FLOB_OK;
     return _peekBytes($this, $SCRATCH_BUF, $len);
 }
@@ -1176,6 +1211,8 @@ sub _flobWriteByKey
 {
     my ($this, $keyref, $id, $bytes) = @_;
     my $len = length($bytes);
+    my $base = _flobBase($this);
+    return 0 if !defined($base);
     _poke($this, $SCRATCH_PATH, pack('v4', @$keyref));
     my $o = 0;
     while ($o < $len)
@@ -1185,7 +1222,7 @@ sub _flobWriteByKey
         _poke($this, $SCRATCH_BUF + $o, substr($bytes, $o, $m));
         $o += $m;
     }
-    my $ret = _call($this, $FLOB_WRITEKEY, $FLOB, $id, $SCRATCH_PATH, $SCRATCH_BUF, $len);
+    my $ret = _call($this, $FLOB_WRITEKEY, $base, $id, $SCRATCH_PATH, $SCRATCH_BUF, $len);
     if (!defined($ret) || $ret != $FLOB_OK)
     {
         display($dbg_flob, 1, sprintf("flob writeByKey %04x %04x %04x %04x -> %s",
@@ -1203,8 +1240,10 @@ sub _flobDeleteByKey
     # in the delete path, param4 is a backend context passed 0. Returns 1/0.
 {
     my ($this, $keyref) = @_;
+    my $base = _flobBase($this);
+    return 0 if !defined($base);
     _poke($this, $SCRATCH_PATH, pack('v4', @$keyref));
-    my $ret = _call($this, $FLOB_DELKEY, $FLOB, $SCRATCH_PATH, 0, 0);
+    my $ret = _call($this, $FLOB_DELKEY, $base, $SCRATCH_PATH, 0, 0);
     if (!defined($ret) || $ret != $FLOB_OK)
     {
         display($dbg_flob, 1, sprintf("flob deleteByKey %04x %04x %04x %04x -> %s",
