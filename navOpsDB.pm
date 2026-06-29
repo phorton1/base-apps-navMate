@@ -32,8 +32,11 @@ sub _refreshDatabaseWithDelete
 {
 	my (@uuids) = @_;
 	my $frame = getAppFrame();
-	my $pane  = $frame ? $frame->findPane($WIN_DATABASE) : undef;
-	if ($pane)
+	return if !$frame;
+	# Multi-instance: refresh EVERY open Database window, not just the first
+	# one findPane() returns -- otherwise a second DB window keeps showing the
+	# deleted object in its tree.  Mirrors _refreshDatabase()'s fan-out.
+	for my $pane ($frame->_findDatabasePanes())
 	{
 		$pane->onObjectsDeleted(@uuids) if @uuids;
 		$pane->refresh();
@@ -732,7 +735,12 @@ sub _pasteItemsToCollection
 				my $pts         = $track->{points} // [];
 				# spoke->hub: decode the mod003 timed overload per point (ts/depth/temp
 				# split into the hub's flat columns); ts_start/end follow the decoded ends.
-				my @db_pts      = map { decodeTrackPoint($_) } @$pts;
+				# DB-source points are ALREADY hub-decoded (flat ts/depth_cm/temp_k from
+				# getTrackPoints) -- re-running the spoke decoder on them lands every point
+				# in the stock branch and zeroes the real ts, so pass them through unchanged.
+				my @db_pts      = ($source eq 'e80' || $source eq 'fsh')
+					? map { decodeTrackPoint($_) } @$pts
+					: @$pts;
 				my $ts_start    = $track->{ts_start} // (@db_pts ? ($db_pts[0]{ts}  // 0) : 0);
 				my $ts_end      = $track->{ts_end}   // (@db_pts ? $db_pts[-1]{ts}      : undef);
 				my $ts_source   = ($source eq 'e80' || $source eq 'fsh') ? 'e80' : ($track->{ts_source} // 'user');
@@ -985,7 +993,11 @@ sub _pasteDB
 				{
 					my $tr       = $item->{data};
 					my $pts      = $tr->{points} // [];
-					my @db_pts   = map { decodeTrackPoint($_) } @$pts;   # spoke->hub: split timed overload
+					# DB-source points are already hub-decoded (flat ts/depth_cm/temp_k);
+					# only raw e80/fsh wire points need the spoke->hub timed-overload split.
+					my @db_pts   = ($source eq 'e80' || $source eq 'fsh')
+						? map { decodeTrackPoint($_) } @$pts
+						: @$pts;
 					my $ts_src   = ($source eq 'e80' || $source eq 'fsh') ? 'e80' : ($tr->{ts_source} // 'user');
 					my $color    = ($source eq 'e80' || $source eq 'fsh') ? e80ColorIndexToAbgr($tr->{color}) : $tr->{color};
 					my $ts_start = $tr->{ts_start} // (@db_pts ? ($db_pts[0]{ts} // 0) : 0);
