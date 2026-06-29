@@ -453,6 +453,50 @@ Write-Host "TestRoute route_waypoints: before=$rwp_before after=$rwp_after (expe
 
 ---
 
+### Test 38 -- COPY DB timed track -> PASTE_NEW_AFTER preserves per-point timestamps
+
+Regression for the DB-source timed-track copy bug: the spoke->hub `decodeTrackPoint` (`n_utils.pm`) must run ONLY on raw `e80`/`fsh` wire points.  DB-source track points are already hub-decoded (flat `ts`/`depth_cm`/`temp_k` from `getTrackPoints`); re-running the decoder on them lands every point in the stock branch and zeroes the real per-point `ts`.  The new fresh-UUID track must carry the SAME non-zero timestamps as the source.
+
+`[TIMED_SRC]` is determined at run time -- pick a baseline DB track whose `/api/track_points` rows carry non-zero per-point `ts` (historically `2005-10-09-Cat32MissionBayToSanDiegoBay` = `65b3888535b54913`, but the DB is in flux; confirm and fill in `$TIMED_SRC` below).  Anchor is [IsolatedWP2] (`af4e23246d01bfa8`, a [DST] member after db.3), so PASTE_NEW_AFTER inserts the fresh track into [DST].  The new track is identified as the [DST] track UUID that appears across the paste (independent of name).
+
+```powershell
+$DST       = "6f4e72ceae0264de"   # [DST]
+$ANCHOR    = "af4e23246d01bfa8"   # [IsolatedWP2], a [DST] member
+$TIMED_SRC = "________________"   # TODO [TIMED_SRC]: UUID of a DB track carrying per-point ts (TBD; DB in flux)
+
+# source per-point ts profile
+$src = curl.exe -s "http://localhost:9883/api/track_points?uuid=$TIMED_SRC" | ConvertFrom-Json
+$src_ts_count = @($src.points | Where-Object { [int64]$_.ts -gt 0 }).Count
+$src_ts_first = ($src.points | Select-Object -First 1).ts
+$src_ts_last  = ($src.points | Select-Object -Last  1).ts
+
+# [DST] tracks before
+$before = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks | Where-Object { $_.collection_uuid -eq $DST } | Select-Object -ExpandProperty uuid)
+
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+db.38" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$TIMED_SRC&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$ANCHOR&right_click=$ANCHOR&cmd=10215" | Out-Null
+Start-Sleep 3
+
+# new track = the [DST] track UUID that appeared
+$after = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks | Where-Object { $_.collection_uuid -eq $DST } | Select-Object -ExpandProperty uuid)
+$new = @($after | Where-Object { $before -notcontains $_ })
+if ($new.Count -ne 1) { Write-Host "FAIL: expected exactly 1 new [DST] track, got $($new.Count)"; return }
+$new_uuid = $new[0]
+
+$dst = curl.exe -s "http://localhost:9883/api/track_points?uuid=$new_uuid" | ConvertFrom-Json
+$dst_ts_count = @($dst.points | Where-Object { [int64]$_.ts -gt 0 }).Count
+$dst_ts_first = ($dst.points | Select-Object -First 1).ts
+$dst_ts_last  = ($dst.points | Select-Object -Last  1).ts
+
+Write-Host "db.38: source non-zero-ts=$src_ts_count first=$src_ts_first last=$src_ts_last; new=$new_uuid non-zero-ts=$dst_ts_count first=$dst_ts_first last=$dst_ts_last (expect equal, count > 0)"
+```
+
+**Pass:** COPY + PASTE NEW AFTER STARTED/FINISHED; no IMPL ERROR; `$src_ts_count > 0` AND `$dst_ts_count == $src_ts_count` AND `$dst_ts_first == $src_ts_first` AND `$dst_ts_last == $src_ts_last`.  Before the fix `$dst_ts_count` is 0 (all per-point ts zeroed by the misapplied decoder).
+
+---
+
 End of db module tests.
 ---
 

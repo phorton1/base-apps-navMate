@@ -72,6 +72,7 @@ Tests run in two sections per master_runbook's Test Organization Convention: pos
 | db.19b | PASTE_NEW_BEFORE with group clipboard + WP anchor |
 | db.35  | PASTE waypoint at DB route object -- REF append (D3 positive carve-out) |
 | db.37  | Pure route_point COPY+PASTE_BEFORE at route_point anchor (D1 positive carve-out coverage) |
+| db.38  | COPY DB timed track -> PASTE_NEW_AFTER preserves per-point timestamps (regression: the spoke->hub `decodeTrackPoint` must NOT run on DB-source points, which already carry flat `ts`/`depth_cm`/`temp_k`) |
 
 ### Guard Tests
 
@@ -112,3 +113,4 @@ The independence guarantee is at the MODULE boundary: this module is independent
 - Several guards depend on state built up by the positives -- specifically [TestRoute] in [DST] and the db.15a-introduced duplicate Popa0 in [TestRoute].
 - BOCAS2 (and other moved items) leave the module's [DST] populated with various accumulated WPs, routes, and a moved branch.  This is the natural end state of the module; it has no significance once the module completes (next module's baseline reverts the DB).
 - The G-renumbering replaces the previous flat numbering used through cycle 25.  Historical cycle results (`_results/cycle_NN.md` for cycles <= 25) reference the old numbers; from cycle 26 onwards the G-prefixed form is canonical.
+- **db.38 needs a timed source track [TIMED_SRC] -- UUID DETERMINED AT RUN TIME.**  It must be a baseline DB track whose `/api/track_points` rows carry non-zero per-point `ts` (a timed track).  The historical pick was `2005-10-09-Cat32MissionBayToSanDiegoBay` (the tracks module's `[TIMED_CAT32]` = `65b3888535b54913`, the one baseline track with genuinely varied per-point timestamps), but the DB is in flux and UUIDs may change, so the runbook leaves it as a `$TIMED_SRC` placeholder to fill in before the run (and to register in `../uuid_index.md` once settled).  db.38 is the ONLY DB-source timed-track copy test: the tracks module's timed coverage (tracks.14/15/G4) all cross the E80 spoke, so they exercise the `e80`-source decode branch and never the DB-source pass-through this regresses.
