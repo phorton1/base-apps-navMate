@@ -43,6 +43,7 @@ use Pub::WX::Menu;
 use Pub::Ray::NET::a_utils;
 use navDB;
 use navVisibility qw(getDbVisible setDbVisible);
+use navColorPick;
 use navOutline;
 use navSelection;
 use n_defs;
@@ -1204,20 +1205,14 @@ sub _onColorPick
 	my $gg = hex(substr($current, 4, 2));
 	my $bb = hex(substr($current, 2, 2));
 
-	my $cd = Wx::ColourData->new();
-	$cd->SetColour(Wx::Colour->new($rr, $gg, $bb));
-	$cd->SetChooseFull(1);
-
-	my $dlg = Wx::ColourDialog->new($this, $cd);
-	if ($dlg->ShowModal() == wxID_OK)
+	my $c = navColorPick::pickColour($this, Wx::Colour->new($rr, $gg, $bb));
+	if ($c)
 	{
-		my $c = $dlg->GetColourData()->GetColour();
 		_setColorSwatch($this, sprintf('%s%02x%02x%02x', $aa, $c->Blue(), $c->Green(), $c->Red()));
 		return if $this->{_loading_editor};
 		$this->{_editor_dirty} = 1;
 		$this->{ed_save}->Enable(1);
 	}
-	$dlg->Destroy();
 }
 
 

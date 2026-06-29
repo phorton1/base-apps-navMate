@@ -47,6 +47,7 @@ use n_utils qw(
 	isExactE80Color);
 use Pub::Ray::NET::a_utils;
 use nmResources qw(makeSymComboBox);
+use navColorPick;
 use base 'Wx::Dialog';
 
 
@@ -543,14 +544,9 @@ sub _onColorPick
 	my $gg = hex(substr($current, 4, 2));
 	my $bb = hex(substr($current, 2, 2));
 
-	my $cd = Wx::ColourData->new();
-	$cd->SetColour(Wx::Colour->new($rr, $gg, $bb));
-	$cd->SetChooseFull(1);
-
-	my $dlg = Wx::ColourDialog->new($this, $cd);
-	if ($dlg->ShowModal() == wxID_OK)
+	my $c = navColorPick::pickColour($this, Wx::Colour->new($rr, $gg, $bb));
+	if ($c)
 	{
-		my $c = $dlg->GetColourData()->GetColour();
 		my $new_abgr = sprintf('%s%02x%02x%02x',
 			$aa, $c->Blue(), $c->Green(), $c->Red());
 		$this->{_color_value} = $new_abgr;
@@ -559,7 +555,6 @@ sub _onColorPick
 		my $custom_idx = $this->{_color_multi_offset} + scalar(@E80_ROUTE_COLOR_NAMES);
 		$this->{cho_color}->SetSelection($custom_idx);
 	}
-	$dlg->Destroy();
 }
 
 
