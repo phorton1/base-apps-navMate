@@ -12,7 +12,7 @@ For static-baseline vs setup-derived UUID concepts, see [`master_plan.md`](maste
 - `source=fsh:_fixtures/test.fsh` -- entry exists in the frozen FSH fixture. UUID is stable indefinitely (fixture is frozen by policy).
 - `source=setup:<op>` -- entry is produced by a module setup operation; UUID assigned at runtime. Noted as `dynamic` in the UUID column; the operation that produces it is named in the source column.
 
-UUIDs verified 2026-05-08 from live `/api/nmdb` (schema 10, git-baseline navMate.db). FSH-side entries to be populated as the fsh module is built.
+UUIDs re-derived 2026-06-29 from the git-baseline `navMate.db` (schema 13) after a major restructure: the entire `oldE80` top-level branch was removed, routes consolidated under Navigation/Routes, "Michelle" group/route renamed "DeLaLuna", and the Timiteo route recreated. FSH-side entries unchanged (frozen fixture).
 
 ---
 
@@ -22,9 +22,9 @@ UUIDs verified 2026-05-08 from live `/api/nmdb` (schema 10, git-baseline navMate
 
 | [Name] | UUID | Notes |
 |--------|------|-------|
-| [IsolatedWP1] | ce4e43181f01b3ae | BOCAS1 -- in oldE80/Tracks branch; not in any group or route |
-| [IsolatedWP2] | af4e23246d01bfa8 | BOCAS2 -- same parent branch |
-| [IsolatedWP3] | 994e0f7ef900baa4 | TOBOBE -- same parent branch; consumed by db module's delete-WP test |
+| [IsolatedWP1] | 9e4e10cc5e03093e | BarillasMarina -- in Part 4 - Pacific Central/Places (bc4e6a005d03cbce); not in any route. (Groupedness is irrelevant to its roles -- it is only ever a COPY source, move/delete subject, or anchor. The old "isolated/ungrouped" framing no longer applies: the DB has zero ungrouped WPs.) |
+| [IsolatedWP2] | 864e53b65f033436 | Mexico~99 -- same parent group (Part 4/Places, bc4e6a005d03cbce); not in any route |
+| [IsolatedWP3] | f54e595460034e6e | PuestaDelSol -- same parent group (Part 4/Places, bc4e6a005d03cbce); not in any route; consumed by db module's delete-WP test |
 
 ### WP referenced in a route
 
@@ -50,7 +50,7 @@ UUIDs verified 2026-05-08 from live `/api/nmdb` (schema 10, git-baseline navMate
 
 | [Name] | UUID | Notes |
 |--------|------|-------|
-| [TestGroup] | 1a4eaf5a8c00e922 | Timiteo -- under oldE80/Groups ([UnsafeBranch]); 6 members (t01-t06), none in route. Name "Timiteo" never conflicts with E80 state at PASTE_NEW time. |
+| [TestGroup] | 1a4eaf5a8c00e922 | Timiteo -- under Navigation/Routes (ac4e2c500600b9aa); 6 members (t01-t06). NB its members are now ALSO referenced by the Timiteo route (864e0f0a49071680), but no TestGroup test requires route-free members (it is only ever a COPY source / anchor / predicate target). |
 | [TestGroupMember] | d44e40468d000d96 | t01 -- first member of [TestGroup]. Used in ancestor-wins multi-select. |
 
 ### Route + route points
@@ -66,12 +66,12 @@ UUIDs verified 2026-05-08 from live `/api/nmdb` (schema 10, git-baseline navMate
 
 | [Name] | UUID | Notes |
 |--------|------|-------|
-| [SafeBranch] | 0a4e9820cc015cae | "Before Sumwood Channel" -- Places (7 WPs none in route) + empty Tracks sub-branch; isBranchDeleteSafe=1 |
-| [RouteBranch] | ac4e2c500600b9aa | Navigation/Routes -- Agua/Michelle/Popa groups + matching routes |
-| [SomeBranch] | 784e76f880029e1e | "MichellToKuna 2011-07" -- Places (4 WPs none in route) + empty Tracks sub-branch; isBranchDeleteSafe=1 |
+| [SafeBranch] | 4c4e1e283f075040 | "Before Sumwood Channel" (under Michelle 2010-2011) -- Places group (7 WPs none in route) + 13 direct tracks; isBranchDeleteSafe=1. Shape note: no empty Tracks sub-branch and it carries tracks -- delete-safe regardless (db.8 only checks the subtree is gone). |
+| [RouteBranch] | ac4e2c500600b9aa | Navigation/Routes -- 6 groups (Agua/Boatyard/DeLaLuna/Popa/RonAzul/Timiteo) + 5 routes (Agua/DeLaLuna/Popa/RonAzul/Timiteo) |
+| [SomeBranch] | f64e54841003ea50 | "Part 2 - Baja California" -- Places group (16 WPs none in route) + Tracks sub-branch (8 tracks). Used by db.10 as a CUT+PASTE MOVE subject (delete-safety irrelevant); chosen to NOT collide with the Part 1 dissolve in db.5. |
 | [NestedBranch] | 234e412e3104296e | MandalaLogs -- root level; Places + Tracks sub-branch |
 | [ChildBranch] | 984e7898480427f6 | MandalaLogs/Tracks -- direct child of [NestedBranch]; used as recursive-paste target |
-| [UnsafeBranch] | b84e8c3c51009446 | oldE80/Groups -- 62 descendant WPs in routes outside this branch |
+| [UnsafeBranch] | *none in DB* | NO delete-unsafe branch exists in the current DB -- every route is colocated with the groups holding its member WPs, so no branch deletion can orphan an external route. The db guard that used this (was db.G3) has been REMOVED. To restore it, construct the unsafe shape at setup (paste an isolated WP onto a route in a different branch, the way db.35 creates a cross-collection route_waypoint ref). |
 
 ### Track
 
@@ -79,18 +79,18 @@ UUIDs verified 2026-05-08 from live `/api/nmdb` (schema 10, git-baseline navMate
 |--------|------|-------|
 | [TestTrack] | 1a4eed924904ebbe | "2005-11-25-SanDiego2Oceanside" -- in MandalaLogs/Tracks; 500 pts, palette color (ff00ff00 green) |
 | [TIMED_CAT32] | 65b3888535b54913 | "2005-10-09-Cat32MissionBayToSanDiegoBay" -- the mod003 timed-track fixture. 500 pts, `ts_source=gdb`, per-point timestamps that VARY (1128888553..1128912810, 499 distinct). Chosen by a UUID pass as the ONLY DB track with varied per-point ts (catches point-reorder bugs); far-past 2005 date makes it durable. Carries NO depth (like every saved track) and its 39-char name truncates on write. Used by tracks.14/15/G4, fsh.40/G12, reflash. |
-| [DB_TRACK_SHORT] | 8a4e3c4a2201fac2 | "BOCAS1-001" -- 11 chars, 77 pts, color=ffff6666; short-name positive PASTE-to-E80 candidate |
+| [DB_TRACK_SHORT] | bf4e346442079f0c | "DeLaLuna2Popa" -- 13 chars, 61 pts, color=ff0055ff (NON-palette -> color-snaps at the wire seam). The ONLY short non-palette DB track; the non-palette color is REQUIRED by tracks.9's PUSH-color-diff. |
 | [DB_TRACK_LONG_NONPALETTE] | 824e8a104b04c37c | "2006-01-11-SanDiego2DanaPoint" -- 31 chars, 231 pts, color=ffffff00; exercises BOTH lossy-warn lines (name truncation + color snap) in a single paste |
-| [DB_TRACK_MULTI_A] | 8a4e3c4a2201fac2 | = [DB_TRACK_SHORT]. The single-PASTE track in tracks.5; NOT used in multi-PASTE because by then it lives on E80 (uuid-preserving multi-PASTE collides). |
-| [DB_TRACK_MULTI_B] | 664e93a624018e26 | "BOCAS1-002" -- 11 chars, 74 pts. First slot in the tracks.6 multi-PASTE batch. |
-| [DB_TRACK_MULTI_C] | 694e27fe26016702 | "BOCAS1-003" -- 11 chars, 55 pts. Second slot in the tracks.6 multi-PASTE batch. |
-| [DB_TRACKS_BRANCH] | 2b4e3308ca00cf66 | oldE80/Tracks branch -- 123 tracks; parent of the BOCAS1-* / BOCAS2-* / TOBOBE-* / SANBLAS-* etc. children used by multi-track tests. |
+| [DB_TRACK_MULTI_A] | bf4e346442079f0c | = [DB_TRACK_SHORT]. The single-PASTE track in tracks.5; NOT used in multi-PASTE because by then it lives on E80 (uuid-preserving multi-PASTE collides). |
+| [DB_TRACK_MULTI_B] | 764e661676054678 | "Track2-004" -- 10 chars, 36 pts, palette color. First slot in the tracks.6 multi-PASTE batch. |
+| [DB_TRACK_MULTI_C] | 544eb8d278059e18 | "Track2-005" -- 10 chars, 36 pts, palette color. Second slot in the tracks.6 multi-PASTE batch. |
+| [DB_TRACKS_BRANCH] | *retired* | RETIRED -- 0 module references. (Was oldE80/Tracks, now removed from the DB.) |
 
 ### Paste destination
 
 | [Name] | UUID | Notes |
 |--------|------|-------|
-| [DST] | 6f4e72ceae0264de | "AguaAndTobobe c 2011-03-06" -- under Michelle; empty at module-baseline (0 WPs, 0 routes, 0 child collections). Accumulates module output within a cycle. |
+| [DST] | *setup-created (`$DST`)* | No empty collection exists in the baseline DB. Each module's baseline setup CREATEs an empty branch (`op=create_branch&name=navTestDST`) and captures its runtime uuid into `$DST`; tests reference `$DST`. Empty at module-baseline; accumulates module output within a cycle. |
 
 ### Name-collision setup
 
@@ -98,7 +98,7 @@ UUIDs verified 2026-05-08 from live `/api/nmdb` (schema 10, git-baseline navMate
 |--------|------|-------|
 | [WP_A] | dynamic | First of two same-named DB WPs (locate two WPs sharing a name via `/api/nmdb` group-by-name). |
 | [WP_B] | dynamic | Second same-named WP (same name as [WP_A], different UUID). |
-| [SameNameWP] | dynamic | DB WP whose name equals [IsolatedWP1]'s name ("BOCAS1"). Multiple candidates exist in baseline DB; the e80 module's runbook picks the first non-[IsolatedWP1] match. |
+| [SameNameWP] | dynamic | DB WP whose name equals [IsolatedWP1]'s name ("BarillasMarina"). The baseline DB has only one; the precondition is established by PASTE_NEW of [IsolatedWP1] into [DST] (mints a second same-named WP at a fresh uuid). The e80/fsh runbooks pick the first non-[IsolatedWP1] match. |
 
 ---
 
@@ -189,19 +189,20 @@ These UUIDs are referenced in module specs for parent-collection navigation but 
 | Navigation top-level | 424e51840100072e |
 | Navigation/Routes sub-branch | ac4e2c500600b9aa (= [RouteBranch]) |
 | Navigation/Waypoints sub-branch | e54ede600200feee |
-| oldE80 top-level | a14ede0850000360 |
-| oldE80/Tracks branch | 2b4e3308ca00cf66 |
-| oldE80/Groups branch | b84e8c3c51009446 (= [UnsafeBranch]) |
+| oldE80 top-level | *removed from DB* |
+| oldE80/Tracks branch | *removed from DB* |
+| oldE80/Groups branch | *removed from DB* (was [UnsafeBranch]) |
 | StarfishBeach | 9d4e232a0500dd90 (member of [GroupNoRoute]) |
-| Fishfarm (member of Bocas group) | 124e0eb404000564 (NOTE: a separate "Fishfarm" at e84e625e980095c6 lives under oldE80/Waypoints; unrelated) |
+| Fishfarm (member of Bocas group) | 124e0eb404000564 |
+| IsolatedWP parent (Part 4/Places) | bc4e6a005d03cbce |
 | Popa0 / Popa1 / Popa2 | 314e56cc09005332 / 8d4e68fa0a0073ee / 454e11a80b002884 |
-| Michelle top-level | 034e6b8ccb01fffe |
+| Michelle context | 964e0db8350781ca ("Michelle 2010-2011"; old "Michelle" 034e6b8ccb01fffe removed) |
 | Part 1 - Before Trip | 214e7db00703a184 |
 | Agua group | 204ecbd24500a678 |
 | Agua route | d64e8c7e4400a186 |
-| Michelle group | 104e199a1500e646 |
-| Michelle route | 3b4e87f21400d81c |
-| Timiteo route | 844ed11696001cba |
+| DeLaLuna group (was "Michelle") | 104e199a1500e646 |
+| DeLaLuna route (was "Michelle") | 3b4e87f21400d81c |
+| Timiteo route | 864e0f0a49071680 |
 
 ---
 

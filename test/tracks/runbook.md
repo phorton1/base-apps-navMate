@@ -13,6 +13,23 @@ curl.exe -s "http://localhost:9883/api/test?op=suppress&val=1" | Out-Null
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+tracks+module+reset" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
+
+# Create the empty paste-destination [DST] and capture its runtime uuid into $DST
+# (no empty collection exists in the baseline DB). $DST is session-global.
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+create+DST" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?op=create_branch&name=navTestDST" | Out-Null
+$global:DST = ""
+$deadline = (Get-Date).AddMilliseconds(5000)
+Start-Sleep -Milliseconds 800
+while ((Get-Date) -lt $deadline -and -not $global:DST) {
+    $log = curl.exe -s "http://localhost:9883/api/log?since=mark"
+    if ($log -match "navTest: create_branch 'navTestDST' uuid=([0-9a-f]+)") { $global:DST = $matches[1]; break }
+    Start-Sleep -Milliseconds 250
+}
+if (-not $global:DST) { Write-Host "FAIL: could not create/capture [DST]"; return }
+$DST = $global:DST
+Write-Host "[DST] = $DST"
+
 curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh" | Out-Null
 Start-Sleep 2
 
@@ -141,7 +158,7 @@ $E80_TK1 = "<from-tracks.1a>"
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.2" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$E80_TK1&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 5
 ```
 
@@ -156,7 +173,7 @@ $E80_TK1 = "<from-tracks.1a>"
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.3" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$E80_TK1&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 5
 ```
 
@@ -173,7 +190,7 @@ $E80_TK2 = "<from-tracks.1b>"
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.4" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$E80_TK2&cmd=10201" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 6
 ```
 
@@ -183,31 +200,31 @@ Start-Sleep 6
 
 ### Test 5 -- PASTE single DB track -> E80 tracks header
 
-Uses `[DB_TRACK_SHORT] = 8a4e3c4a2201fac2` ("BOCAS1-001", 77 pts, palette-snap color).
+Uses `[DB_TRACK_SHORT] = bf4e346442079f0c` ("DeLaLuna2Popa", 61 pts, non-palette color that snaps at the wire seam).
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.5" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=8a4e3c4a2201fac2&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=bf4e346442079f0c&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Atracks&right_click=header%3Atracks&cmd=10210" | Out-Null
 Start-Sleep 8
 
 $tk = (curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json).tracks
 @($tk.PSObject.Properties).Count
-$tk."8a4e3c4a2201fac2".name
+$tk."bf4e346442079f0c".name
 ```
 
-**Pass:** the pasted BOCAS1-001 lands on E80 as a new track at mta_uuid `8a4e3c4a2201fac2`, name = "BOCAS1-001".  (E80 total tracks = 2 here: BOCAS1-001 plus the E80Track1 still on E80 from tracks.1 -- tracks.4 only CUT E80Track2, so E80Track1 lingers; the old "count = 1" assertion predates that lingering track and is wrong.)  Log shows `d_TRACK_writer SAVED ok` (the SAVED ack), a `TRACK_CHANGED` event, and `got track(8a4e3c4a2201fac2) = 'BOCAS1-001'`.  PASTE (e80) STARTED/FINISHED + ProgressDialog 'Paste Tracks' STARTED/FINISHED.
+**Pass:** the pasted DeLaLuna2Popa lands on E80 as a new track at mta_uuid `bf4e346442079f0c`, name = "DeLaLuna2Popa".  (E80 total tracks = 2 here: DeLaLuna2Popa plus the E80Track1 still on E80 from tracks.1 -- tracks.4 only CUT E80Track2, so E80Track1 lingers; the old "count = 1" assertion predates that lingering track and is wrong.)  Log shows `d_TRACK_writer SAVED ok` (the SAVED ack), a `TRACK_CHANGED` event, and `got track(bf4e346442079f0c) = 'DeLaLuna2Popa'`.  PASTE (e80) STARTED/FINISHED + ProgressDialog 'Paste Tracks' STARTED/FINISHED.
 
 ---
 
 ### Test 6 -- PASTE multi DB tracks -> E80 tracks header
 
-Uses `[DB_TRACK_MULTI_B/C] = 664e93a624018e26`, `694e27fe26016702` ("BOCAS1-002/003", 74+55 pts).  Two-track batch; `[DB_TRACK_MULTI_A]` (BOCAS1-001) is excluded because tracks.5 already pasted it to E80, and `_pasteAllToE80` rejects a batch that contains any uuid already present on E80 (with `use PASTE_NEW instead` sentinel).  Multi-select is a single call with comma-separated uuids (`navTest.pm` line 11 documents this form; chaining N single-select calls each REPLACES the prior selection, so only the last reaches PASTE -- that's a runbook bug, not a code bug).
+Uses `[DB_TRACK_MULTI_B/C] = 764e661676054678`, `544eb8d278059e18` ("Track2-004/005", 36+36 pts).  Two-track batch; `[DB_TRACK_MULTI_A]` (DeLaLuna2Popa) is excluded because tracks.5 already pasted it to E80, and `_pasteAllToE80` rejects a batch that contains any uuid already present on E80 (with `use PASTE_NEW instead` sentinel).  Multi-select is a single call with comma-separated uuids (`navTest.pm` line 11 documents this form; chaining N single-select calls each REPLACES the prior selection, so only the last reaches PASTE -- that's a runbook bug, not a code bug).
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.6" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=664e93a624018e26,694e27fe26016702&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=764e661676054678,544eb8d278059e18&cmd=10200" | Out-Null
 Start-Sleep 2
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Atracks&right_click=header%3Atracks&cmd=10210" | Out-Null
 Start-Sleep 20
@@ -215,7 +232,7 @@ Start-Sleep 20
 @((curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json).tracks.PSObject.Properties).Count
 ```
 
-**Pass:** `/api/db` tracks now contains BOCAS1-002@`664e93a624018e26` and BOCAS1-003@`694e27fe26016702` alongside the BOCAS1-001@`8a4e3c4a2201fac2` from tracks.5 (E80 count goes 1 -> 3 plus E80Track1 from Section 1 = 4 total).  Both new tracks have mta_uuid preserved from DB.  PASTE STARTED/FINISHED + ProgressDialog STARTED/FINISHED.
+**Pass:** `/api/db` tracks now contains Track2-004@`764e661676054678` and Track2-005@`544eb8d278059e18` alongside the DeLaLuna2Popa@`bf4e346442079f0c` from tracks.5 (E80 count goes 1 -> 3 plus E80Track1 from Section 1 = 4 total).  Both new tracks have mta_uuid preserved from DB.  PASTE STARTED/FINISHED + ProgressDialog STARTED/FINISHED.
 
 ---
 
@@ -223,13 +240,13 @@ Start-Sleep 20
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.7" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=8a4e3c4a2201fac2&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=bf4e346442079f0c&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Atracks&right_click=header%3Atracks&cmd=10211" | Out-Null
 Start-Sleep 8
 ```
 
-**Pass:** new E80 track present with FRESH navMate UUID (byte 1 = `0x4e`, NOT `8a4e3c4a2201fac2`); name = "BOCAS1-001"; DB unchanged.  PASTE_NEW STARTED/FINISHED.  Note: under suppressed UX, the PASTE_NEW confirmation dialog is auto-accepted.
+**Pass:** new E80 track present with FRESH navMate UUID (byte 1 = `0x4e`, NOT `bf4e346442079f0c`); name = "DeLaLuna2Popa"; DB unchanged.  PASTE_NEW STARTED/FINISHED.  Note: under suppressed UX, the PASTE_NEW confirmation dialog is auto-accepted.
 
 ---
 
@@ -237,13 +254,13 @@ Start-Sleep 8
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.8" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=8a4e3c4a2201fac2,664e93a624018e26,694e27fe26016702&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=bf4e346442079f0c,764e661676054678,544eb8d278059e18&cmd=10200" | Out-Null
 Start-Sleep 2
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Atracks&right_click=header%3Atracks&cmd=10211" | Out-Null
 Start-Sleep 25
 ```
 
-**Pass:** three new tracks on E80 with FRESH navMate UUIDs (all byte 1 = `0x4e`); names = "BOCAS1-001", "BOCAS1-002", "BOCAS1-003"; DB unchanged.
+**Pass:** three new tracks on E80 with FRESH navMate UUIDs (all byte 1 = `0x4e`); names = "DeLaLuna2Popa", "Track2-004", "Track2-005"; DB unchanged.
 
 ---
 
@@ -265,27 +282,27 @@ Start-Sleep 8
 
 ### Test 10 -- PUSH E80 track -> DB (exercises natural color drift)
 
-PUSH from E80 syncs name/color from the live E80 state to the existing DB row.  No out-of-band modify step is needed: tracks.5's PASTE of `[DB_TRACK_SHORT]` (`BOCAS1-001`) introduced a real diff because the DB color (`ffff6666`, non-palette) was snapped to the nearest E80 palette index at the wire seam.  PUSH back to DB therefore lands a different color than the DB row originally held -- this is the diff the test exercises.
+PUSH from E80 syncs name/color from the live E80 state to the existing DB row.  No out-of-band modify step is needed: tracks.5's PASTE of `[DB_TRACK_SHORT]` (`DeLaLuna2Popa`) introduced a real diff because the DB color (`ff0055ff`, non-palette) was snapped to the nearest E80 palette index at the wire seam.  PUSH back to DB therefore lands a different color than the DB row originally held -- this is the diff the test exercises.
 
-Setup uses the track from tracks.5 (same UUID `8a4e3c4a2201fac2` on both sides).
+Setup uses the track from tracks.5 (same UUID `bf4e346442079f0c` on both sides).
 
 ```powershell
-# Capture DB color BEFORE push -- should be ffff6666 (the original, non-palette)
+# Capture DB color BEFORE push -- should be ff0055ff (the original, non-palette)
 $db_before = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
-$row_before = $db_before.tracks | Where-Object { $_.uuid -eq '8a4e3c4a2201fac2' }
+$row_before = $db_before.tracks | Where-Object { $_.uuid -eq 'bf4e346442079f0c' }
 $color_before = $row_before.color
 
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.10" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=8a4e3c4a2201fac2&right_click=8a4e3c4a2201fac2&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=bf4e346442079f0c&right_click=bf4e346442079f0c&cmd=10250" | Out-Null
 Start-Sleep 5
 
-# Capture DB color AFTER push -- should be a palette ABGR (one of the 6 exact values), not ffff6666
+# Capture DB color AFTER push -- should be a palette ABGR (one of the 6 exact values), not ff0055ff
 $db_after = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
-$row_after = $db_after.tracks | Where-Object { $_.uuid -eq '8a4e3c4a2201fac2' }
+$row_after = $db_after.tracks | Where-Object { $_.uuid -eq 'bf4e346442079f0c' }
 Write-Host "DB color: before=$color_before after=$($row_after.color)"
 ```
 
-**Pass:** PUSH STARTED/FINISHED; DB row's `color` field changed from `ffff6666` to a palette-exact ABGR (one of `ff0000ff`, `ff00ff00`, `ffff0000`, `ff00ffff`, `ffff00ff`, `ff000000`); name unchanged ("BOCAS1-001" was already <= 15 chars); `modified_ts` updated.  Points NOT touched (immutable on E80).  Confirms the wire path runs AND that the diff actually syncs.
+**Pass:** PUSH STARTED/FINISHED; DB row's `color` field changed from `ff0055ff` to a palette-exact ABGR (one of `ff0000ff`, `ff00ff00`, `ffff0000`, `ff00ffff`, `ffff00ff`, `ff000000`); name unchanged ("DeLaLuna2Popa" was already <= 15 chars); `modified_ts` updated.  Points NOT touched (immutable on E80).  Confirms the wire path runs AND that the diff actually syncs.
 
 ---
 
@@ -306,7 +323,7 @@ $picked = @($fresh | Select-Object -First 3)
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.11" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$($picked -join ',')&cmd=10200" | Out-Null
 Start-Sleep 2
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 15
 ```
 
@@ -331,7 +348,7 @@ $picked = @($fresh | Select-Object -First 2)
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.12" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$($picked -join ',')&cmd=10201" | Out-Null
 Start-Sleep 2
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 15
 ```
 
@@ -389,7 +406,7 @@ $rec = @((curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json).tracks.
     Where-Object { $_.Value.name -eq 'TimedRec' })[0].Name
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$rec&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 5
 $row = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks |
     Where-Object { $_.name -eq 'TimedRec' })[0]
@@ -417,7 +434,7 @@ $rec = @((curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json).tracks.
     Where-Object { $_.Value.name -eq 'StockRec' })[0].Name
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$rec&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 5
 $row = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks |
     Where-Object { $_.name -eq 'StockRec' })[0]
@@ -452,12 +469,12 @@ Start-Sleep 20
 # COPY back from E80, PASTE_NEW to DB (fresh uuid; lands under [DST])
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$CAT&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 15
 
-# round-tripped row = a Cat-named track under [DST] (6f4e72ceae0264de), uuid != original
+# round-tripped row = a Cat-named track under [DST] ($DST), uuid != original
 $rt = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks |
-    Where-Object { $_.name -like '2005-10-09-Cat*' -and $_.collection_uuid -eq '6f4e72ceae0264de' })[0]
+    Where-Object { $_.name -like '2005-10-09-Cat*' -and $_.collection_uuid -eq $DST })[0]
 $dst = curl.exe -s "http://localhost:9883/api/track_points?uuid=$($rt.uuid)" | ConvertFrom-Json
 $n        = @($dst.points).Count
 $withts   = @($dst.points | Where-Object { [double]$_.ts -ge 315532800 }).Count
@@ -479,7 +496,7 @@ If `with-ts` < points, or first/last ts are 0 / swapped / shifted, the encode or
 # Setup: ensure at least one DB track is selected; ensure E80 has at least one
 # non-tracks header to target (groups-header is universal).
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.G1" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=8a4e3c4a2201fac2&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=bf4e346442079f0c&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Agroups&right_click=header%3Agroups&cmd=10210" | Out-Null
 Start-Sleep 3
@@ -491,7 +508,7 @@ Start-Sleep 3
 
 ### Test G2 -- Lossy-warn (name truncation + color drift) on track paste
 
-Uses `[DB_TRACK_LONG_NONPALETTE] = 824e8a104b04c37c` ("2006-01-11-SanDiego2DanaPoint", 31 chars, 231 pts, color=`ffffff00` non-palette).
+Uses `[DB_TRACK_LONG_NONPALETTE] = 824e8a104b04c37c` ("2006-01-11-SanDiego2DanaPoint", 29 chars, 231 pts, color=`ffffff00` non-palette).
 
 Under `suppress=1`, the lossy-warn dialog is auto-accepted.  This test verifies:
 - The dialog fires with both `N item(s) will have names truncated to 15 characters` and `M item(s) have colors that cannot round-trip to the destination and will be approximated` lines.
@@ -524,28 +541,28 @@ curl.exe -s "http://localhost:9883/api/log?since=mark" | ConvertFrom-Json |
 
 Verifies the 2026-05-29 preflight rule: PASTE of a clipboard item whose uuid already exists in the corresponding DB table is rejected with a sentinel naming the rule.  PASTE_NEW is the alternative (fresh-uuid record creation); PUSH is the alternative for "sync into existing-uuid DB row".  Tracks here; the same rule fires for waypoints/groups/routes.
 
-Setup: ensure E80 has a track at a uuid that also exists in DB.  After tracks.5's PASTE, `8a4e3c4a2201fac2` is present on BOTH E80 and DB (preserved-uuid PASTE).  After tracks.13's DELETE TRACK at the tracks-header, E80 is empty; re-establish the shared uuid first.
+Setup: ensure E80 has a track at a uuid that also exists in DB.  After tracks.5's PASTE, `bf4e346442079f0c` is present on BOTH E80 and DB (preserved-uuid PASTE).  After tracks.13's DELETE TRACK at the tracks-header, E80 is empty; re-establish the shared uuid first.
 
 ```powershell
-# Setup: PASTE BOCAS1-001 to E80 so the uuid lives on both sides.
+# Setup: PASTE DeLaLuna2Popa to E80 so the uuid lives on both sides.
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.G3+setup" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=8a4e3c4a2201fac2&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=bf4e346442079f0c&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Atracks&right_click=header%3Atracks&cmd=10210" | Out-Null
 Start-Sleep 8
 
 # Verify setup
 $db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
-"E80 has BOCAS1-001@8a4e3c4a2201fac2: $($db.tracks.'8a4e3c4a2201fac2'.name)"
+"E80 has DeLaLuna2Popa@bf4e346442079f0c: $($db.tracks.'bf4e346442079f0c'.name)"
 
 # Now the actual guard: COPY from E80, PASTE to DB at the same uuid.
 $nmdb_before = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
 $count_before = @($nmdb_before.tracks).Count
 
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+tracks.G3" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=8a4e3c4a2201fac2&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=bf4e346442079f0c&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 5
 
 $nmdb_after = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json

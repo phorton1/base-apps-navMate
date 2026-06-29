@@ -14,7 +14,7 @@ This module exercises navOps operations whose source and destination are both in
 - Positional inserts: PASTE_NEW_BEFORE, PASTE_NEW_AFTER (across all valid anchor types)
 - Position-allocator stress (32-iteration bisection forcing AutoCompact)
 - DELETE of waypoints, groups, group+WPs, branches, routes, tracks
-- DB-only guards: delete-blocked-by-route, delete-branch-blocked-by-external-route, paste-blocked at object nodes (waypoint, route, track), recursive-paste guard, DB-to-DB track paste guard, mixed-clipboard route-point operations, predicate-driven menu-side rejections
+- DB-only guards: delete-blocked-by-route, paste-blocked at object nodes (waypoint, route, track), recursive-paste guard, DB-to-DB track paste guard, mixed-clipboard route-point operations, predicate-driven menu-side rejections (the former delete-branch-blocked-by-external-route guard was removed 2026-06-29 -- see Guard Tests below)
 
 E80 panel is empty throughout this module.  The module does not call any `/api/test?panel=e80` endpoint.
 
@@ -27,8 +27,9 @@ The db module's baseline is the git-baseline `navMate.db`.  Setup:
 3. `op=suppress&val=1`
 4. `op=clear_e80` (no-op if already empty; required to confirm E80 is empty before module run)
 5. `cmd=mark+db+module+reset`
+6. `op=create_branch&name=navTestDST`, then capture its runtime uuid into `$DST` (the empty paste-destination [DST]; no empty collection exists in the baseline DB, so the suite creates one -- see runbook Baseline Setup).
 
-After setup: `/api/db` returns 0 waypoints / 0 groups / 0 routes / 0 tracks.  `/api/nmdb` returns the full git-baseline DB state.
+After setup: `/api/db` returns 0 waypoints / 0 groups / 0 routes / 0 tracks.  `/api/nmdb` returns the full git-baseline DB state plus the freshly-created empty [DST] branch.
 
 ## Pre-flight rules invoked (selected)
 
@@ -82,28 +83,29 @@ Renamed from previous numbers; guard ordering follows the original execution seq
 |------|------------------|-------|
 | db.G1  | DELETE GROUP+WPS blocked -- members in route (IMPL ERROR sentinel) | db.7 |
 | db.G2  | DELETE WAYPOINT blocked -- WP referenced in route | db.20 |
-| db.G3  | DELETE BRANCH blocked -- member WP in external route | db.21 |
-| db.G4  | DB-to-DB track PASTE blocked (no UUID-preserving DB-to-DB track copy path) | db.22 |
-| db.G5  | Recursive PASTE_NEW guard -- branch into its own descendant | db.23 |
-| db.G6  | Menu shape -- PASTE at DB WP object node blocked | db.24a |
-| db.G7  | Menu shape -- PASTE_NEW at DB WP object node blocked | db.24b |
-| db.G8  | Menu shape -- PASTE at DB track object node blocked | db.24d |
-| db.G9  | Mixed clipboard PASTE_BEFORE at route_point | db.25a |
-| db.G10 | Mixed clipboard PASTE_NEW_BEFORE at route_point | db.25b |
-| db.G11 | COPY DB waypoint -> PASTE blocked (predicate; "use Paste New" guidance) | db.26 |
-| db.G12 | COPY DB group -> PASTE blocked (predicate) | db.27 |
-| db.G13 | COPY DB route -> PASTE blocked (predicate) | db.28 |
-| db.G14 | COPY DB branch -> PASTE blocked (predicate) | db.29 |
-| db.G15 | COPY DB track -> PASTE_BEFORE blocked (predicate; the original-bug case) | db.30 |
-| db.G16 | COPY DB track -> PASTE_AFTER blocked (predicate; symmetry with db.G15) | db.31 |
-| db.G17 | NEW_WAYPOINT at non-collection target blocked (predicate; API bypass) | db.32 |
-| db.G18 | NEW_ROUTE at non-collection target blocked (predicate; API bypass) | db.33 |
-| db.G19 | PASTE_BEFORE at route_point with non-WP clipboard blocked (predicate) | db.34 |
-| db.G20 | COPY route_point, PASTE at collection blocked (D2: route_point at non-route) | db.36 |
+| db.G3  | DB-to-DB track PASTE blocked (no UUID-preserving DB-to-DB track copy path) | db.22 |
+| db.G4  | Recursive PASTE_NEW guard -- branch into its own descendant | db.23 |
+| db.G5  | Menu shape -- PASTE at DB WP object node blocked | db.24a |
+| db.G6  | Menu shape -- PASTE_NEW at DB WP object node blocked | db.24b |
+| db.G7  | Menu shape -- PASTE at DB track object node blocked | db.24d |
+| db.G8  | Mixed clipboard PASTE_BEFORE at route_point | db.25a |
+| db.G9  | Mixed clipboard PASTE_NEW_BEFORE at route_point | db.25b |
+| db.G10 | COPY DB waypoint -> PASTE blocked (predicate; "use Paste New" guidance) | db.26 |
+| db.G11 | COPY DB group -> PASTE blocked (predicate) | db.27 |
+| db.G12 | COPY DB route -> PASTE blocked (predicate) | db.28 |
+| db.G13 | COPY DB branch -> PASTE blocked (predicate) | db.29 |
+| db.G14 | COPY DB track -> PASTE_BEFORE blocked (predicate; the original-bug case) | db.30 |
+| db.G15 | COPY DB track -> PASTE_AFTER blocked (predicate; symmetry with db.G14) | db.31 |
+| db.G16 | NEW_WAYPOINT at non-collection target blocked (predicate; API bypass) | db.32 |
+| db.G17 | NEW_ROUTE at non-collection target blocked (predicate; API bypass) | db.33 |
+| db.G18 | PASTE_BEFORE at route_point with non-WP clipboard blocked (predicate) | db.34 |
+| db.G19 | COPY route_point, PASTE at collection blocked (D2: route_point at non-route) | db.36 |
+
+**REMOVED:** the former `db.G3` (DELETE BRANCH blocked -- member WP in external route; was db.21) was deleted 2026-06-29. After the DB restructure no delete-unsafe branch exists ([UnsafeBranch] has no candidate -- every route is colocated with the groups holding its member WPs), so the guard has no fixture. Subsequent guards were renumbered down by one (old db.G4..G20 -> db.G3..G19). To restore the guard, construct the unsafe shape at setup (see [UnsafeBranch] in `../uuid_index.md`).
 
 ## Intra-module sequencing
 
-Tests within this module are not commutative -- they build on each other (BOCAS2 moves into [DST] in db.3 and becomes the anchor for db.14a/b; [TestRoute] moves into [DST] in db.12 and is used for db.15a/b, db.16a/b, db.19a, db.G9/G10).  This is intentional and was the structure of the legacy Section 2.
+Tests within this module are not commutative -- they build on each other (Mexico~99 [IsolatedWP2] moves into [DST] in db.3 and becomes the anchor for db.14a/b; [TestRoute] moves into [DST] in db.12 and is used for db.15a/b, db.16a/b, db.19a, db.G8/G9).  This is intentional and was the structure of the legacy Section 2.
 
 The independence guarantee is at the MODULE boundary: this module is independent of e80, tracks, fsh, hub.  Tests INSIDE the module retain their natural sequence; the positive/guard split is logical, not strictly an execution-order constraint, but in practice all guards run after their positive dependencies.
 
@@ -111,6 +113,6 @@ The independence guarantee is at the MODULE boundary: this module is independent
 
 - db.1 is self-contained (creates and destroys its own `PrecisionTestBranch`).  It runs first because position-allocator failures invalidate everything downstream.
 - Several guards depend on state built up by the positives -- specifically [TestRoute] in [DST] and the db.15a-introduced duplicate Popa0 in [TestRoute].
-- BOCAS2 (and other moved items) leave the module's [DST] populated with various accumulated WPs, routes, and a moved branch.  This is the natural end state of the module; it has no significance once the module completes (next module's baseline reverts the DB).
+- Mexico~99 (and other moved items) leave the module's [DST] populated with various accumulated WPs, routes, and a moved branch.  This is the natural end state of the module; it has no significance once the module completes (next module's baseline reverts the DB).
 - The G-renumbering replaces the previous flat numbering used through cycle 25.  Historical cycle results (`_results/cycle_NN.md` for cycles <= 25) reference the old numbers; from cycle 26 onwards the G-prefixed form is canonical.
-- **db.38 needs a timed source track [TIMED_SRC] -- UUID DETERMINED AT RUN TIME.**  It must be a baseline DB track whose `/api/track_points` rows carry non-zero per-point `ts` (a timed track).  The historical pick was `2005-10-09-Cat32MissionBayToSanDiegoBay` (the tracks module's `[TIMED_CAT32]` = `65b3888535b54913`, the one baseline track with genuinely varied per-point timestamps), but the DB is in flux and UUIDs may change, so the runbook leaves it as a `$TIMED_SRC` placeholder to fill in before the run (and to register in `../uuid_index.md` once settled).  db.38 is the ONLY DB-source timed-track copy test: the tracks module's timed coverage (tracks.14/15/G4) all cross the E80 spoke, so they exercise the `e80`-source decode branch and never the DB-source pass-through this regresses.
+- **db.38 needs a timed source track [TIMED_SRC].**  It must be a baseline DB track whose `/api/track_points` rows carry non-zero per-point `ts` (a timed track).  Re-derived 2026-06-29 to `[TIMED_CAT32]` = `65b3888535b54913` ("2005-10-09-Cat32MissionBayToSanDiegoBay"), the one baseline track with genuinely varied per-point timestamps (registered in `../uuid_index.md`); the runbook hard-codes this in `$TIMED_SRC`.  db.38 is the ONLY DB-source timed-track copy test: the tracks module's timed coverage (tracks.14/15/G4) all cross the E80 spoke, so they exercise the `e80`-source decode branch and never the DB-source pass-through this regresses.

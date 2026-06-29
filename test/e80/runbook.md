@@ -16,6 +16,22 @@ curl.exe -s "http://localhost:9883/api/command?cmd=mark+e80+module+reset" | Out-
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
 # Verify /api/db empty: waypoints=0, groups=0, routes=0, tracks=0
+
+# Create the empty paste-destination [DST] and capture its runtime uuid into $DST
+# (no empty collection exists in the baseline DB). $DST is session-global.
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+create+DST" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?op=create_branch&name=navTestDST" | Out-Null
+$global:DST = ""
+$deadline = (Get-Date).AddMilliseconds(5000)
+Start-Sleep -Milliseconds 800
+while ((Get-Date) -lt $deadline -and -not $global:DST) {
+    $log = curl.exe -s "http://localhost:9883/api/log?since=mark"
+    if ($log -match "navTest: create_branch 'navTestDST' uuid=([0-9a-f]+)") { $global:DST = $matches[1]; break }
+    Start-Sleep -Milliseconds 250
+}
+if (-not $global:DST) { Write-Host "FAIL: could not create/capture [DST]"; return }
+$DST = $global:DST
+Write-Host "[DST] = $DST"
 ```
 
 After every E80 step verify ProgressDialog FINISHED in the log; see `../master_runbook.md` for the pattern.
@@ -28,13 +44,13 @@ After every E80 step verify ProgressDialog FINISHED in the log; see `../master_r
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.1" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 6
 ```
 
-**Pass:** `/api/db` waypoints contains `ce4e43181f01b3ae` named "BOCAS1"; ProgressDialog 'Paste' STARTED + FINISHED in log; no `WARNING: enquing mod` in unexpected place (the one that appears IS expected here, known-quiet for E80 ops). Record `[E80_WP] = ce4e43181f01b3ae`.
+**Pass:** `/api/db` waypoints contains `9e4e10cc5e03093e` named "BarillasMarina"; ProgressDialog 'Paste' STARTED + FINISHED in log; no `WARNING: enquing mod` in unexpected place (the one that appears IS expected here, known-quiet for E80 ops). Record `[E80_WP] = 9e4e10cc5e03093e`.
 
 ---
 
@@ -72,13 +88,13 @@ Start-Sleep 6
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.4" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 3
 ```
 
-**Pass:** [IsolatedWP1] DB record's `collection_uuid` still = `2b4e3308ca00cf66` (push does NOT change collection); PUSH STARTED/FINISHED; no errors.
+**Pass:** [IsolatedWP1] DB record's `collection_uuid` still = `bc4e6a005d03cbce` (push does NOT change collection); PUSH STARTED/FINISHED; no errors.
 
 ---
 
@@ -86,13 +102,13 @@ Start-Sleep 3
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.5" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 3
 ```
 
-**Pass:** new "BOCAS1" record in [DST] with fresh navMate UUID (NOT `ce4e43181f01b3ae`). PASTE NEW STARTED/FINISHED.
+**Pass:** new "BarillasMarina" record in [DST] with fresh navMate UUID (NOT `9e4e10cc5e03093e`). PASTE NEW STARTED/FINISHED.
 
 ---
 
@@ -100,11 +116,11 @@ Start-Sleep 3
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.6" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=ce4e43181f01b3ae&right_click=ce4e43181f01b3ae&cmd=10220" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=9e4e10cc5e03093e&right_click=9e4e10cc5e03093e&cmd=10220" | Out-Null
 Start-Sleep 5
 ```
 
-**Pass:** `/api/db` waypoints no longer contains `ce4e43181f01b3ae`. DELETE WAYPOINT STARTED/FINISHED. ProgressDialog 'Delete Waypoint' STARTED + FINISHED.
+**Pass:** `/api/db` waypoints no longer contains `9e4e10cc5e03093e`. DELETE WAYPOINT STARTED/FINISHED. ProgressDialog 'Delete Waypoint' STARTED + FINISHED.
 
 ---
 
@@ -164,11 +180,11 @@ If [IsolatedWP1] is already on E80, the precondition holds and this is a PASS wi
 
 ```powershell
 $db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
-$present = $db.waypoints.PSObject.Properties | Where-Object { $_.Name -eq 'ce4e43181f01b3ae' }
+$present = $db.waypoints.PSObject.Properties | Where-Object { $_.Name -eq '9e4e10cc5e03093e' }
 if (-not $present)
 {
     curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.10a" | Out-Null
-    curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+    curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
     Start-Sleep 1
     curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
     Start-Sleep 5
@@ -211,7 +227,7 @@ Start-Sleep 10
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.11b" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=244e8e100800400a&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 5
 ```
 
@@ -239,7 +255,7 @@ Start-Sleep 6
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.12b" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=f34efdd6070022e8&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 5
 ```
 
@@ -253,7 +269,7 @@ Start-Sleep 5
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.13" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=244e8e100800400a,f34efdd6070022e8&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 5
 ```
 
@@ -265,13 +281,13 @@ Start-Sleep 5
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.14" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=af4e23246d01bfa8&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=864e53b65f033436&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10211" | Out-Null
 Start-Sleep 5
 ```
 
-**Pass:** new "BOCAS2" on E80 with fresh navMate UUID (NOT `af4e23246d01bfa8`). Note `[E80_FRESH_WP]` = the new UUID from `/api/db`.
+**Pass:** new "Mexico~99" on E80 with fresh navMate UUID (NOT `864e53b65f033436`). Note `[E80_FRESH_WP]` = the new UUID from `/api/db`.
 
 ---
 
@@ -283,11 +299,11 @@ $E80_FRESH_WP = "<fresh-uuid-from-Test-14>"
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.14b" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$E80_FRESH_WP&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 4
 ```
 
-**Pass:** new "BOCAS2" record in [DST] with UUID = `[E80_FRESH_WP]` (preserved into DB). PASTE STARTED/FINISHED.
+**Pass:** new "Mexico~99" record in [DST] with UUID = `[E80_FRESH_WP]` (preserved into DB). PASTE STARTED/FINISHED.
 
 ---
 
@@ -297,11 +313,11 @@ Setup: PASTE_NEW [IsolatedWP1] from DB to E80 to create a second fresh-UUID WP (
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.14c+setup" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10211" | Out-Null
 Start-Sleep 5
-# Identify [E80_FRESH_WP2] = the BOCAS1 fresh-UUID from /api/db (not ce4e43181f01b3ae)
+# Identify [E80_FRESH_WP2] = the BarillasMarina fresh-UUID from /api/db (not 9e4e10cc5e03093e)
 ```
 
 Now COPY both:
@@ -316,11 +332,11 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$E80_FRESH_WP,$E80_
 Start-Sleep 2
 # PASTE_NEW is the only collection option for mixed clipboard
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.14c+paste" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 4
 ```
 
-**Pass:** COPY logs `_doCopy: e80 2 item(s)`; PASTE NEW STARTED/FINISHED; no IMPL ERROR; two new BOCAS1/BOCAS2 records with fresh UUIDs land in [DST].
+**Pass:** COPY logs `_doCopy: e80 2 item(s)`; PASTE NEW STARTED/FINISHED; no IMPL ERROR; two new BarillasMarina/Mexico~99 records with fresh UUIDs land in [DST].
 
 ---
 
@@ -373,11 +389,11 @@ Start-Sleep 10
 
 ### Test 17 -- Multi-select WPs, Paste to E80
 
-Pre-cleanup: delete any fresh-UUID BOCAS1/BOCAS2 left on E80 from Tests 14 / 14c.
+Pre-cleanup: delete any fresh-UUID BarillasMarina/Mexico~99 left on E80 from Tests 14 / 14c.
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.17+pre-cleanup" | Out-Null
-# For each fresh-UUID BOCAS1/BOCAS2 in /api/db waypoints, fire DELETE_WAYPOINT:
+# For each fresh-UUID BarillasMarina/Mexico~99 in /api/db waypoints, fire DELETE_WAYPOINT:
 # curl ".../api/test?panel=e80&select=<fresh-uuid>&right_click=<fresh-uuid>&cmd=10220"
 # (wait between each)
 ```
@@ -386,7 +402,7 @@ Then:
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.17" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae,af4e23246d01bfa8&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e,864e53b65f033436&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 6
@@ -425,26 +441,26 @@ Start-Sleep 6
 
 ---
 
-### Test 20a -- Delete BOCAS1 from E80 if present
+### Test 20a -- Delete BarillasMarina from E80 if present
 
 ```powershell
-# Check /api/db for ce4e43181f01b3ae; if absent, NOT_RUN
+# Check /api/db for 9e4e10cc5e03093e; if absent, NOT_RUN
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.20a" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=ce4e43181f01b3ae&right_click=ce4e43181f01b3ae&cmd=10220" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=9e4e10cc5e03093e&right_click=9e4e10cc5e03093e&cmd=10220" | Out-Null
 Start-Sleep 4
 ```
 
-**Pass:** `ce4e43181f01b3ae` absent from `/api/db`. Skip / NOT_RUN if BOCAS1 not on E80.
+**Pass:** `9e4e10cc5e03093e` absent from `/api/db`. Skip / NOT_RUN if BarillasMarina not on E80.
 
 ---
 
-### Test 20b -- Delete BOCAS2 from E80 if present
+### Test 20b -- Delete Mexico~99 from E80 if present
 
-BOCAS2 on E80 may be `af4e23246d01bfa8` (if Test 17 pasted) or a fresh UUID. Find any BOCAS2-named WP and delete each.
+Mexico~99 on E80 may be `864e53b65f033436` (if Test 17 pasted) or a fresh UUID. Find any Mexico~99-named WP and delete each.
 
 ```powershell
 $db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
-$bocas2 = $db.waypoints.PSObject.Properties | Where-Object { $_.Value.name -eq "BOCAS2" }
+$bocas2 = $db.waypoints.PSObject.Properties | Where-Object { $_.Value.name -eq "Mexico~99" }
 foreach ($wp in $bocas2) {
     curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.20b" | Out-Null
     curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$($wp.Name)&right_click=$($wp.Name)&cmd=10220" | Out-Null
@@ -452,7 +468,7 @@ foreach ($wp in $bocas2) {
 }
 ```
 
-**Pass:** no WP named "BOCAS2" remains on E80. Skip / NOT_RUN if none was present.
+**Pass:** no WP named "Mexico~99" remains on E80. Skip / NOT_RUN if none was present.
 
 ---
 
@@ -513,7 +529,7 @@ Start-Sleep 8
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.25a" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 5
@@ -527,13 +543,13 @@ Start-Sleep 5
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.26" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=af4e23246d01bfa8&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=864e53b65f033436&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 5
 ```
 
-**Pass:** [IsolatedWP2] on E80 with UUID `af4e23246d01bfa8` preserved; only standard Paste ProgressDialog (no conflict-resolution dialog) appears.
+**Pass:** [IsolatedWP2] on E80 with UUID `864e53b65f033436` preserved; only standard Paste ProgressDialog (no conflict-resolution dialog) appears.
 
 ---
 
@@ -549,11 +565,11 @@ If [IsolatedWP1] is already on E80, the precondition holds and this is a PASS wi
 
 ```powershell
 $db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
-$present = $db.waypoints.PSObject.Properties | Where-Object { $_.Name -eq 'ce4e43181f01b3ae' }
+$present = $db.waypoints.PSObject.Properties | Where-Object { $_.Name -eq '9e4e10cc5e03093e' }
 if (-not $present)
 {
     curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.28a" | Out-Null
-    curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+    curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
     Start-Sleep 1
     curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
     Start-Sleep 5
@@ -608,7 +624,7 @@ Start-Sleep 8
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G2" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10201" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10201" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Agroups&right_click=header%3Agroups&cmd=10210" | Out-Null
 Start-Sleep 3
@@ -663,7 +679,7 @@ Start-Sleep 3
 Prerequisite: the Popa route's member WPs (Popa0..Popa10) are NOT on E80 and no Popa route is
 present. The post-positive state satisfies this (the positives left only Timiteo + the two
 ungrouped IsolatedWP1/2 on E80) -- do NOT clear E80 here, which would orphan the preconditions
-of G6/G8/G9/G10/G12/G16 that need Timiteo and BOCAS1 present. "E80 empty" is sufficient but
+of G6/G8/G9/G10/G12/G16 that need Timiteo and BarillasMarina present. "E80 empty" is sufficient but
 over-strong; the real requirement is just that Popa's members are absent so the preflight has
 something missing to reject on.
 
@@ -719,11 +735,11 @@ Start-Sleep 4
 
 ### Test G8 -- E80-wide name collision [was e80.25b]
 
-Find any DB WP named "BOCAS1" with a UUID different from `ce4e43181f01b3ae`.
+Find any DB WP named "BarillasMarina" with a UUID different from `9e4e10cc5e03093e`.
 
 ```powershell
 $nmdb = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
-$SameNameWP = ($nmdb.waypoints | Where-Object { $_.name -eq "BOCAS1" -and $_.uuid -ne "ce4e43181f01b3ae" } | Select-Object -First 1).uuid
+$SameNameWP = ($nmdb.waypoints | Where-Object { $_.name -eq "BarillasMarina" -and $_.uuid -ne "9e4e10cc5e03093e" } | Select-Object -First 1).uuid
 
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G8" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=database&select=$SameNameWP&cmd=10200" | Out-Null
@@ -732,7 +748,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_
 Start-Sleep 4
 ```
 
-**Pass:** ERROR sentinel `E80 operation blocked: 1 name collision(s):` with a `waypoint 'BOCAS1' (from waypoint 'BOCAS1') already on E80 at UUID <existing>` entry, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; only one "BOCAS1" on E80 (the original from Test 25a).
+**Pass:** ERROR sentinel `E80 operation blocked: 1 name collision(s):` with a `waypoint 'BarillasMarina' (from waypoint 'BarillasMarina') already on E80 at UUID <existing>` entry, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; only one "BarillasMarina" on E80 (the original from Test 25a).
 
 ---
 
@@ -740,9 +756,9 @@ Start-Sleep 4
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G9" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=ce4e43181f01b3ae&right_click=ce4e43181f01b3ae&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=9e4e10cc5e03093e&right_click=9e4e10cc5e03093e&cmd=10210" | Out-Null
 Start-Sleep 3
 ```
 
@@ -754,7 +770,7 @@ Start-Sleep 3
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G10" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=e80&select=ce4e43181f01b3ae&right_click=ce4e43181f01b3ae&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=9e4e10cc5e03093e&right_click=9e4e10cc5e03093e&cmd=10211" | Out-Null
 Start-Sleep 3
 ```
 
@@ -802,7 +818,7 @@ D6 (spoke content-vs-destination) rejects waypoint clipboard items at the routes
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G13" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Aroutes&right_click=header%3Aroutes&cmd=10210" | Out-Null
 Start-Sleep 3

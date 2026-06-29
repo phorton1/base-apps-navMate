@@ -23,6 +23,22 @@ $dlg = (curl.exe -s "http://localhost:9883/api/log?tail=10" | ConvertFrom-Json).
 if ($dlg.text -match 'active') { "clear_e80 dialog HUNG -- rescuing"; curl.exe -s "http://localhost:9883/api/command?cmd=close_dialog" | Out-Null; Start-Sleep 2 }
 curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=1" | Out-Null   # force-timed write
 
+# Create the empty paste-destination [DST] and capture its runtime uuid into $DST
+# (no empty collection exists in the baseline DB). $DST is session-global; used by reflash.2.
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+create+DST" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?op=create_branch&name=navTestDST" | Out-Null
+$global:DST = ""
+$deadline = (Get-Date).AddMilliseconds(5000)
+Start-Sleep -Milliseconds 800
+while ((Get-Date) -lt $deadline -and -not $global:DST) {
+    $log = curl.exe -s "http://localhost:9883/api/log?since=mark"
+    if ($log -match "navTest: create_branch 'navTestDST' uuid=([0-9a-f]+)") { $global:DST = $matches[1]; break }
+    Start-Sleep -Milliseconds 250
+}
+if (-not $global:DST) { Write-Host "FAIL: could not create/capture [DST]"; return }
+$DST = $global:DST
+Write-Host "[DST] = $DST"
+
 # firmware pre-check: run against any connected unit; annotate the firmware variant
 $info = curl.exe -s "http://localhost:9883/api/timed_tracks?cmd=get" | ConvertFrom-Json
 if (-not $info.connected) {
@@ -79,12 +95,12 @@ $e80uuid = @((curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json).tra
     Where-Object { $_.Value.name -like '2005-10-09-Cat*' })[0].Name
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$e80uuid&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 15
 
-# The round-tripped row is the PASTE_NEW result, homed under [DST] (6f4e72ceae0264de).
+# The round-tripped row is the PASTE_NEW result, homed under [DST] ($DST).
 $rt  = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks |
-    Where-Object { $_.name -like '2005-10-09-Cat*' -and $_.collection_uuid -eq '6f4e72ceae0264de' })[0]
+    Where-Object { $_.name -like '2005-10-09-Cat*' -and $_.collection_uuid -eq $DST })[0]
 $pts = curl.exe -s "http://localhost:9883/api/track_points?uuid=$($rt.uuid)" | ConvertFrom-Json
 $n      = @($pts.points).Count
 $withts = @($pts.points | Where-Object { [double]$_.ts -ge 315532800 }).Count

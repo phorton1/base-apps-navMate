@@ -80,8 +80,8 @@ Two-section structure per master_runbook's Test Organization Convention: positiv
 | e80.16b | Paste New Route to E80 (fresh route UUID; member WP UUIDs reused) |
 | e80.17  | Multi-select WPs, Paste to E80 (homogeneous flat set; both UUIDs preserved) |
 | e80.18  | Route point Paste Before/After on E80 |
-| e80.20a | Pre-cleanup: delete BOCAS1 from E80 if present |
-| e80.20b | Pre-cleanup: delete BOCAS2 from E80 if present |
+| e80.20a | Pre-cleanup: delete BarillasMarina from E80 if present |
+| e80.20b | Pre-cleanup: delete Mexico~99 from E80 if present |
 | e80.21a | Delete all E80 routes (cleanup before route-dependency guard) |
 | e80.21b | Delete all E80 groups+WPS (cleanup) |
 | e80.21c | Delete all E80 ungrouped WPs (no-op path documented) |

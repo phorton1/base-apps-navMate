@@ -4,7 +4,7 @@ Execution-layer steps for the fsh module. For shared toolbox, see [`../master_ru
 
 FSH is **synchronous**: operations mutate `$navFSH::fsh_db` in-memory and complete in a single wx idle tick. There is no ProgressDialog to wait for. Test sleeps are 1-2s typical (3s when a step might trigger refresh side-effects).
 
-UUIDs: FSH-native form is dashed-uppercase (`CE4E-4318-1F01-B3AE`). The `select=` parameter for `panel=fsh` uses this form verbatim. The DB panel and `/api/nmdb` use lowercase-no-dash form (`ce4e43181f01b3ae`). Conversion is purely textual: insert `-` every 4 chars and uppercase (db -> fsh), or strip `-` and lowercase (fsh -> db).
+UUIDs: FSH-native form is dashed-uppercase (`9E4E-10CC-5E03-093E`). The `select=` parameter for `panel=fsh` uses this form verbatim. The DB panel and `/api/nmdb` use lowercase-no-dash form (`9e4e10cc5e03093e`). Conversion is purely textual: insert `-` every 4 chars and uppercase (db -> fsh), or strip `-` and lowercase (fsh -> db).
 
 ---
 
@@ -19,6 +19,23 @@ curl.exe -s "http://localhost:9883/api/test?op=suppress&val=1" | Out-Null
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+fsh+module+reset" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
+
+# Create the empty paste-destination [DST] and capture its runtime uuid into $DST
+# (no empty collection exists in the baseline DB). $DST is session-global.
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+create+DST" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?op=create_branch&name=navTestDST" | Out-Null
+$global:DST = ""
+$deadline = (Get-Date).AddMilliseconds(5000)
+Start-Sleep -Milliseconds 800
+while ((Get-Date) -lt $deadline -and -not $global:DST) {
+    $log = curl.exe -s "http://localhost:9883/api/log?since=mark"
+    if ($log -match "navTest: create_branch 'navTestDST' uuid=([0-9a-f]+)") { $global:DST = $matches[1]; break }
+    Start-Sleep -Milliseconds 250
+}
+if (-not $global:DST) { Write-Host "FAIL: could not create/capture [DST]"; return }
+$DST = $global:DST
+Write-Host "[DST] = $DST"
+
 curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh" | Out-Null
 Start-Sleep 3
 curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=1" | Out-Null   # pin mod003 write-pref (fsh.40 / fsh.G12)
@@ -58,13 +75,13 @@ function fshToDb
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.1" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** `/api/fsh` waypoints contains `CE4E-4318-1F01-B3AE` named "BOCAS1"; no `ERROR -` or `IMPLEMENTATION ERROR` in `/api/log?since=mark`. Record `[FSH_WP]` = `CE4E-4318-1F01-B3AE`.
+**Pass:** `/api/fsh` waypoints contains `9E4E-10CC-5E03-093E` named "BarillasMarina"; no `ERROR -` or `IMPLEMENTATION ERROR` in `/api/log?since=mark`. Record `[FSH_WP]` = `9E4E-10CC-5E03-093E`.
 
 ---
 
@@ -120,13 +137,13 @@ Start-Sleep 2
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.5" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=CE4E-4318-1F01-B3AE&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=9E4E-10CC-5E03-093E&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** PUSH STARTED/FINISHED in log; `/api/nmdb` waypoint `ce4e43181f01b3ae` still has `collection_uuid=2b4e3308ca00cf66` (push does NOT move records); no ERROR.
+**Pass:** PUSH STARTED/FINISHED in log; `/api/nmdb` waypoint `9e4e10cc5e03093e` still has `collection_uuid=bc4e6a005d03cbce` (push does NOT move records); no ERROR.
 
 ---
 
@@ -136,7 +153,7 @@ Start-Sleep 2
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.6" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=244E-8E10-0800-400A&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 3
 ```
 
@@ -150,7 +167,7 @@ Start-Sleep 3
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.7" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=F34E-FDD6-0700-22E8&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 3
 ```
 
@@ -164,7 +181,7 @@ Start-Sleep 3
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.8" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=244E-8E10-0800-400A,F34E-FDD6-0700-22E8&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10250" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10250" | Out-Null
 Start-Sleep 3
 ```
 
@@ -180,11 +197,11 @@ Uses [FSH_IsolatedWP1] = `80B2-C48A-5400-D3AE` ("Waypoint 25") from the fixture.
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.9" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=80B2-C48A-5400-D3AE&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** new "Waypoint 25" in `/api/nmdb` waypoints under `collection_uuid=6f4e72ceae0264de` with a FRESH UUID (NOT `80b2c48a5400d3ae`); byte 1 = `0x4e` (navMate-assigned); FSH-side `80B2-C48A-5400-D3AE` still present.
+**Pass:** new "Waypoint 25" in `/api/nmdb` waypoints under `collection_uuid=$DST` with a FRESH UUID (NOT `80b2c48a5400d3ae`); byte 1 = `0x4e` (navMate-assigned); FSH-side `80B2-C48A-5400-D3AE` still present.
 
 ---
 
@@ -196,11 +213,11 @@ Uses [FSH_IsolatedWP2] = `83B2-167D-3F00-ED99` ("Waypoint 10").
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.10" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=83B2-167D-3F00-ED99&cmd=10201" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** `/api/nmdb` waypoint `83b2167d3f00ed99` under `collection_uuid=6f4e72ceae0264de` (UUID preserved); FSH-side `83B2-167D-3F00-ED99` absent from `/api/fsh` waypoints.
+**Pass:** `/api/nmdb` waypoint `83b2167d3f00ed99` under `collection_uuid=$DST` (UUID preserved); FSH-side `83B2-167D-3F00-ED99` absent from `/api/fsh` waypoints.
 
 ---
 
@@ -311,13 +328,13 @@ Start-Sleep 2
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.16a" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** `CE4E-4318-1F01-B3AE` present in `/api/fsh` waypoints.
+**Pass:** `9E4E-10CC-5E03-093E` present in `/api/fsh` waypoints.
 
 ---
 
@@ -363,17 +380,17 @@ Start-Sleep 2
 
 ### Test 18 -- Paste New WP to FSH (fresh UUID)
 
-Uses [IsolatedWP2] from DB (`af4e23246d01bfa8`, BOCAS2).
+Uses [IsolatedWP2] from DB (`864e53b65f033436`, Mexico~99).
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.18" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=af4e23246d01bfa8&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=864e53b65f033436&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10211" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** new "BOCAS2" on `/api/fsh` waypoints with a FRESH FSH UUID (NOT `AF4E-2324-6D01-BFA8`); DB record `af4e23246d01bfa8` unchanged.
+**Pass:** new "Mexico~99" on `/api/fsh` waypoints with a FRESH FSH UUID (NOT `864E-53B6-5F03-3436`); DB record `864e53b65f033436` unchanged.
 
 ---
 
@@ -421,13 +438,13 @@ Uses [IsolatedWP1] + [IsolatedWP3] from DB. Pre-cleanup: ensure neither is on FS
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.21" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae,994e0f7ef900baa4&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e,f54e595460034e6e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** log shows `_doCopy: database 2 item(s)`; both `CE4E-4318-1F01-B3AE` and `994E-0F7E-F900-BAA4` on `/api/fsh` waypoints with UUIDs preserved.
+**Pass:** log shows `_doCopy: database 2 item(s)`; both `9E4E-10CC-5E03-093E` and `F54E-5954-6003-4E6E` on `/api/fsh` waypoints with UUIDs preserved.
 
 ---
 
@@ -461,7 +478,7 @@ Uses [FSH_TestTrack] = `A24E-672E-FE06-0A80` (Track2-006). Note: test 4 added a 
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.23" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=A24E-672E-FE06-0A80&cmd=10201" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
@@ -477,7 +494,7 @@ Uses [FSH_TestTrack2] -- pick a different track. Use `7F4E-B4C6-9607-CF02` ("BOC
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.24" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=7F4E-B4C6-9607-CF02&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 2
 ```
 
@@ -537,24 +554,24 @@ Start-Sleep 2
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.30a" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** `CE4E-4318-1F01-B3AE` (BOCAS1) on FSH.
+**Pass:** `9E4E-10CC-5E03-093E` (BarillasMarina) on FSH.
 
 ---
 
 ### Test 31 -- UUID conflict clean-create path
 
-Pre-cleanup: delete any pre-existing BOCAS2 records on FSH (test 18 may have left a fresh-UUID BOCAS2) so the paste-with-preserved-UUID lands without name collision.
+Pre-cleanup: delete any pre-existing Mexico~99 records on FSH (test 18 may have left a fresh-UUID Mexico~99) so the paste-with-preserved-UUID lands without name collision.
 
 ```powershell
-# Pre-cleanup: delete any FSH-side BOCAS2 records
+# Pre-cleanup: delete any FSH-side Mexico~99 records
 $f = curl.exe -s "http://localhost:9883/api/fsh" | ConvertFrom-Json
-$bocas2s = @($f.waypoints.PSObject.Properties | Where-Object { $_.Value.name -eq "BOCAS2" })
+$bocas2s = @($f.waypoints.PSObject.Properties | Where-Object { $_.Value.name -eq "Mexico~99" })
 foreach ($b in $bocas2s) {
     curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.31+precleanup" | Out-Null
     curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=$($b.Name)&right_click=$($b.Name)&cmd=10220" | Out-Null
@@ -563,26 +580,26 @@ foreach ($b in $bocas2s) {
 
 # Actual test
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.31" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=af4e23246d01bfa8&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=864e53b65f033436&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** `AF4E-2324-6D01-BFA8` (BOCAS2) on FSH with UUID preserved; no conflict-resolution dialog text in log (clean-create path -- no UUID conflict because BOCAS2's FSH UUID didn't exist on FSH yet).
+**Pass:** `864E-53B6-5F03-3436` (Mexico~99) on FSH with UUID preserved; no conflict-resolution dialog text in log (clean-create path -- no UUID conflict because Mexico~99's FSH UUID didn't exist on FSH yet).
 
 ---
 
 ### Test 32a -- Ensure IsolatedWP1 on FSH (precondition for 32b/c)
 
-Asserts that `CE4E-4318-1F01-B3AE` is on FSH. If already present (e.g., from a prior test), PASS. If absent, paste it; PASS if the paste lands, FAIL if it doesn't.
+Asserts that `9E4E-10CC-5E03-093E` is on FSH. If already present (e.g., from a prior test), PASS. If absent, paste it; PASS if the paste lands, FAIL if it doesn't.
 
 ```powershell
 $f = curl.exe -s "http://localhost:9883/api/fsh" | ConvertFrom-Json
-if (-not ($f.waypoints.PSObject.Properties.Name -contains "CE4E-4318-1F01-B3AE"))
+if (-not ($f.waypoints.PSObject.Properties.Name -contains "9E4E-10CC-5E03-093E"))
 {
     curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.32a" | Out-Null
-    curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+    curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
     Start-Sleep 1
     curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
     Start-Sleep 2
@@ -590,7 +607,7 @@ if (-not ($f.waypoints.PSObject.Properties.Name -contains "CE4E-4318-1F01-B3AE")
 }
 ```
 
-**Pass:** `CE4E-4318-1F01-B3AE` on FSH after the step, regardless of whether the paste was needed or skipped. **Fail:** WP still absent (paste failed).
+**Pass:** `9E4E-10CC-5E03-093E` on FSH after the step, regardless of whether the paste was needed or skipped. **Fail:** WP still absent (paste failed).
 
 ---
 
@@ -618,11 +635,11 @@ $fsh_uuid = dbToFsh $CAT
 # FSH -> DB (decode): COPY FSH track, PASTE_NEW to DB (fresh uuid; lands under [DST])
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=$fsh_uuid&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
 Start-Sleep 2
 
 $rt = @((curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json).tracks |
-    Where-Object { $_.name -like '2005-10-09-Cat*' -and $_.collection_uuid -eq '6f4e72ceae0264de' })[0]
+    Where-Object { $_.name -like '2005-10-09-Cat*' -and $_.collection_uuid -eq $DST })[0]
 $dst = curl.exe -s "http://localhost:9883/api/track_points?uuid=$($rt.uuid)" | ConvertFrom-Json
 $n        = @($dst.points).Count
 $withts   = @($dst.points | Where-Object { [double]$_.ts -ge 315532800 }).Count
@@ -662,13 +679,13 @@ Start-Sleep 2
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G2" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10201" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10201" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=header%3Agroups&right_click=header%3Agroups&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
-**Pass:** `ERROR - Cannot paste a database Cut to FSH` (or analogous sentinel); `/api/nmdb` waypoint `ce4e43181f01b3ae` still has its original `collection_uuid` (cut clipboard not consumed).
+**Pass:** `ERROR - Cannot paste a database Cut to FSH` (or analogous sentinel); `/api/nmdb` waypoint `9e4e10cc5e03093e` still has its original `collection_uuid` (cut clipboard not consumed).
 
 ---
 
@@ -695,26 +712,26 @@ Start-Sleep 2
 
 ### Test G4 -- FSH-wide name collision [was fsh.30b]
 
-Precondition: a second BOCAS1 must exist in DB with UUID != `ce4e43181f01b3ae`. The fixture DB has only one BOCAS1, so the precondition is established by PASTE_NEW of [IsolatedWP1] into [DST] (mints a fresh-UUID BOCAS1 in DB). If the precondition already holds (a prior test created a second BOCAS1), no setup is needed.
+Precondition: a second BarillasMarina must exist in DB with UUID != `9e4e10cc5e03093e`. The fixture DB has only one BarillasMarina, so the precondition is established by PASTE_NEW of [IsolatedWP1] into [DST] (mints a fresh-UUID BarillasMarina in DB). If the precondition already holds (a prior test created a second BarillasMarina), no setup is needed.
 
 ```powershell
-# Ensure a second BOCAS1 exists in DB (precondition)
+# Ensure a second BarillasMarina exists in DB (precondition)
 $nmdb = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
-$second = $nmdb.waypoints | Where-Object { $_.name -eq "BOCAS1" -and $_.uuid -ne "ce4e43181f01b3ae" } | Select-Object -First 1
+$second = $nmdb.waypoints | Where-Object { $_.name -eq "BarillasMarina" -and $_.uuid -ne "9e4e10cc5e03093e" } | Select-Object -First 1
 if (-not $second)
 {
     curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G4+precond" | Out-Null
-    curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+    curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
     Start-Sleep 1
-    curl.exe -s "http://localhost:9883/api/test?panel=database&select=6f4e72ceae0264de&right_click=6f4e72ceae0264de&cmd=10211" | Out-Null
+    curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10211" | Out-Null
     Start-Sleep 2
     $nmdb = curl.exe -s "http://localhost:9883/api/nmdb" | ConvertFrom-Json
-    $second = $nmdb.waypoints | Where-Object { $_.name -eq "BOCAS1" -and $_.uuid -ne "ce4e43181f01b3ae" } | Select-Object -First 1
-    if (-not $second) { Write-Host "fsh.30b FAIL: could not establish precondition (no second BOCAS1)"; return }
+    $second = $nmdb.waypoints | Where-Object { $_.name -eq "BarillasMarina" -and $_.uuid -ne "9e4e10cc5e03093e" } | Select-Object -First 1
+    if (-not $second) { Write-Host "fsh.30b FAIL: could not establish precondition (no second BarillasMarina)"; return }
 }
 $SameNameWP = $second.uuid
 
-# Actual test: paste the second BOCAS1 to FSH; expect name-collision sentinel
+# Actual test: paste the second BarillasMarina to FSH; expect name-collision sentinel
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G4" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=database&select=$SameNameWP&cmd=10200" | Out-Null
 Start-Sleep 1
@@ -722,7 +739,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_
 Start-Sleep 2
 ```
 
-**Pass:** ERROR sentinel `FSH operation blocked: 1 name collision(s):` with a `waypoint 'BOCAS1' (from waypoint 'BOCAS1') already on FSH at UUID <existing>` entry, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; only one BOCAS1 on FSH (`CE4E-4318-1F01-B3AE`, the original from fsh.30a). **Fail:** precondition could not be established, OR the sentinel did not fire, OR a second BOCAS1 landed on FSH.
+**Pass:** ERROR sentinel `FSH operation blocked: 1 name collision(s):` with a `waypoint 'BarillasMarina' (from waypoint 'BarillasMarina') already on FSH at UUID <existing>` entry, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; only one BarillasMarina on FSH (`9E4E-10CC-5E03-093E`, the original from fsh.30a). **Fail:** precondition could not be established, OR the sentinel did not fire, OR a second BarillasMarina landed on FSH.
 
 ---
 
@@ -730,9 +747,9 @@ Start-Sleep 2
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G5" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=CE4E-4318-1F01-B3AE&right_click=CE4E-4318-1F01-B3AE&cmd=10210" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=9E4E-10CC-5E03-093E&right_click=9E4E-10CC-5E03-093E&cmd=10210" | Out-Null
 Start-Sleep 2
 ```
 
@@ -744,7 +761,7 @@ Start-Sleep 2
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G6" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=CE4E-4318-1F01-B3AE&right_click=CE4E-4318-1F01-B3AE&cmd=10211" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=9E4E-10CC-5E03-093E&right_click=9E4E-10CC-5E03-093E&cmd=10211" | Out-Null
 Start-Sleep 2
 ```
 
@@ -758,7 +775,7 @@ D6 (spoke content-vs-destination) rejects waypoint clipboard items at the FSH ro
 
 ```powershell
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G7" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=header%3Aroutes&right_click=header%3Aroutes&cmd=10210" | Out-Null
 Start-Sleep 2

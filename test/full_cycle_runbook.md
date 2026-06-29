@@ -48,6 +48,23 @@ curl.exe -s "http://localhost:9883/api/command?cmd=mark+db+module+reset" | Out-N
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
 # Verify ProgressDialog FINISHED (see master_runbook.md ProgressDialog Pattern)
+
+# Create the empty paste-destination [DST] and capture its runtime uuid into $DST.
+# No empty collection exists in the baseline DB, so the orchestrator creates one each
+# module reset; $DST is session-global and used by db/e80/tracks/fsh tests.
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+create+DST" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?op=create_branch&name=navTestDST" | Out-Null
+$global:DST = ""
+$deadline = (Get-Date).AddMilliseconds(5000)
+Start-Sleep -Milliseconds 800
+while ((Get-Date) -lt $deadline -and -not $global:DST) {
+    $log = curl.exe -s "http://localhost:9883/api/log?since=mark"
+    if ($log -match "navTest: create_branch 'navTestDST' uuid=([0-9a-f]+)") { $global:DST = $matches[1]; break }
+    Start-Sleep -Milliseconds 250
+}
+if (-not $global:DST) { Write-Host "FAIL: could not create/capture [DST]"; return }
+$DST = $global:DST
+Write-Host "[DST] = $DST"
 ```
 
 Run `test/db/runbook.md` from "Module Tests" onward. The runbook's own baseline-setup section is skipped here (the orchestrator just performed it). Record each test's status, identifying it in the cycle results as `db.<N>` (e.g. `db.1`, `db.24b`) per the Test Identifier Convention in `full_cycle_plan.md`. Collect FAIL / PARTIAL / PASSED_BUT items for the Issues section.
@@ -56,7 +73,7 @@ Run `test/db/runbook.md` from "Module Tests" onward. The runbook's own baseline-
 
 ## Step 2: e80 Module
 
-Inter-module reset (same as Step 1, with `mark+e80+module+reset`).
+Inter-module reset (same as Step 1, including the `[DST]` create+capture, with `mark+e80+module+reset`).
 
 Run `test/e80/runbook.md` from Module Tests onward. Record results.
 
@@ -64,7 +81,7 @@ Run `test/e80/runbook.md` from Module Tests onward. Record results.
 
 ## Step 3: tracks Module
 
-Inter-module reset.
+Inter-module reset (same as Step 1, including the `[DST]` create+capture, with `mark+tracks+module+reset`).
 
 Pre-check teensyBoat availability:
 
@@ -91,6 +108,22 @@ curl.exe -s "http://localhost:9883/api/test?op=suppress&val=1" | Out-Null
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+fsh+module+reset" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
+
+# Create the empty paste-destination [DST] and capture its runtime uuid into $DST.
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+create+DST" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?op=create_branch&name=navTestDST" | Out-Null
+$global:DST = ""
+$deadline = (Get-Date).AddMilliseconds(5000)
+Start-Sleep -Milliseconds 800
+while ((Get-Date) -lt $deadline -and -not $global:DST) {
+    $log = curl.exe -s "http://localhost:9883/api/log?since=mark"
+    if ($log -match "navTest: create_branch 'navTestDST' uuid=([0-9a-f]+)") { $global:DST = $matches[1]; break }
+    Start-Sleep -Milliseconds 250
+}
+if (-not $global:DST) { Write-Host "FAIL: could not create/capture [DST]"; return }
+$DST = $global:DST
+Write-Host "[DST] = $DST"
+
 curl.exe -s "http://localhost:9883/api/test?op=load_fsh&path=C:/base/apps/navMate/test/_fixtures/test.fsh" | Out-Null
 Start-Sleep 3
 # Verify "navTest: load_fsh done" in log

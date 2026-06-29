@@ -101,7 +101,7 @@ Renamed from previous numbers; old-number cross-reference kept inline for log/co
 | fsh.G1  | Delete FSH Group+WPS blocked -- members in route (ERROR sentinel) | fsh.12 |
 | fsh.G2  | DB-cut to FSH destination blocked (parallels e80.G2) | fsh.27 |
 | fsh.G3  | Intra-clipboard name collision (hard-abort; parallels e80.G7) | fsh.29 |
-| fsh.G4  | FSH-wide name collision (parallels e80.G8).  Self-establishes a second DB BOCAS1 via PASTE_NEW if the fixture-DB precondition is absent, then verifies the collision sentinel. | fsh.30b |
+| fsh.G4  | FSH-wide name collision (parallels e80.G8).  Self-establishes a second DB BarillasMarina via PASTE_NEW if the fixture-DB precondition is absent, then verifies the collision sentinel. | fsh.30b |
 | fsh.G5  | PASTE at FSH WP object node blocked (descendant-paste guard; parallels e80.G9) | fsh.32b |
 | fsh.G6  | PASTE_NEW at FSH WP object node blocked (parallels e80.G10) | fsh.32c |
 | fsh.G7  | D6 spoke content-vs-destination: WP at FSH routes header blocked (parallels e80.G13) | fsh.33 |

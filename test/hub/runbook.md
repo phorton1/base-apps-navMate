@@ -294,20 +294,20 @@ Critical: source-side cleanup dispatch. The analog of the navOpsDB cut-dispatch 
 
 #### Test 12 -- Cut E80 WP, Paste to FSH
 
-Setup: PASTE_NEW [IsolatedWP1] (BOCAS1) from DB to E80 first -- this lands a fresh-UUID "BOCAS1" on E80. The name "BOCAS1" is NOT in the FSH fixture (50 "Waypoint NN" + Timiteo + Michel_* groups; no BOCAS1), so the cut-to-FSH won't collide on name. Cut that fresh-UUID E80 WP and paste to FSH. E80-side cleanup renders ProgressDialog.
+Setup: PASTE_NEW [IsolatedWP1] (BarillasMarina) from DB to E80 first -- this lands a fresh-UUID "BarillasMarina" on E80. The name "BarillasMarina" is NOT in the FSH fixture (50 "Waypoint NN" + Timiteo + Michel_* groups; no BarillasMarina), so the cut-to-FSH won't collide on name. Cut that fresh-UUID E80 WP and paste to FSH. E80-side cleanup renders ProgressDialog.
 
 ```powershell
-# Setup: paste-new BOCAS1 from DB to E80 (lands a fresh-UUID 'BOCAS1' on E80
+# Setup: paste-new BarillasMarina from DB to E80 (lands a fresh-UUID 'BarillasMarina' on E80
 # whose name is not on FSH and so won't collide on the cut-paste).
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=ce4e43181f01b3ae&cmd=10200" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=9e4e10cc5e03093e&cmd=10200" | Out-Null
 Start-Sleep 1
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10211" | Out-Null
 Start-Sleep 6
 
 $db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
-$fresh_wp = $db.waypoints.PSObject.Properties | Where-Object { $_.Value.name -eq 'BOCAS1' } | Select-Object -First 1
+$fresh_wp = $db.waypoints.PSObject.Properties | Where-Object { $_.Value.name -eq 'BarillasMarina' } | Select-Object -First 1
 $HUB_FRESH_E80_WP = $fresh_wp.Name
-Write-Host "Cutting E80 WP: $HUB_FRESH_E80_WP (name BOCAS1)"
+Write-Host "Cutting E80 WP: $HUB_FRESH_E80_WP (name BarillasMarina)"
 
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+hub.12" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=$HUB_FRESH_E80_WP&cmd=10201" | Out-Null
@@ -316,11 +316,11 @@ curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_
 Start-Sleep 6
 ```
 
-**Pass:** ProgressDialog (for E80-side delete cleanup) STARTED + FINISHED. `/api/db` waypoints no longer contains `$HUB_FRESH_E80_WP`. `/api/fsh` waypoints gains a "BOCAS1" record at navMate-form `$HUB_FRESH_E80_WP` converted to FSH-form (via `dbToFsh`).
+**Pass:** ProgressDialog (for E80-side delete cleanup) STARTED + FINISHED. `/api/db` waypoints no longer contains `$HUB_FRESH_E80_WP`. `/api/fsh` waypoints gains a "BarillasMarina" record at navMate-form `$HUB_FRESH_E80_WP` converted to FSH-form (via `dbToFsh`).
 
 **Bug probe:** if FAIL with E80-side WP still present after the paste, the cross-spoke CUT cleanup dispatch is broken (analog of the navOpsDB bug -- `_cutE80*` may be misrouted to a wrong helper).
 
-**Historical note:** original runbook used the fresh-UUID "Waypoint 10" from hub.9 as the cut source. That FAILed because FSH still had the original "Waypoint 10" at a different UUID -- real name collision at SS10.2 step 8. The BOCAS1 source sidesteps the collision because "BOCAS1" is absent from the FSH fixture.
+**Historical note:** original runbook used the fresh-UUID "Waypoint 10" from hub.9 as the cut source. That FAILed because FSH still had the original "Waypoint 10" at a different UUID -- real name collision at SS10.2 step 8. The BarillasMarina source sidesteps the collision because "BarillasMarina" is absent from the FSH fixture.
 
 ---
 
@@ -745,7 +745,7 @@ Write-Host "Collision sentinel observed = $collided"
 
 Hard-abort when a clipboard contains two same-named items of the same type. Source from the DATABASE panel rather than E80/FSH -- those spokes enforce name uniqueness, so an "intra-clipboard collision" can only originate from a spoke that allows same-named records, which is DB by design (records distinguished by UUID).
 
-The baseline `navMate.db` has multiple WPs sharing names (e.g. several `BOCAS1` records). Find two same-named DB WPs at runtime, multi-select them, copy, and paste to FSH header. The SS10.2 step-7 intra-clipboard check should fire.
+The baseline `navMate.db` has multiple WPs sharing names (e.g. two `StarfishBeach` records). Find two same-named DB WPs at runtime, multi-select them, copy, and paste to FSH header. The SS10.2 step-7 intra-clipboard check should fire.
 
 ```powershell
 # Find two same-named DB WPs
