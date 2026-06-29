@@ -51,64 +51,12 @@ that approximates the same result without that complexity.
 
 
 
-
-## data versioning, color scheme, and synchronization
-
-
-There is no kml <ExtendedData> per track point.
-Embedding <gx:SimpleArrayData> inside a <gx:Track> is dangerous: GE probably silently discards it.
-
-
-### [db_version increment wiring]
-
-`db_version`, `e80_version`, and `kml_version` columns are in schema 9.0 on
-`waypoints`, `routes`, and `tracks` (not on `collections` or `route_waypoints`).
-Increment logic is not yet wired. (**Schema 13.0 update:** the three columns are now
-inert `INTEGER NOT NULL DEFAULT 0` reserved slots -- the prior `db_version DEFAULT 1`
-and the NULL `e80_version`/`kml_version` are gone, and the incidental `db_version++`
-on edits was removed. When this is wired, "never synced" is `0`, not NULL, per the
-no-NULLs schema; the NULL semantics described below predate 13.0.)
-
-**db_version** - bumped on every navMate edit (UPDATE). Starts at 1 on INSERT.
-
-**e80_version** - NULL = never synced. Set to `db_version` at time of a successful
-upload or download. Version numbers are not stored on the E80 hardware. At connect
-time, `e80_version` is initialized from a token encoded in the E80 `comment` field
-(encoding TBD - pending E80 character-set and comment-length-limit verification).
-A waypoint arriving from the E80 with no token has `e80_version = 0`. When
-`e80_version < db_version` the object has been locally edited since last sync;
-when `e80_version > db_version` the E80 has a newer version - detectable via
-MODIFY events live, or via comment-token mismatch at startup (magenta display state).
-
-**kml_version** - NULL = never exported via versioned KML. Set to `db_version`
-at time of export.
-
-**Transport columns in core tables** - a deliberate choice. The alternative
-junction table `sync_state(object_uuid, transport, db_version_at_sync)` was
-rejected in favor of simplicity given the small, slow-moving transport list.
-
-**Wiring deferred** - all increment logic belongs in a dedicated session when
-the sync feature is ready to implement. See `[db_version increment wiring]` in todo.md.
-
-
-### [synchronization color scheme]
-Between winDatabase and winE80 highlight common "same" items in bold blue,
-"older items" in bold magenta, and newer items in "bold green" via inter-window
-analaysis.
-
-
 ### [synchronization operations]
 Implement "sync->E80" and "sync<-DB" menu commands to synchronize
 out of date items in one-step directional manner.  These may be very
 similar but subtly different to the degree that any uuids showing up
 on the E80 should probably be considered "new" items, colored appropriately
 and downloaded to the database on a synch operation.
-
-
-
-
-
-
 
 
 
