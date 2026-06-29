@@ -51,12 +51,14 @@ use Wx::Event qw(
 	EVT_MENU
 	EVT_CLOSE
 	EVT_SIZE
+	EVT_MOVE
 );
 use Pub::Utils qw(display warning error);
 use n_defs;
 use n_utils;
 use nmResources;
 use navVisibility;
+use navColorPick;
 use navMatch;
 use navEnrich;
 use navServer qw(addRenderFeatures removeRenderFeatures);
@@ -66,6 +68,15 @@ use base 'Wx::Frame';
 
 
 my $current_window;   # one-at-a-time tracker
+
+# Remembered window geometry, per app session.  The Find window is modeless
+# and short-lived (a new "Find This..." closes the old one and opens a fresh
+# one), so without this it always re-popped at the default position.  We
+# record position+size as the user moves/resizes, and restore them on the
+# next invocation.  Session-only by design -- navMate writes no prefs file
+# (see memory navmate_prefs_design), so this does NOT survive an app restart.
+my $saved_pos;    # Wx::Point of the last placement
+my $saved_size;   # Wx::Size  of the last placement
 
 
 #---------------------------------
@@ -108,8 +119,13 @@ sub new
 		uc($args->{source} // ''),
 		$args->{obj_type} // '');
 
+	# Restore the remembered placement from a prior invocation this session,
+	# falling back to the default position and a 1000x600 size.
+	my $pos  = $saved_pos  || wxDefaultPosition;
+	my $size = $saved_size || Wx::Size->new(1000, 600);
+
 	my $this = $class->SUPER::new($frame, -1, $title,
-		wxDefaultPosition, [1000, 600],
+		$pos, $size,
 		wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT);
 
 	$this->{_subject}    = $args;
@@ -176,6 +192,11 @@ sub new
 	EVT_BUTTON($this, $this->{_close_btn},   sub { $this->Close(1)      });
 	EVT_CLOSE ($this, sub { $this->_onClose($_[1]) });
 
+	# Remember placement as the user moves/resizes, so the next "Find This..."
+	# re-opens where the last one was left.  Skip() so default handling runs.
+	EVT_MOVE($this, sub { $_[0]->_rememberGeometry(); $_[1]->Skip(); });
+	EVT_SIZE($this, sub { $_[0]->_rememberGeometry(); $_[1]->Skip(); });
+
 	# Visibility observer.  Keeps row checkboxes in sync with toggles
 	# coming from tree panes, editor checkboxes, or other agents.
 	$this->{_vis_observer_alive} = 1;
@@ -202,6 +223,17 @@ sub _onClose
 	}
 	$current_window = undef if $current_window && $current_window == $this;
 	$event->Skip();
+}
+
+
+sub _rememberGeometry
+{
+	my ($this) = @_;
+	# Record the current frame placement into the session-level statics.
+	# Guard against capturing a minimized/zero geometry.
+	return if $this->IsIconized();
+	$saved_pos  = $this->GetPosition();
+	$saved_size = $this->GetSize();
 }
 
 
@@ -757,14 +789,9 @@ sub _pickDbColor
 	my $gg = hex(substr($current, 4, 2));
 	my $bb = hex(substr($current, 2, 2));
 
-	my $cd = Wx::ColourData->new();
-	$cd->SetColour(Wx::Colour->new($rr, $gg, $bb));
-	$cd->SetChooseFull(1);
-
-	my $dlg = Wx::ColourDialog->new($this, $cd);
-	if ($dlg->ShowModal() == wxID_OK)
+	my $c = navColorPick::pickColour($this, Wx::Colour->new($rr, $gg, $bb));
+	if ($c)
 	{
-		my $c = $dlg->GetColourData()->GetColour();
 		my $new_abgr = sprintf('%s%02x%02x%02x',
 			$aa, $c->Blue(), $c->Green(), $c->Red());
 		$cand->{color_value} = $new_abgr;
@@ -789,7 +816,6 @@ sub _pickDbColor
 			addRenderFeatures([$feature]) if $feature;
 		}
 	}
-	$dlg->Destroy();
 }
 
 
