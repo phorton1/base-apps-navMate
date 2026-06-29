@@ -293,7 +293,13 @@ sub _pasteRuleAllows
 		}
 	}
 
-	# Before/After on a root-level branch has no parent to insert into.
+	# Before/After on a root-level branch.  The root IS a real, position-
+	# ordered container (parent_uuid=''), so branches/groups CAN be placed
+	# before/after a top-level branch -- computeFractionalBetween and the
+	# executor's moveCollection/insert paths already handle the root case.
+	# But the root holds ONLY collections; a leaf object (waypoint / route /
+	# track) placed there would get an empty collection_uuid and render
+	# nowhere, so leaf-object clipboards remain rejected.
 	if ($positional && $panel eq 'database' && $rt eq 'collection' && $ruuid)
 	{
 		my $dbh = connectDB();
@@ -303,9 +309,16 @@ sub _pasteRuleAllows
 			disconnectDB($dbh);
 			if ($rec && !$rec->{parent_uuid})
 			{
-				return (0, 'root_branch_before_after',
-				        'Cannot paste before/after a root-level branch -- use Paste to add items to it',
-				        'user_error');
+				my $all_collections = !grep {
+					my $it = $_->{type} // '';
+					$it ne 'branch' && $it ne 'group'
+				} @$items;
+				if (!$all_collections)
+				{
+					return (0, 'root_branch_before_after',
+					        'Only branches and groups can be placed before/after a top-level branch',
+					        'user_error');
+				}
 			}
 		}
 	}
