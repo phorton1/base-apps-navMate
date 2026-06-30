@@ -10,9 +10,8 @@ as a standalone Windows exe. The full build method is arcane and effectively unp
 but **all** source (navMate, `Pub::`, and `Pub::Ray`) is here on GitHub and is guaranteed
 free of malware or adware.
 
-> **Pre-release notice.** Every `0.9.x` build is an early-access **pre-release**: useful, but
-> not guaranteed in any way, shape, or form, and likely to be deleted at the first official
-> **1.0.0** release.
+> **Early access (0.9.x).** navMate is functional and in active use; it's pre-1.0, so expect
+> ongoing changes between releases.
 
 This is a release LOG, not a changelog. For what changed between any two releases the git
 history is authoritative: `git log navMate<older>..navMate<newer>`.
@@ -21,12 +20,30 @@ history is authoritative: `git log navMate<older>..navMate<newer>`.
 
 | date | version | notes |
 | ---- | ------- | ----- |
+| 2026-06-29 | 0.9.8 | Fixes Save Configuration so the panelset layer is captured correctly on every E-Series plotter; plus map/UI fixes |
 | 2026-06-28 | 0.9.7 | Timed Track Recording -- date/time + water depth at each track point; plus an About E80 dialog and a Help menu |
 | 2026-06-17 | 0.9.6 | e80Mod -- the E-Series Firmware Builder: build a custom v5.72 plotter firmware from your own stock v5.69, offline |
 | 2026-06-15 | 0.9.5 | first public pre-release -- Leaflet map waypoint editor, seeded example database, E-Series network wizard |
 
 Each release is the same tag `navMate<version>` stamped across the five repos it was built
 from, so it is fully reproducible. Provenance per release is recorded here at release time:
+
+### navMate0.9.8 -- 2026-06-29 (pre-release)
+
+Fixes a bug saving an E-Series plotter's display configuration, so the instrument-panel
+settings are now captured correctly on any unit. Fixes the second Database window not
+refreshing after edits. Adds Paste Before / Paste After on top-level branches. Enhances the
+custom color picker. Makes the Find window remember its position during a session.
+
+Built from (the `navMate0.9.8` tag in each repo):
+
+```
+navMate            <navMate0.9.8 commit>
+Pub                0c26037
+Pub::Ray           e25162d
+base_dist/navMate  c557a99   (private)
+Perl               a3c6c457  (private)
+```
 
 ### navMate0.9.7 -- 2026-06-28 (pre-release)
 
