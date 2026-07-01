@@ -20,13 +20,23 @@ history is authoritative: `git log navMate<older>..navMate<newer>`.
 
 | date | version | notes |
 | ---- | ------- | ----- |
+| 2026-07-01 | 0.9.9 | Renames "E80" to "ESeries" throughout; user-manual and network-setup wording fixes |
 | 2026-06-29 | 0.9.8 | Fixes Save Configuration so the panelset layer is captured correctly on every E-Series plotter; plus map/UI fixes |
 | 2026-06-28 | 0.9.7 | Timed Track Recording -- date/time + water depth at each track point; plus an About E80 dialog and a Help menu |
 | 2026-06-17 | 0.9.6 | e80Mod -- the E-Series Firmware Builder: build a custom v5.72 plotter firmware from your own stock v5.69, offline |
 | 2026-06-15 | 0.9.5 | first public pre-release -- Leaflet map waypoint editor, seeded example database, E-Series network wizard |
 
 Each release is the same tag `navMate<version>` stamped across the five repos it was built
-from, so it is fully reproducible. Provenance per release is recorded here at release time:
+from, so it is fully reproducible; the tags in git are the authoritative provenance.
+
+### navMate0.9.9 -- 2026-07-01 (pre-release)
+
+- Renames "E80" to "ESeries" throughout the app -- the same firmware runs on both the E80 and the
+  larger E120, so "ESeries" now covers both.
+- Identifies individual plotters as E80(n) / E120(n) in the About ESeries dialog and in the Screen
+  Grab and Save Configuration choosers.
+- Updates the User Manual for the new wording.
+- Corrects the network-connection advice to recommend a plain Ethernet switch.
 
 ### navMate0.9.8 -- 2026-06-29 (pre-release)
 
