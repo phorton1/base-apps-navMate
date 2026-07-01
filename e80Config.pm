@@ -697,7 +697,7 @@ sub _issueReboot
 {
     my ($this, $progress) = @_;
     display($dbg_reset, 0, sprintf("_issueReboot: reset via watchdog (poke 0x%08x = 0)", $RESET_ADDR));
-    _progressLabel($progress, "Rebooting E80");
+    _progressLabel($progress, "Rebooting ESeries plotter");
     _poke($this, $RESET_ADDR, "\x00\x00\x00\x00");
     _progressTick($progress);
     return 1;
@@ -721,7 +721,7 @@ sub _reboot
 
     # tick -- issue the watchdog reset (poke the CPegWatchdog active flag 0 -> feed stops -> HW reset)
     display($dbg_reset, 0, sprintf("_reboot: reset via watchdog (poke 0x%08x = 0)", $RESET_ADDR));
-    _progressLabel($progress, "Resetting E80");
+    _progressLabel($progress, "Resetting ESeries plotter");
     _poke($this, $RESET_ADDR, "\x00\x00\x00\x00");
     _progressTick($progress);
     _sleep($RESET_SETTLE);
@@ -729,7 +729,7 @@ sub _reboot
 
     # tick -- wait for the diag service to come back (6667 comes up ~1s before ICMP ping)
     display($dbg_reset, 0, "_reboot: waiting for the E80 to come back (<= ${SERVICE_TIMEOUT}s)");
-    _progressLabel($progress, "Waiting for E80");
+    _progressLabel($progress, "Waiting for ESeries plotter");
     my $t0 = time();
     my $up = 0;
     while (time() - $t0 < $SERVICE_TIMEOUT)
@@ -742,7 +742,7 @@ sub _reboot
         }
         _sleep(1);
     }
-    return _progressFail($progress, "E80 did not come back within ${SERVICE_TIMEOUT}s") if !$up;
+    return _progressFail($progress, "ESeries chartplotter did not come back within ${SERVICE_TIMEOUT}s") if !$up;
     display($dbg_reset, 1, "diag service alive after " . (time() - $t0) . "s");
     _progressTick($progress);
     return 1;

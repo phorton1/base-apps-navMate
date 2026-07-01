@@ -99,7 +99,7 @@ sub extract_app_image
     _phase($progress, "Reading package", 0, 3);
     my $pkg = _slurp($pkg_path);
     return _fail($progress, "cannot read package $pkg_path")             if !defined $pkg;
-    return _fail($progress, "not an E80 application package (too small)") if length($pkg) < $E80_OFF + 0x100;
+    return _fail($progress, "not an ESeries application package (too small)") if length($pkg) < $E80_OFF + 0x100;
 
     # E80/120_App geometry: dword2 (+0x30) spans header+stub to the transition
     # record; the gz stream starts 0x10 past it, its length stored at +0x04.

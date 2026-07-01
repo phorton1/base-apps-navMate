@@ -1,5 +1,7 @@
 # e80Firmware -- Firmware Package Build API
 
+Return to [**Cleanroom**](../cleanroom.md)
+
 [e80Firmware](e80Firmware.pm) is a navMate-side Perl library that turns a stock
 E80 application package into a **modified, flashable package**. It extracts the
 application image from a stock `E_App_Upg_Uni` package, applies one or more
@@ -175,3 +177,7 @@ updates.
   a prior build is reproduced exactly.
 - **No firmware travels with the tool.** The user supplies the stock package and
   their own modification records; the library carries neither.
+
+---
+
+Return to [**Cleanroom**](../cleanroom.md)

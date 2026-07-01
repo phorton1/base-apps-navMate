@@ -1,5 +1,7 @@
 # e80Config -- Configuration Backup / Restore API
 
+Return to [**Cleanroom**](../cleanroom.md)
+
 [e80Config](e80Config.pm) is a navMate-side Perl library that backs up and
 restores an E80 chartplotter's display **configuration gestalt** -- the complete
 set of user-visible layout and panel settings -- over the unit's diagnostic
@@ -256,3 +258,7 @@ allocates fresh, safe keys on the target; it does not reuse these.
   records than the user's own customizations, because applications mint default
   panelsets as their windows are first shown. `save` records all of them; on
   `restore` they are all written and the unit adopts the appropriate one per class.
+
+---
+
+Return to [**Cleanroom**](../cleanroom.md)

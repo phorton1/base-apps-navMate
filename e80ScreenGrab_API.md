@@ -1,5 +1,7 @@
 # e80ScreenGrab -- Screen Capture API
 
+Return to [**Cleanroom**](../cleanroom.md)
+
 [e80ScreenGrab](e80ScreenGrab.pm) is a navMate-side Perl library that captures
 an E80 chartplotter's **live display** over the unit's diagnostic network
 channel and hands it back as a PNG file or an in-memory true-color image. It
@@ -185,3 +187,7 @@ point the bulk transfer begins; once underway the transfer runs to completion
   included.
 - **Firmware dependency.** Requires the bulk screen-capture diagnostic service
   on the target (the mod002 firmware build); a stock unit cannot be captured.
+
+---
+
+Return to [**Cleanroom**](../cleanroom.md)
