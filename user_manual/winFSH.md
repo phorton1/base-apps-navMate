@@ -8,8 +8,8 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **[Import & Export](import_export.md)** --
 **FSH Files** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 If you have used a Raymarine plotter with a Navionics or compatible chart card, your waypoints,
 routes, and tracks are stored on that card in an **FSH archive** -- a single file (`.fsh`) that
@@ -49,4 +49,4 @@ Plotter tracks often arrive as one long multi-segment recording. **FSH -> Conver
 Working Copy** splits each into separate, individually named single-segment tracks, which are
 far easier to organize and edit. Save the file afterward to keep the result.
 
-**Next:** [Connecting an E-Series](connecting_e80.md)
+**Next:** [Connecting an E-Series](connecting_eseries.md)

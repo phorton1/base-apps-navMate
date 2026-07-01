@@ -8,8 +8,8 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 navMate shows your navigation data on a **map** -- an interactive, satellite-imagery
 view that opens in your web browser right alongside the application windows.
@@ -27,7 +27,7 @@ Folders are not drawn on the map; only the waypoints, routes, and tracks inside 
 ## Opening the map
 
 The map does not open on its own when navMate starts. It opens the first time you put
-something on it: **double-click** any item in the database, E80, or FSH tree -- or tick its
+something on it: **double-click** any item in the database, ESeries, or FSH tree -- or tick its
 checkbox -- and the map opens in your web browser showing that item. You can also open it at
 any time with **View -> Open Map**. It runs locally on your own computer -- navMate does not
 need an internet connection to work, though the satellite imagery itself is fetched online
@@ -51,7 +51,7 @@ The map has a few on-screen controls:
   - the kind toggles show or hide whole categories of marks: the waypoint icons (**WPs**) and
     their names (**WP names**), the names on route points (**RP names**), and the text-label
     (**Labels**) and depth-sounding (**Soundings**) marks.
-  - **DATABASE / E80 / FSH** show or hide everything from each data store -- handy for comparing
+  - **DATABASE / ESeries / FSH** show or hide everything from each data store -- handy for comparing
     what's on the plotter against what's in your database.
 - A **coordinates readout** in the lower-left shows the latitude/longitude under the pointer.
 - **Hover for details** -- rest the pointer on any mark, route, or track and a panel at the

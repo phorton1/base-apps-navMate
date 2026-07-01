@@ -8,8 +8,8 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 navMate lets you reorganize your data with the same **copy, cut, and paste** you use
 everywhere else. Right-click almost anything in a tree and you get a menu of the operations
@@ -58,6 +58,6 @@ Here is the nice part: when you connect a Raymarine E-Series, its waypoints, rou
 tracks show up in their own window right next to your database. Copying from one window and
 pasting into the other is exactly how you send data to the plotter and bring it back -- there
 is no separate "export to plotter" command to learn. That cross-device workflow has its own
-chapter, [Using Your E-Series](using_e80.md).
+chapter, [Using Your E-Series](using_eseries.md).
 
 **Next:** [Multi-Editor](winMultiEditor.md)

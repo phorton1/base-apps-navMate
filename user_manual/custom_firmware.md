@@ -1,12 +1,12 @@
 # navMate User Manual - Custom Firmware
 
 **[Home](readme.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Using Your E-Series](using_eseries.md)**
 
 navMate can build a small, optional **custom firmware** for your Raymarine E-Series (E80 / E120)
 plotter. Installing it unlocks three extra conveniences in navMate -- saving and restoring the
 plotter's display configuration, capturing the plotter's screen, and recording timed tracks (see
-[Using Your E-Series](using_e80.md)) -- that the stock Raymarine software does not provide.
+[Using Your E-Series](using_eseries.md)) -- that the stock Raymarine software does not provide.
 
 This is entirely optional, and it is free. You do not need to modify your plotter to use navMate
 for everything else; the custom firmware only adds those three features.
@@ -110,7 +110,7 @@ Follow Raymarine's normal on-screen update procedure for the flashing itself.
 
 When the unit comes back up, open its **Unit Info** screen: you should see version **v5.73** and, if
 you entered one, your **builder handle**. (You can also confirm this from navMate itself, without
-touching the plotter, with **E80 -> About E80** -- see [Using Your E-Series](using_e80.md).)
+touching the plotter, with **ESeries -> About ESeries** -- see [Using Your E-Series](using_eseries.md).)
 
 ## Going back to stock
 
@@ -120,4 +120,4 @@ like: run the installer again and choose that original package. The unit returns
 One limit to know: reverting takes you back to **v5.69** -- the version you downloaded -- not to some
 other, older firmware you might have been running before.
 
-**Back to:** [Using Your E-Series](using_e80.md)
+**Back to:** [Using Your E-Series](using_eseries.md)

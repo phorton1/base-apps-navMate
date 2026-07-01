@@ -8,8 +8,8 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **Import & Export** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 navMate is happy to exchange data with the other tools you already use. It speaks two common
 file formats -- **KML** (Google Earth) and **GPX** (GPS devices and apps) -- plus a plain-text

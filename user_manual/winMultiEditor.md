@@ -8,8 +8,8 @@
 **Multi-Editor** --
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 Sometimes you want to change the same thing on a lot of items at once -- recolor every
 waypoint in a group, give a batch of marks the same symbol, or clear the comment off a dozen

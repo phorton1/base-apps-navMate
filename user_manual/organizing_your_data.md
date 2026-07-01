@@ -8,8 +8,8 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 The **database window** is where navMate really earns its keep. It shows your entire
 navigation knowledge base as a tree of folders that you build and arrange however makes

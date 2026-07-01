@@ -8,8 +8,8 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 Welcome aboard. **navMate** is the home for your navigation knowledge -- the waypoints,
 groups, routes, and tracks you accumulate over a lifetime of boating, across every boat
@@ -50,8 +50,8 @@ other GPS devices and apps (GPX), and Raymarine / Navionics chart-card archives 
 - **[Multi-Editor](winMultiEditor.md)** -- change a property on many items at once.
 - **[Import & Export](import_export.md)** -- Google Earth (KML) and GPS files (GPX).
 - **[FSH Files](winFSH.md)** -- open and edit Raymarine / Navionics chart-card archives.
-- **[Connecting an E-Series](connecting_e80.md)** -- wire up and network your E80 / E120.
-- **[Using Your E-Series](using_e80.md)** -- send a trip out, bring your tracks back, and
+- **[Connecting an E-Series](connecting_eseries.md)** -- wire up and network your E80 / E120.
+- **[Using Your E-Series](using_eseries.md)** -- send a trip out, bring your tracks back, and
   manage the plotter itself.
 
 **Next:** [Getting Started](getting_started.md)

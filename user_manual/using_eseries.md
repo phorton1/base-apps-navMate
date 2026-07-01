@@ -8,7 +8,7 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
+**[Connecting an E-Series](connecting_eseries.md)** --
 **Using Your E-Series**
 
 
@@ -20,8 +20,8 @@ exhaustivly tested with the only still available Raymarine
 so, if you're on firmware older than 5.52, we recommend upgrading your plotter to 5.69 or 5.73 if you wish to use it with navMate.*
 
 
-Once your computer and plotter are connected ([previous chapter](connecting_e80.md)), the **E80
-window** -- open it with **View -> E80** -- shows a live view of what is on the plotter: its
+Once your computer and plotter are connected ([previous chapter](connecting_eseries.md)), the **ESeries
+window** -- open it with **View -> ESeries** -- shows a live view of what is on the plotter: its
 waypoints, groups, routes, and tracks, right next to your database window.
 
 ![winE80.jpg](images/winE80.jpg)
@@ -45,31 +45,31 @@ The plotter holds what fits the trip; navMate holds everything, for good.
 You move data between the two windows with the same copy and paste from the
 [Copy, Cut & Paste](copy_cut_paste.md) chapter -- there is no separate transfer command:
 
-- **Send to the plotter** -- copy items in your database window and paste them into the E80
-  window. For items already on the plotter, navMate offers **Push to E80** to update them in
+- **Send to the plotter** -- copy items in your database window and paste them into the ESeries
+  window. For items already on the plotter, navMate offers **Push to ESeries** to update them in
   place.
-- **Bring back** -- copy items in the E80 window and paste them into a folder in your database.
+- **Bring back** -- copy items in the ESeries window and paste them into a folder in your database.
   For items already in your database, navMate offers **Push to DB**.
 
 navMate looks out for the plotter's limits as you go -- it warns you, for example, if a name is
 too long for the plotter or a color cannot be matched exactly -- so a transfer never quietly
 loses information.
 
-Two more E80 menu commands worth knowing:
+Two more ESeries menu commands worth knowing:
 
-- **E80 -> Refresh E80-DB** re-reads everything currently on the plotter.
-- **E80 -> Clear** wipes all routes, groups, waypoints, and tracks off the plotter, after a
+- **ESeries -> Refresh ESeries Database** re-reads everything currently on the plotter.
+- **ESeries -> Clear** wipes all routes, groups, waypoints, and tracks off the plotter, after a
   confirmation that shows you the counts first -- the quick way to start a trip with a clean unit.
 
 ## Seeing what is on the network
 
-**E80 -> About E80** opens a window listing every plotter navMate can currently see on the network
+**ESeries -> About ESeries** opens a window listing every plotter navMate can currently see on the network
 -- each with its name, firmware version, network address, and whether it is the master. Pick a
 plotter to see its details.
 
 ![about_e80.jpg](images/about_e80.jpg)
 
-On a plotter running the [custom firmware](custom_firmware.md), About E80 also reads the unit's
+On a plotter running the [custom firmware](custom_firmware.md), About ESeries also reads the unit's
 **model**, **firmware build date**, and the **builder handle** you chose when you built it -- a
 quick way to confirm a plotter is running exactly the firmware you think it is, without walking over
 to the unit.
@@ -91,14 +91,14 @@ as described.
 ### Managing the plotter's screens
 
 navMate can also look after the plotter's **display configuration** -- the page layouts and
-instrument panels you have set up on the unit. From the **E80** menu:
+instrument panels you have set up on the unit. From the **ESeries** menu:
 
 - **Save Configuration** captures the current setup into a folder navMate keeps for you.
 - **Restore Configuration** writes a saved setup back to a plotter -- handy for setting up a new
   or borrowed unit just the way you like it.
 - **Clear Configuration** resets the unit to its defaults.
 
-This makes it easy to configure multiple E80's to share the same **PageSets** and **PanelSets**
+This makes it easy to configure multiple ESeries plotters to share the same **PageSets** and **PanelSets**
 and/or to restore them after a *Factory Reset* instead of laboriously configuring each E-Series
 plotter's configuration with the *awkward E-Series Setup Menu* each time.
 
@@ -117,7 +117,7 @@ plotter to record **timed tracks** instead -- each point also stamped with the d
 depth as you passed it. Bring such a track back into navMate and you can see exactly when you were
 where, and how deep the water was.
 
-From the **E80** menu, **Timed Track Recording...** shows whether the plotter is recording timed
+From the **ESeries** menu, **Timed Track Recording...** shows whether the plotter is recording timed
 tracks right now, and lets you turn it on or off. The setting lives on the plotter and stays as you
 leave it.
 

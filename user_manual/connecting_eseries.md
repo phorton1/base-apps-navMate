@@ -9,7 +9,7 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **Connecting an E-Series** --
-**[Using Your E-Series](using_e80.md)**
+**[Using Your E-Series](using_eseries.md)**
 
 Everything so far works with navMate on its own. This chapter, and the next, are for owners of
 a Raymarine **E-Series** plotter (E80 / E120) who want navMate and the plotter to talk to each
@@ -67,12 +67,12 @@ plotter, sets up the connection, and tells you when it is done.
 
 ## Confirming the connection
 
-Open the **E80 window** with **View -> E80**. Once your computer and the plotter are on the same
+Open the **ESeries window** with **View -> ESeries**. Once your computer and the plotter are on the same
 network, the plotter's own waypoints, routes, groups, and tracks appear there, ready to work
-with -- which is the subject of the [next chapter](using_e80.md). If the window is empty, choose
-**E80 -> Refresh E80-DB** to read the plotter's current contents.
+with -- which is the subject of the [next chapter](using_eseries.md). If the window is empty, choose
+**ESeries -> Refresh ESeries Database** to read the plotter's current contents.
 
 > **Tip:** make sure the plotter is powered on and fully started up before you connect -- give it
 > the minute or so it needs to finish booting.
 
-**Next:** [Using Your E-Series](using_e80.md)
+**Next:** [Using Your E-Series](using_eseries.md)

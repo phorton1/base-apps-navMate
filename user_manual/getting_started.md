@@ -8,12 +8,12 @@
 **[Multi-Editor](winMultiEditor.md)** --
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
-**[Connecting an E-Series](connecting_e80.md)** --
-**[Using Your E-Series](using_e80.md)**
+**[Connecting an E-Series](connecting_eseries.md)** --
+**[Using Your E-Series](using_eseries.md)**
 
 This chapter gets navMate onto your computer and takes you on a first look around. You do
 **not** need a chartplotter connected for any of this -- navMate is fully useful on its own.
-Connecting an E-Series plotter comes later, in [its own chapter](connecting_e80.md).
+Connecting an E-Series plotter comes later, in [its own chapter](connecting_eseries.md).
 
 ## 1. Install navMate
 
