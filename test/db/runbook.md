@@ -15,7 +15,7 @@ curl.exe -s "http://localhost:9883/api/test?op=suppress&val=1" | Out-Null
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+db+module+reset" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
-# Verify Clear E80 DB FINISHED in log; verify /api/db is empty
+# Verify Clear ESeries Database FINISHED in log; verify /api/db is empty
 
 # Create the empty paste-destination [DST] and capture its runtime uuid into $DST.
 # No empty collection exists in the baseline DB, so the suite creates one here.

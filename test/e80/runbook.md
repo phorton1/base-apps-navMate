@@ -630,7 +630,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Agroups&rig
 Start-Sleep 3
 ```
 
-**Pass:** `ERROR - Cannot paste a database Cut to E80`; [IsolatedWP1] still in DB at its original `collection_uuid` (cut clipboard not consumed).
+**Pass:** `ERROR - Cannot paste a database Cut to ESeries`; [IsolatedWP1] still in DB at its original `collection_uuid` (cut clipboard not consumed).
 
 ---
 
@@ -646,7 +646,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_
 Start-Sleep 3
 ```
 
-**Pass:** preflight aborts with the sentinel `ERROR - E80 operation blocked: N name collision(s):` followed by an `intra-clipboard waypoint name '...': waypoint 'BajaCalifornia~1' vs waypoint 'BajaCalifornia~2'` line and `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`  The sentinel names the two distinct *source* WPs (their full names differ -- they can ONLY collide after truncation to `BajaCalifornia~`, so the block itself proves the post-truncation comparison fired; the message does not display the bare truncated key, and that is fine).  E80 unchanged.  NO ProgressDialog.
+**Pass:** preflight aborts with the sentinel `ERROR - ESeries operation blocked: N name collision(s):` followed by an `intra-clipboard waypoint name '...': waypoint 'BajaCalifornia~1' vs waypoint 'BajaCalifornia~2'` line and `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`  The sentinel names the two distinct *source* WPs (their full names differ -- they can ONLY collide after truncation to `BajaCalifornia~`, so the block itself proves the post-truncation comparison fired; the message does not display the bare truncated key, and that is fine).  E80 unchanged.  NO ProgressDialog.
 
 ---
 
@@ -670,7 +670,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_
 Start-Sleep 3
 ```
 
-**Pass:** post-setup E80 has 1 WP named `BajaCalifornia~` (truncated form, UUID `7b4e6d421403dc72`).  After probe: preflight rejects with `ERROR - E80 operation blocked: N name collision(s):` followed by `waypoint 'BajaCalifornia~2' (from waypoint 'BajaCalifornia~2') already on E80 at UUID 7b4e6d421403dc72` and the `Per policy, navMate does not auto-rename...` line.  The incoming `~2` truncates to `BajaCalifornia~` and matches the existing truncated WP -- that match is the proof the post-truncation comparison fired (the message reports the incoming full name + the existing UUID, not the bare truncated key, and that is fine).  E80 still has only the one WP from setup; no ProgressDialog; no IMPL ERROR.  Cleanup: delete the setup WP after the test via DELETE_WAYPOINT to keep state tidy for later guards.
+**Pass:** post-setup E80 has 1 WP named `BajaCalifornia~` (truncated form, UUID `7b4e6d421403dc72`).  After probe: preflight rejects with `ERROR - ESeries operation blocked: N name collision(s):` followed by `waypoint 'BajaCalifornia~2' (from waypoint 'BajaCalifornia~2') already on ESeries at UUID 7b4e6d421403dc72` and the `Per policy, navMate does not auto-rename...` line.  The incoming `~2` truncates to `BajaCalifornia~` and matches the existing truncated WP -- that match is the proof the post-truncation comparison fired (the message reports the incoming full name + the existing UUID, not the bare truncated key, and that is fine).  E80 still has only the one WP from setup; no ProgressDialog; no IMPL ERROR.  Cleanup: delete the setup WP after the test via DELETE_WAYPOINT to keep state tidy for later guards.
 
 ---
 
@@ -691,7 +691,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=header%3Aroutes&rig
 Start-Sleep 3
 ```
 
-**Pass:** `ERROR - Route 'Popa': member waypoint(s) not on E80 and not in clipboard: <UUIDs>`; `/api/db` routes empty.
+**Pass:** `ERROR - Route 'Popa': member waypoint(s) not on the ESeries plotter and not in clipboard: <UUIDs>`; `/api/db` routes empty.
 
 ---
 
@@ -729,7 +729,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_
 Start-Sleep 4
 ```
 
-**Pass:** ERROR sentinel `E80 operation blocked: N name collision(s):` with an `intra-clipboard waypoint name '<name>'` entry naming the colliding source items, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; no WP named `<name>` lands on E80.
+**Pass:** ERROR sentinel `ESeries operation blocked: N name collision(s):` with an `intra-clipboard waypoint name '<name>'` entry naming the colliding source items, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; no WP named `<name>` lands on E80.
 
 ---
 
@@ -748,7 +748,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_
 Start-Sleep 4
 ```
 
-**Pass:** ERROR sentinel `E80 operation blocked: 1 name collision(s):` with a `waypoint 'BarillasMarina' (from waypoint 'BarillasMarina') already on E80 at UUID <existing>` entry, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; only one "BarillasMarina" on E80 (the original from Test 25a).
+**Pass:** ERROR sentinel `ESeries operation blocked: 1 name collision(s):` with a `waypoint 'BarillasMarina' (from waypoint 'BarillasMarina') already on ESeries at UUID <existing>` entry, followed by `Per policy, navMate does not auto-rename.  Resolve in the database and retry.`; no IMPL ERROR; only one "BarillasMarina" on E80 (the original from Test 25a).
 
 ---
 
@@ -762,7 +762,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=e80&select=9e4e10cc5e03093e&ri
 Start-Sleep 3
 ```
 
-**Pass:** `ERROR - Cannot paste at an individual E80 waypoint node -- pick a header or group`; E80 unchanged. (Distinct guard at `navOps.pm` for WP-object-node paste, fires before the descendant check.)
+**Pass:** `ERROR - Cannot paste at an individual ESeries waypoint node -- pick a header or group`; E80 unchanged. (Distinct guard at `navOps.pm` for WP-object-node paste, fires before the descendant check.)
 
 ---
 

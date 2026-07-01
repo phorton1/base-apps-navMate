@@ -420,7 +420,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=80B2-C48A-5400-D3AE
 Start-Sleep 6
 ```
 
-**Pass:** ProgressDialog 'Push To E80' STARTED + FINISHED. `/api/db` waypoint `80b2c48a5400d3ae` still present with name "Waypoint 25". No new record created. No ERROR.
+**Pass:** ProgressDialog 'Push to ESeries' STARTED + FINISHED. `/api/db` waypoint `80b2c48a5400d3ae` still present with name "Waypoint 25". No new record created. No ERROR.
 
 ---
 
@@ -472,7 +472,7 @@ curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=C482-CB9E-D14E-67B2
 Start-Sleep 8
 ```
 
-**Pass:** ProgressDialog 'Push To E80' STARTED + FINISHED. `/api/db` route `c482cb9ed14e67b2` still present with `num_wpts=6`. No new route. No ERROR.
+**Pass:** ProgressDialog 'Push to ESeries' STARTED + FINISHED. `/api/db` route `c482cb9ed14e67b2` still present with `num_wpts=6`. No new route. No ERROR.
 
 ---
 
@@ -666,7 +666,7 @@ $route_present = [bool]$db_after.routes.$route_navform
 Write-Host "Route '$missing_route' on E80 after paste: $route_present"
 
 $log = curl.exe -s "http://localhost:9883/api/log?since=mark"
-$miss_sentinel = $log -match "missing" -or $log -match "not found on E80"
+$miss_sentinel = $log -match "missing" -or $log -match "not found on the ESeries plotter"
 Write-Host "Missing-member sentinel: $miss_sentinel"
 ```
 
@@ -801,13 +801,13 @@ curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=C482-CB9E-D14E-67B2
 Start-Sleep 1
 # Right-click target = E80 t01 (an individual waypoint node, also a member
 # of the route in clipboard).  The expected block is the upstream guard at
-# navOps.pm "Cannot paste at an individual E80 waypoint node".  Reaching
+# navOps.pm "Cannot paste at an individual ESeries waypoint node".  Reaching
 # the navOpsE80.pm:1459 IMPLEMENTATION ERROR catch-all is a FAIL.
 curl.exe -s "http://localhost:9883/api/test?panel=e80&select=c482cb98d14e67b2&right_click=c482cb98d14e67b2&cmd=10210" | Out-Null
 Start-Sleep 2
 
 $r = curl.exe -s "http://localhost:9883/api/log?since=mark" | ConvertFrom-Json
-$clean_guard = @($r.lines | Where-Object { $_.text -match "Cannot paste at an individual E80 waypoint node" }).Count
+$clean_guard = @($r.lines | Where-Object { $_.text -match "Cannot paste at an individual ESeries waypoint node" }).Count
 $impl_err    = @($r.lines | Where-Object { $_.text -match "IMPLEMENTATION ERROR.*paste handler" }).Count
 $err         = @($r.lines | Where-Object { $_.text -match "ERROR -|IMPLEMENTATION ERROR" } | Where-Object { $_.text -notmatch "Could not send content" }).Count
 Write-Host "hub.27: clean_guard=$clean_guard impl_err=$impl_err err=$err"
