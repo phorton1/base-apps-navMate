@@ -616,6 +616,10 @@ sub onCommandEnable
 			             || ($track && %{$track->{tracks} // {}}));
 		}
 	}
+	elsif ($id == $WIN_FILESYS)
+	{
+		$enable = 0 if !nmE80DirectOps::hasFilesysService();
+	}
 	elsif ($id == $COMMAND_SAVE_E80_CONFIG
 	    || $id == $COMMAND_RESTORE_E80_CONFIG
 	    || $id == $COMMAND_CLEAR_E80_CONFIG)
@@ -969,18 +973,18 @@ sub _doRefreshE80Data
 	my $track = $raydp ? $raydp->findImplementedService('TRACK') : undef;
 	if (!($wpmgr && $track))
 	{
-		okDialog($parent, "E80 not connected - cannot refresh.", "Refresh E80");
+		okDialog($parent, "The ESeries plotter is not connected - cannot refresh.", "Refresh ESeries");
 		return;
 	}
 	if ($Pub::Ray::NET::d_WPMGR::query_in_progress ||
 	    $Pub::Ray::NET::d_TRACK::query_in_progress)
 	{
-		okDialog($parent, "A query is already in progress - please wait.", "Refresh E80");
+		okDialog($parent, "A query is already in progress - please wait.", "Refresh ESeries");
 		return;
 	}
 	my $progress = Pub::WX::ProgressDialog::newProgressData(4, 2);
 	$progress->{active} = 1;
-	my $dlg = Pub::WX::ProgressDialog->new($parent, 'Refreshing E80...', 1, $progress);
+	my $dlg = Pub::WX::ProgressDialog->new($parent, 'Refreshing ESeries...', 1, $progress);
 	return if !$dlg;
 	$wpmgr->queueRefresh($progress);
 	$track->queueRefresh($progress);

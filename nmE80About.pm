@@ -67,7 +67,7 @@ my $ID_LIST    = 200;
 my $ID_REFRESH = 201;
 my $ID_TIMER   = 202;
 
-my $DLG_TITLE = 'About E80';
+my $DLG_TITLE = 'About ESeries';
 
 # Worker -> main-thread hand-off for the in-flight peek.  The worker writes scalar
 # fields into $worker_result and sets {ready}; the Timer harvests it.  Only one peek
@@ -182,35 +182,20 @@ sub _cstr
 #-------------------------------------------------------
 
 sub _enumerateUnits
-    # The live E80 units (by ip), each with its RAYDP discovery fields and the implemented
-    # services it advertises.  Built from the authoritative FILESYS list (every E80 advertises
-    # FILESYS), enriched from the RAYDP IDENT device records matched by ip.
+    # The live ESeries plotters, each with its RAYDP IDENT discovery fields and the implemented
+    # services it advertises.  Identity + ip/role/version come coherently from one IDENT record
+    # (via listESeriesPlotters, MASTER-first); services is the one remaining per-ip lookup.
 {
-    my @devs  = nmE80DirectOps::filesysDevices();       # ({ip, device_id}) sorted by ip
-    my $raydp = Pub::Ray::NET::c_RAYDP::getRayDP();
-
-    my %byip;
-    if ($raydp)
-    {
-        my $recs = $raydp->{devices} || {};
-        for my $d (values %$recs)
-        {
-            next if !$d || !$d->{ip};
-            $byip{$d->{ip}} = $d;
-        }
-    }
-
     my @units;
-    for my $dev (@devs)
+    for my $dev (nmE80DirectOps::listESeriesPlotters())
     {
-        my $ip  = $dev->{ip};
-        my $rec = $byip{$ip};
+        my $ip = $dev->{ip};
         push(@units, {
             ip        => $ip,
             device_id => $dev->{device_id},
-            label     => nmE80DirectOps::deviceLabel($ip, $dev->{device_id}),
-            version   => $rec ? $rec->{version} : undef,
-            role      => $rec ? $rec->{role}    : undef,
+            label     => nmE80DirectOps::deviceLabel($ip, $dev->{device_id}, $dev->{type}),
+            version   => $dev->{version},
+            role      => $dev->{role},
             services  => join(' ', _implementedServicesForIp($ip)),
         });
     }
@@ -256,7 +241,7 @@ sub doAbout
     my @units = _enumerateUnits();
     if (!@units)
     {
-        okDialog($frame, "No E80 is reachable on the network.", $DLG_TITLE);
+        okDialog($frame, "No ESeries plotter is reachable on the network.", $DLG_TITLE);
         return;
     }
 
@@ -293,7 +278,7 @@ sub new
     my $mono = Wx::Font->new(9, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
 
     Wx::StaticText->new($this, -1,
-        "E80 units on the network.  Select one to see its identity and firmware build.",
+        "ESeries units on the network.  Select one to see its identity and firmware build.",
         [15, 10], [570, 18]);
 
     $this->{list} = Wx::ListBox->new($this, $ID_LIST,
@@ -337,8 +322,8 @@ sub _rowText
     my $fw = !exists($this->{cache}{$ip}) ? '?'
            : $this->{cache}{$ip}{ok}      ? 'modified'
            :                                'stock';
-    return sprintf("%-12s %-15s  v%-6s %-9s [%s]",
-        substr($unit->{label}, 0, 12),
+    return sprintf("%-14s %-15s  v%-6s %-9s [%s]",
+        substr($unit->{label}, 0, 14),
         $ip,
         (defined($unit->{version}) ? $unit->{version} : '?'),
         ($unit->{role} // '?'),
@@ -536,7 +521,7 @@ sub onRefresh
     if (!@units)
     {
         $this->{current_ip} = undef;
-        $this->{detail}->SetValue("No E80 is reachable on the network.\n");
+        $this->{detail}->SetValue("No ESeries plotter is reachable on the network.\n");
         return;
     }
 

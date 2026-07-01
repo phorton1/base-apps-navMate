@@ -61,52 +61,64 @@ my $pending_success;
 # device discovery / naming
 #-------------------------------------------------------
 
-sub filesysDevices
-    # Live E80 units advertising the RAYDP FILESYS service, as ({ip, device_id}, ...) sorted by
-    # ip.  Every E80 advertises FILESYS, so this is the reliable target list.  With $min defined,
-    # restricts to units whose RAYDP IDENT firmware version is >= $min -- the per-device floor for
-    # the diagnostics-channel features (config = v5.71/mod001, grab = v5.72/mod002).  Config and
-    # grab are multi-device, so the floor is a property of each candidate; timed tracks is
-    # master-only and gates separately on the connected unit (see nmE80TimedTracks).
+sub listESeriesPlotters
+    # The live ESeries plotters on the network, from the authoritative RAYDP IDENT device
+    # records, as ({ip, device_id, type, version, role}, ...).  Each tuple is self-consistent
+    # (built from ONE IDENT record), so a unit's identity is never mispaired with another's ip.
+    # With $min defined, restricts to units whose IDENT firmware version is >= $min -- the
+    # per-device floor for the diagnostics-channel features (config = v5.71/mod001, grab =
+    # v5.72/mod002).  Sorted MASTER-first, then by ip.
 {
     my ($min) = @_;
     my $raydp = Pub::Ray::NET::c_RAYDP::getRayDP();
     return () if !$raydp;
-    my $ports = $raydp->getServicePortsByAddr();
-    return () if !$ports;
-
-    # per-ip firmware version from the RAYDP IDENT device records (only needed when filtering)
-    my %ver;
-    if (defined $min)
-    {
-        my $recs = $raydp->{devices} || {};
-        for my $d (values %$recs)
-        {
-            $ver{$d->{ip}} = $d->{version} if $d && $d->{ip} && defined $d->{version};
-        }
-    }
+    my $recs = $raydp->{devices} || {};
 
     my @devs;
-    for my $addr (keys %$ports)
+    for my $d (values %$recs)
     {
-        my $sp = $ports->{$addr};
-        next if !$sp || ($sp->{name} // '') ne 'FILESYS';
-        my $ip = $sp->{ip};
-        $ip = $1 if !$ip && $addr =~ /^([^:]+):/;       # fall back to the addr's ip half
-        next if !$ip;
-        next if defined($min) && !(defined($ver{$ip}) && $ver{$ip} >= $min);
-        push(@devs, { ip => $ip, device_id => $sp->{device_id} // '' });
+        next if !$d || !$d->{ip};
+        next if defined($min) && !(defined($d->{version}) && $d->{version} >= $min);
+        push(@devs, {
+            ip        => $d->{ip},
+            device_id => $d->{device_id} // '',
+            type      => $d->{type}      // '',
+            version   => $d->{version},
+            role      => $d->{role},
+        });
     }
-    @devs = sort { $a->{ip} cmp $b->{ip} } @devs;   # not "return sort ..." -- sort in scalar context is undef
+    # MASTER first, then by ip.  (sort into a temp, not "return sort ..." -- scalar-context sort is undef.)
+    @devs = sort {
+            (($a->{role} // '') eq 'MASTER' ? 0 : 1) <=> (($b->{role} // '') eq 'MASTER' ? 0 : 1)
+            || ($a->{ip} cmp $b->{ip})
+        } @devs;
     return @devs;
 }
 
 
+sub hasFilesysService
+    # True iff at least one unit advertises an implemented RAYDP FILESYS service.  This is
+    # navMate's ONLY legitimate interest in FILESYS -- whether to enable the FileSys menu item.
+    # The FileSys window itself (Pub::Ray's winFILESYS) enumerates its own devices; navMate does
+    # NOT produce a FILESYS device list.  For the plotter list, see listESeriesPlotters.
+{
+    my $raydp = Pub::Ray::NET::c_RAYDP::getRayDP();
+    return 0 if !$raydp;
+    my $ports = $raydp->getServicePortsByAddr();
+    return 0 if !$ports;
+    for my $sp (values %$ports)
+    {
+        return 1 if $sp && $sp->{implemented} && ($sp->{name} // '') eq 'FILESYS';
+    }
+    return 0;
+}
+
+
 sub deviceCount
-    # Count of reachable FILESYS units (optionally restricted to those at firmware >= $min).
+    # Count of reachable ESeries plotters (optionally restricted to those at firmware >= $min).
 {
     my ($min) = @_;
-    return scalar(filesysDevices($min));
+    return scalar(listESeriesPlotters($min));
 }
 
 
@@ -131,11 +143,18 @@ sub opDeviceCount
 
 
 sub deviceLabel
-    # Colloquial name for $ip from a_defs, else the RAYDP device id in parentheses.
+    # Colloquial name for $ip from a_defs; else the RAYDP device id in parentheses,
+    # prefixed with the Raymarine model type (E80/E120/...) when the IDENT message
+    # reported one -- e.g. "E80(3a681b27)".  Falls back to bare "($device_id)" when
+    # the model is unknown or not yet IDENT'd, and to "($ip)" with no device id.
 {
-    my ($ip, $device_id) = @_;
+    my ($ip, $device_id, $type) = @_;
     return $KNOWN_SERVER_IPS{$ip} if $ip && $KNOWN_SERVER_IPS{$ip};
-    return "($device_id)" if defined($device_id) && $device_id ne '';
+    if (defined($device_id) && $device_id ne '')
+    {
+        my $prefix = (defined($type) && $type ne '' && $type !~ /unknown/) ? $type : '';
+        return "$prefix($device_id)";
+    }
     return "($ip)";
 }
 
@@ -232,7 +251,7 @@ sub _prepareSaveFolder
 
     if (!validateConfigFormal($folder))
     {
-        return ('refused', "The folder is not empty and is not an E80 configuration -- refusing to overwrite it.");
+        return ('refused', "The folder is not empty and is not an ESeries configuration -- refusing to overwrite it.");
     }
 
     if (!$suppress)
@@ -240,7 +259,7 @@ sub _prepareSaveFolder
         my $mf  = readManifest($folder);
         my $who = $mf ? ($mf->{machine_name} || $mf->{owner_id} || 'unknown') : 'unknown';
         my $yes = yesNoDialog($frame,
-            "'$folder' already holds a saved E80 configuration (from $who).\n\n"
+            "'$folder' already holds a saved ESeries configuration (from $who).\n\n"
             . "Saving will permanently overwrite its ENTIRE contents.\n\nContinue?",
             "Overwrite Configuration");
         return ('refused', 'cancelled') if !$yes;
@@ -327,13 +346,13 @@ sub _doInteractive
 
     if (Pub::WX::ProgressDialog::isActive() || $op_busy)
     {
-        okDialog($frame, "Another operation is in progress -- please wait.", "E80 Configuration");
+        okDialog($frame, "Another operation is in progress -- please wait.", "ESeries Configuration");
         return;
     }
 
     my $dev = _pickDevice($frame, _opMinVersion($op));
     return if !$dev;
-    my $target_id = deviceLabel($dev->{ip}, $dev->{device_id});
+    my $target_id = deviceLabel($dev->{ip}, $dev->{device_id}, $dev->{type});
     my $source_id = $target_id;             # for save, the source IS the live unit
 
     my $folder;
@@ -356,7 +375,7 @@ sub _doInteractive
         {
             if (!validateConfigFormal($folder))
             {
-                okDialog($frame, "'$folder' is not a valid E80 configuration (no manifest).", "Restore Configuration")
+                okDialog($frame, "'$folder' is not a valid ESeries configuration (no manifest).", "Restore Configuration")
                     if !$nmDialogs::suppress_confirm;
                 return;
             }
@@ -373,7 +392,7 @@ sub _doInteractive
         if (!$nmDialogs::suppress_confirm)
         {
             my $yes = yesNoDialog($frame,
-                "Reset the E80 display configuration on $target_id to factory defaults and reboot it?",
+                "Reset the ESeries display configuration on $target_id to factory defaults and reboot it?",
                 "Clear Configuration");
             return if !$yes;
         }
@@ -390,19 +409,19 @@ sub _pickDevice
     # unit can't be chosen for a diagnostics-channel op; the empty-case message says which.
 {
     my ($frame, $min) = @_;
-    my @devs = filesysDevices($min);
+    my @devs = listESeriesPlotters($min);
     if (!@devs)
     {
-        my $msg = (defined($min) && scalar(filesysDevices()))
-            ? sprintf("No reachable E80 has the firmware (v%.2f+) this operation requires.", $min)
-            : "No E80 is reachable on the network.";
-        okDialog($frame, $msg, "E80 Configuration");
+        my $msg = (defined($min) && scalar(listESeriesPlotters()))
+            ? sprintf("No reachable ESeries plotter has the firmware (v%.2f+) this operation requires.", $min)
+            : "No ESeries plotter is reachable on the network.";
+        okDialog($frame, $msg, "ESeries Configuration");
         return undef;
     }
     return $devs[0] if @devs == 1;
 
-    my @labels = map { deviceLabel($_->{ip}, $_->{device_id}) . "  --  $_->{ip}" } @devs;
-    my $dlg = Wx::SingleChoiceDialog->new($frame, "Select the target E80:", "E80 Configuration", \@labels);
+    my @labels = map { deviceLabel($_->{ip}, $_->{device_id}, $_->{type}) . "  --  $_->{ip}" } @devs;
+    my $dlg = Wx::SingleChoiceDialog->new($frame, "Select the target ESeries plotter:", "ESeries Configuration", \@labels);
     my $sel = ($dlg->ShowModal() == wxID_OK) ? $dlg->GetSelection() : -1;
     $dlg->Destroy();
     return ($sel >= 0) ? $devs[$sel] : undef;
@@ -436,7 +455,7 @@ sub _pickPngFile
 {
     my ($frame) = @_;
     my $dlg = Wx::FileDialog->new(
-        $frame, "Save the E80 screen capture as:",
+        $frame, "Save the ESeries screen capture as:",
         $last_grab_dir, '',
         "PNG image (*.png)|*.png|All files (*.*)|*.*",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -459,10 +478,10 @@ sub _launch
     my $progress = Pub::WX::ProgressDialog::newProgressData(0, 1);   # workers=1: close on worker-done
     $progress->{active} = 1;
 
-    my $title = ($op eq 'save')    ? "Saving E80 Configuration..."
-              : ($op eq 'restore') ? "Restoring E80 Configuration..."
-              : ($op eq 'grab')    ? "Capturing E80 Screen..."
-              :                      "Clearing E80 Configuration...";
+    my $title = ($op eq 'save')    ? "Saving ESeries Configuration..."
+              : ($op eq 'restore') ? "Restoring ESeries Configuration..."
+              : ($op eq 'grab')    ? "Capturing ESeries Screen..."
+              :                      "Clearing ESeries Configuration...";
 
     my $dlg = Pub::WX::ProgressDialog->new($frame, $title, 1, $progress);
     if (!$dlg)
@@ -502,7 +521,7 @@ sub onIdle
     my $clean = ($progress && !($progress->{error} // '') && !($progress->{cancelled} // 0)) ? 1 : 0;
     if ($clean && !$nmDialogs::suppress_confirm)
     {
-        okDialog($p->{frame} || $frame, $p->{message}, "E80 Configuration");
+        okDialog($p->{frame} || $frame, $p->{message}, "ESeries Configuration");
     }
 }
 
@@ -525,12 +544,13 @@ sub apiOp
 
     $folder =~ s{\\}{/}g if defined($folder);
 
-    return { error => 'another E80 direct operation is in progress' } if !_acquire();
+    return { error => 'another ESeries direct operation is in progress' } if !_acquire();
 
     # device identity for the message: match the ip against the live FILESYS set for a device id
     my $device_id = '';
-    for my $d (filesysDevices()) { if ($d->{ip} eq $ip) { $device_id = $d->{device_id}; last; } }
-    my $target_id = deviceLabel($ip, $device_id);
+    my $type      = '';
+    for my $d (listESeriesPlotters()) { if ($d->{ip} eq $ip) { $device_id = $d->{device_id}; $type = $d->{type}; last; } }
+    my $target_id = deviceLabel($ip, $device_id, $type);
 
     if ($op eq 'save')
     {
@@ -546,7 +566,7 @@ sub apiOp
         if (!validateConfigFormal($folder))
         {
             _release();
-            return { error => "'$folder' is not a valid E80 configuration (no manifest)" };
+            return { error => "'$folder' is not a valid ESeries configuration (no manifest)" };
         }
     }
 
@@ -577,12 +597,13 @@ sub apiGrab
     $ip = '' if !defined($ip);
     return { error => 'missing ip' } if $ip eq '';
 
-    return { error => 'another E80 direct operation is in progress' } if !_acquire();
+    return { error => 'another ESeries direct operation is in progress' } if !_acquire();
 
     # device identity for the message: match the ip against the live FILESYS set for a device id
     my $device_id = '';
-    for my $d (filesysDevices()) { if ($d->{ip} eq $ip) { $device_id = $d->{device_id}; last; } }
-    my $target_id = deviceLabel($ip, $device_id);
+    my $type      = '';
+    for my $d (listESeriesPlotters()) { if ($d->{ip} eq $ip) { $device_id = $d->{device_id}; $type = $d->{type}; last; } }
+    my $target_id = deviceLabel($ip, $device_id, $type);
 
     my $progress = Pub::WX::ProgressDialog::newProgressData(0);   # no dialog reads it; library mutates it
     $progress->{active} = 1;

@@ -220,7 +220,7 @@ sub _pasteRuleAllows
 	if (($panel eq 'e80' || $panel eq 'fsh') && $cut_flag && $source eq 'database')
 	{
 		return (0, 'db_cut_to_spoke',
-		        'Cannot paste a database Cut to ' . uc($panel),
+		        'Cannot paste a database Cut to ' . ($panel eq 'e80' ? 'ESeries' : uc($panel)),
 		        'user_error');
 	}
 
@@ -228,7 +228,7 @@ sub _pasteRuleAllows
 	if ($panel eq 'e80' && $rt eq 'waypoint')
 	{
 		return (0, 'e80_individual_wp_paste',
-		        'Cannot paste at an individual E80 waypoint node -- pick a header or group',
+		        'Cannot paste at an individual ESeries waypoint node -- pick a header or group',
 		        'user_error');
 	}
 
@@ -249,7 +249,7 @@ sub _pasteRuleAllows
 				if (($item->{type} // '') eq 'track')
 				{
 					return (0, 'tracks_to_non_tracks_header_e80',
-					        'Tracks can only be pasted to the E80 tracks header',
+					        'Tracks can only be pasted to the ESeries tracks header',
 					        'user_error');
 				}
 			}
@@ -533,7 +533,7 @@ sub _pasteTracksToE80Allows
 			# rings/overwrites or the auto-save never fires and the upload
 			# hangs.  Downsampling/segmenting is not supported yet, so reject.
 			return ('reject:track "' . $name . '" has ' . $pt_count
-				. ' points; the E80 holds at most ' . $E80_MAX_TRACK_POINTS
+				. ' points; the ESeries plotter holds at most ' . $E80_MAX_TRACK_POINTS
 				. ' points per track.  Trim or split it first '
 				. '(automatic downsampling is not supported).');
 		}
@@ -556,10 +556,10 @@ sub _pasteTracksToE80Allows
 		my $incoming = scalar grep { ($_->{type} // '') eq 'track' } @$items;
 		if ($existing + $incoming > $E80_MAX_TRACKS)
 		{
-			return ('reject:E80 track storage is full -- ' . $existing
-				. ' present plus ' . $incoming . ' to write exceeds the E80 '
+			return ('reject:ESeries track storage is full -- ' . $existing
+				. ' present plus ' . $incoming . ' to write exceeds the ESeries '
 				. 'limit of ' . $E80_MAX_TRACKS . ' tracks.  Delete tracks on '
-				. 'the E80 (or archive to a CompactFlash card) first.');
+				. 'the ESeries plotter (or archive to a CompactFlash card) first.');
 		}
 	}
 
@@ -1075,7 +1075,7 @@ sub getPushMenuItems
 		my @items;
 		push @items, { id => $CTX_CMD_PUSH,     label => 'Push to DB'  }
 			if _fshNodesAllInDB(\@nodes);
-		push @items, { id => $CTX_CMD_PUSH_E80, label => 'Push to E80' }
+		push @items, { id => $CTX_CMD_PUSH_E80, label => 'Push to ESeries' }
 			if $peers->{wpmgr} && _fshNodesAllInE80($peers->{wpmgr}, \@nodes);
 		return @items;
 	}
@@ -1084,7 +1084,7 @@ sub getPushMenuItems
 	my @items;
 	if ($peers->{wpmgr} && _dbNodesAllInE80($peers->{wpmgr}, \@nodes))
 	{
-		push @items, { id => $CTX_CMD_PUSH, label => 'Push to E80' };
+		push @items, { id => $CTX_CMD_PUSH, label => 'Push to ESeries' };
 	}
 	if ($peers->{fsh_db} && _dbNodesAllInFSH($peers->{fsh_db}, \@nodes))
 	{

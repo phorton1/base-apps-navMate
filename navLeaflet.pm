@@ -506,13 +506,13 @@ sub _mapCreateE80Waypoint
 {
 	my (%a) = @_;
 	my $wpmgr = navOps::_wpmgr();
-	return { ok => 0, msg => 'Connect an E80 first' } if !$wpmgr;
+	return { ok => 0, msg => 'Connect an ESeries plotter first' } if !$wpmgr;
 
 	my $name = $a{name} // '';
 	return { ok => 0, msg => 'Waypoint needs a name' } if $name eq '';
 	if (my $c = navOps::_checkE80NameConflict($wpmgr, $name, {}, 'waypoints'))
 	{
-		return { ok => 0, msg => "A waypoint named '$name' already exists on the E80" };
+		return { ok => 0, msg => "A waypoint named '$name' already exists on the ESeries plotter" };
 	}
 
 	my $uuid = navOps::_newNavUUID();
@@ -543,11 +543,11 @@ sub _mapModifyE80Waypoint
 {
 	my (%a) = @_;
 	my $wpmgr = navOps::_wpmgr();
-	return { ok => 0, msg => 'Connect an E80 first' } if !$wpmgr;
+	return { ok => 0, msg => 'Connect an ESeries plotter first' } if !$wpmgr;
 
 	my $uuid = $a{uuid} // '';
 	my $wp   = $uuid ? $wpmgr->{waypoints}{$uuid} : undef;
-	return { ok => 0, msg => 'That waypoint is no longer on the E80' } if !$wp;
+	return { ok => 0, msg => 'That waypoint is no longer on the ESeries plotter' } if !$wp;
 
 	my $name = $a{name} // '';
 	return { ok => 0, msg => 'Waypoint needs a name' } if $name eq '';
@@ -555,7 +555,7 @@ sub _mapModifyE80Waypoint
 	{
 		if (my $c = navOps::_checkE80NameConflict($wpmgr, $name, {}, 'waypoints'))
 		{
-			return { ok => 0, msg => "A waypoint named '$name' already exists on the E80" };
+			return { ok => 0, msg => "A waypoint named '$name' already exists on the ESeries plotter" };
 		}
 	}
 
@@ -578,11 +578,11 @@ sub _mapDeleteE80Waypoint
 {
 	my (%a) = @_;
 	my $wpmgr = navOps::_wpmgr();
-	return { ok => 0, msg => 'Connect an E80 first' } if !$wpmgr;
+	return { ok => 0, msg => 'Connect an ESeries plotter first' } if !$wpmgr;
 
 	my $uuid = $a{uuid} // '';
 	my $wp   = $uuid ? $wpmgr->{waypoints}{$uuid} : undef;
-	return { ok => 0, msg => 'That waypoint is no longer on the E80' } if !$wp;
+	return { ok => 0, msg => 'That waypoint is no longer on the ESeries plotter' } if !$wp;
 
 	my @routes = navOps::_e80WPRoutes($wpmgr, $uuid);
 	if (@routes)

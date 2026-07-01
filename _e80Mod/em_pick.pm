@@ -88,7 +88,7 @@ sub _onBrowse
 	my ($this) = @_;
 	my $dlg = Wx::FileDialog->new($this,
 		"Select your E_App_Upg_Uni.pkg firmware", '', '',
-		"E80 firmware package (*.pkg)|*.pkg|All files (*.*)|*.*",
+		"ESeries firmware package (*.pkg)|*.pkg|All files (*.*)|*.*",
 		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 	if ($dlg->ShowModal() == wxID_OK)
 	{

@@ -261,7 +261,7 @@ const OverlayControl = L.Control.extend({
         hr.style.margin = '4px 0';
         div.appendChild(hr);
         div.appendChild(makeRow('src_db',  'DATABASE', true));
-        div.appendChild(makeRow('src_e80', 'E80',      true));
+        div.appendChild(makeRow('src_e80', 'ESeries',  true));
         div.appendChild(makeRow('src_fsh', 'FSH',      true));
 
         L.DomEvent.disableClickPropagation(div);
@@ -289,7 +289,7 @@ function fmtVal(k, v) {
 function showInfo(props, context) {
     const div = document.getElementById('nm-info');
     if (!div) return;
-    const srcLabels = { db: '--- DATABASE ---', e80: '--- E80 ---', fsh: '--- FSH ---' };
+    const srcLabels = { db: '--- DATABASE ---', e80: '--- ESeries ---', fsh: '--- FSH ---' };
     const src = srcLabels[props.data_source] || '--- DATABASE ---';
     const abbrev = TYPE_ABBREV[props.obj_type] || props.obj_type || '';
     let html = '<div class="nm-info-source">' + src + '</div>'

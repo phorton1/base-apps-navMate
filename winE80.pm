@@ -69,7 +69,7 @@ sub new
 {
 	my ($class, $frame, $book, $id, $data) = @_;
 	my $this = $class->SUPER::new($book, $id);
-	$this->MyWindow($frame, $book, $id, 'E80', $data);
+	$this->MyWindow($frame, $book, $id, 'ESeries', $data);
 
 	$this->{tree} = Wx::TreeCtrl->new($this, -1, wxDefaultPosition, wxDefaultSize,
 		wxTR_DEFAULT_STYLE | wxTR_HIDE_ROOT | wxTR_MULTIPLE);
@@ -321,9 +321,9 @@ sub _buildAndRestore
 
 	if (!$wpmgr)
 	{
-		my $root = $tree->AddRoot('E80');
-		my $e80_item = $tree->AppendItem($root, 'E80', -1, -1,
-			Wx::TreeItemData->new({ type => 'root', data => { uuid => undef, name => 'E80' } }));
+		my $root = $tree->AddRoot('ESeries');
+		my $e80_item = $tree->AppendItem($root, 'ESeries', -1, -1,
+			Wx::TreeItemData->new({ type => 'root', data => { uuid => undef, name => 'ESeries' } }));
 		$tree->SetItemBold($e80_item, 1);
 		$tree->AppendItem($root, '(WPMGR not connected)');
 		$this->{_e80_loaded} = 0;
@@ -336,9 +336,9 @@ sub _buildAndRestore
 	display($dbg_wine80,0,"winE80::_buildAndRestore wps=".scalar(keys %$wps).
 		" groups=".scalar(keys %$groups)." routes=".scalar(keys %$routes));
 
-	my $root = $tree->AddRoot('E80');
-	my $e80_item = $tree->AppendItem($root, 'E80', -1, -1,
-		Wx::TreeItemData->new({ type => 'root', data => { uuid => undef, name => 'E80' } }));
+	my $root = $tree->AddRoot('ESeries');
+	my $e80_item = $tree->AppendItem($root, 'ESeries', -1, -1,
+		Wx::TreeItemData->new({ type => 'root', data => { uuid => undef, name => 'ESeries' } }));
 	$tree->SetItemBold($e80_item, 1);
 	_buildGroups($this, $tree, $root, $wpmgr);
 	_buildRoutes($this, $tree, $root, $wpmgr);
@@ -859,7 +859,7 @@ sub _buildContextMenu
 		if ($has_content)
 		{
 			$menu->AppendSeparator() if $menu->GetMenuItemCount() > 0;
-			$menu->Append($COMMAND_CLEAR_E80_DB, 'Clear E80 DB');
+			$menu->Append($COMMAND_CLEAR_E80_DB, 'Clear ESeries Database');
 		}
 	}
 	else
@@ -875,7 +875,7 @@ sub _buildContextMenu
 	}
 
 	$menu->AppendSeparator() if $menu->GetMenuItemCount() > 0;
-	$menu->Append($COMMAND_REFRESH_WIN_E80, 'Refresh winE80');
+	$menu->Append($COMMAND_REFRESH_WIN_E80, 'Refresh ESeries Window');
 
 	return $menu;
 }
@@ -1143,12 +1143,12 @@ sub resolveMapDestination
 	my $type = $node->{type} // '';
 	if ($type eq 'my_waypoints')
 	{
-		return { ok => 1, count => 1, store => 'e80', store_label => 'E80',
+		return { ok => 1, count => 1, store => 'e80', store_label => 'ESeries',
 		         group_uuid => '', dest_name => 'My Waypoints' };
 	}
 	elsif ($type eq 'group')
 	{
-		return { ok => 1, count => 1, store => 'e80', store_label => 'E80',
+		return { ok => 1, count => 1, store => 'e80', store_label => 'ESeries',
 		         group_uuid => ($node->{uuid} // ''),
 		         dest_name  => (($node->{data} // {})->{name} // 'Group') };
 	}

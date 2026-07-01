@@ -702,7 +702,7 @@ let wpColor       = WP_DEFAULT_COLOR;
 let wpSaveSeq     = 0;       // client seq matched against /waypoint/result
 let wpSaving      = false;   // a save is in flight (guards double-submit)
 
-const STORE_LABELS = { db: 'Database', e80: 'E80', fsh: 'FSH' };
+const STORE_LABELS = { db: 'Database', e80: 'ESeries', fsh: 'FSH' };
 
 // transient toast for the "select a single destination" guidance
 const mapMsgDiv = document.createElement('div');

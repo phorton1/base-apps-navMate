@@ -220,8 +220,8 @@ sub _deleteE80Waypoints
     }
     my $n   = scalar @$nodes;
     my $msg = $n == 1
-        ? "Delete waypoint '$nodes->[0]{data}{name}' from E80?"
-        : "Delete $n waypoints from E80?";
+        ? "Delete waypoint '$nodes->[0]{data}{name}' from the ESeries plotter?"
+        : "Delete $n waypoints from the ESeries plotter?";
     return if !confirmDialog($tree, $msg, "Confirm Delete");
     if (!$progress)
     {
@@ -265,14 +265,14 @@ sub _deleteE80Groups
     {
         my $wc = scalar @{$nodes->[0]{data}{uuids} // []};
         $msg = $wc > 0
-            ? "Delete group '$nodes->[0]{data}{name}' from E80? Its $wc member(s) will remain in My Waypoints. Cannot be undone."
-            : "Delete group '$nodes->[0]{data}{name}' from E80? Cannot be undone.";
+            ? "Delete group '$nodes->[0]{data}{name}' from the ESeries plotter? Its $wc member(s) will remain in My Waypoints. Cannot be undone."
+            : "Delete group '$nodes->[0]{data}{name}' from the ESeries plotter? Cannot be undone.";
     }
     else
     {
         $msg = $total_wps > 0
-            ? "Delete $n groups from E80? Their $total_wps member(s) will remain in My Waypoints. Cannot be undone."
-            : "Delete $n groups from E80? Cannot be undone.";
+            ? "Delete $n groups from the ESeries plotter? Their $total_wps member(s) will remain in My Waypoints. Cannot be undone."
+            : "Delete $n groups from the ESeries plotter? Cannot be undone.";
     }
     return if !confirmDialog($tree, $msg, "Delete Group");
     my $total_ops = $n + $total_wps;
@@ -341,7 +341,7 @@ sub _deleteE80GroupsAndWPs
         }
         my $n = scalar @members;
         return if !confirmDialog($tree,
-            "Delete all $n ungrouped waypoint(s) from E80? Cannot be undone.",
+            "Delete all $n ungrouped waypoint(s) from the ESeries plotter? Cannot be undone.",
             "Delete Group + Waypoints");
         my $progress = _openE80Progress("Delete Group + Waypoints", scalar @members);
         return if !$progress;
@@ -376,14 +376,14 @@ sub _deleteE80GroupsAndWPs
     if ($n == 1)
     {
         $msg = $total_wps > 0
-            ? "Delete group '$grps[0]{data}{name}' and its $total_wps waypoint(s) from E80? Cannot be undone."
-            : "Delete group '$grps[0]{data}{name}' from E80? Cannot be undone.";
+            ? "Delete group '$grps[0]{data}{name}' and its $total_wps waypoint(s) from the ESeries plotter? Cannot be undone."
+            : "Delete group '$grps[0]{data}{name}' from the ESeries plotter? Cannot be undone.";
     }
     else
     {
         $msg = $total_wps > 0
-            ? "Delete $n groups and their $total_wps waypoint(s) from E80? Cannot be undone."
-            : "Delete $n groups from E80? Cannot be undone.";
+            ? "Delete $n groups and their $total_wps waypoint(s) from the ESeries plotter? Cannot be undone."
+            : "Delete $n groups from the ESeries plotter? Cannot be undone.";
     }
     return if !confirmDialog($tree, $msg, "Delete Groups + Waypoints");
     display($dbg_e80_ops, 0, "navOps::_deleteE80GroupsAndWPs n=$n total_wps=$total_wps");
@@ -477,12 +477,12 @@ sub _deleteE80Routes
     if ($n == 1)
     {
         $msg = $total_pts > 0
-            ? "Delete route '$nodes->[0]{data}{name}' from E80? Its $total_pts waypoint(s) will remain. Cannot be undone."
-            : "Delete route '$nodes->[0]{data}{name}' from E80? Cannot be undone.";
+            ? "Delete route '$nodes->[0]{data}{name}' from the ESeries plotter? Its $total_pts waypoint(s) will remain. Cannot be undone."
+            : "Delete route '$nodes->[0]{data}{name}' from the ESeries plotter? Cannot be undone.";
     }
     else
     {
-        $msg = "Delete $n routes from E80? Their waypoints will remain. Cannot be undone.";
+        $msg = "Delete $n routes from the ESeries plotter? Their waypoints will remain. Cannot be undone.";
     }
     return if !confirmDialog($tree, $msg, "Delete Route");
     my $total_ops = $n + $total_pts;
@@ -521,8 +521,8 @@ sub _deleteE80Tracks
     my $n = scalar @$nodes;
     return if !$n;
     my $msg = $n == 1
-        ? "Delete track '$nodes->[0]{data}{name}' from E80?"
-        : "Delete $n tracks from E80?";
+        ? "Delete track '$nodes->[0]{data}{name}' from the ESeries plotter?"
+        : "Delete $n tracks from the ESeries plotter?";
     return if !confirmDialog($tree, $msg, "Confirm Delete");
     my $progress = _openE80Progress("Delete Track", $n);
     return if !$progress;
@@ -1333,7 +1333,7 @@ sub _pasteAllToE80
         my $route      = $wpmgr->{routes}{$route_uuid};
         if (!$route)
         {
-            error("_pasteAllToE80: route $route_uuid not found on E80");
+            error("_pasteAllToE80: route $route_uuid not found on the ESeries plotter");
             return;
         }
         my @add_uuids;
@@ -1691,7 +1691,7 @@ sub _pasteNewAllToE80
             my $msg = "Are you SURE you want to PASTE_NEW these track(s)?\n\n"
                     . "The need for this is highly unusual and creating new tracks on the UUID "
                     . "might not be your intention.  Caution is suggested.\n\n"
-                    . "This operation will write $n new track(s), $m of which have existing UUIDs on the E80.";
+                    . "This operation will write $n new track(s), $m of which have existing UUIDs on the ESeries plotter.";
             return if !confirmDialog($tree, $msg, 'PASTE_NEW');
         }
     }
@@ -1734,7 +1734,7 @@ sub _pasteNewAllToE80
         my $route      = $wpmgr->{routes}{$route_uuid};
         if (!$route)
         {
-            error("_pasteNewAllToE80: route $route_uuid not found on E80");
+            error("_pasteNewAllToE80: route $route_uuid not found on the ESeries plotter");
             return;
         }
         my @add_uuids;
@@ -2091,7 +2091,7 @@ sub _pushToE80
         elsif ($t eq 'track')    { $total++;                                                  }
     }
 
-    my $progress = _openE80Progress("Push to E80", $total,
+    my $progress = _openE80Progress("Push to ESeries", $total,
         {cancel_label => 'Abort', cancel_msg => 'Aborted by user'});
     return if !$progress;
 
@@ -2229,7 +2229,7 @@ sub _clearE80_DB
 
     if (!@route_uuids && !@group_uuids && !@all_wp_uuids && !@track_uuids)
     {
-        okDialog($parent, "E80 is already empty.", "Clear E80 DB") if !$nmDialogs::suppress_confirm;
+        okDialog($parent, "The ESeries plotter is already empty.", "Clear ESeries Database") if !$nmDialogs::suppress_confirm;
         return;
     }
 
@@ -2241,8 +2241,8 @@ sub _clearE80_DB
     my $summary = join(', ', @parts);
 
     return if !confirmDialog($parent,
-        "Delete ALL E80 data ($summary)? Cannot be undone.",
-        "Clear E80 DB");
+        "Delete ALL ESeries data ($summary)? Cannot be undone.",
+        "Clear ESeries Database");
 
     my $total_route_pts = 0;
     # Dedup uuids per route -- see the matching comment in _deleteE80Routes.
@@ -2261,7 +2261,7 @@ sub _clearE80_DB
                   + scalar @ungrouped_wps;
     $total_ops = 1 if !$total_ops;
 
-    my $progress = _openE80Progress("Clear E80 DB", $total_ops);
+    my $progress = _openE80Progress("Clear ESeries Database", $total_ops);
     return if !$progress;
     $progress->{_counting_get_items} = 1;
 

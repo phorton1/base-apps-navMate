@@ -974,7 +974,7 @@ sub _doPaste
 				if (@missing)
 				{
 					my $rname = ($route->{data} // {})->{name} // $route->{uuid};
-					error("Route '$rname': member waypoint(s) not on E80 and not in clipboard: "
+					error("Route '$rname': member waypoint(s) not on the ESeries plotter and not in clipboard: "
 					    . join(', ', @missing));
 					return;
 				}
@@ -988,7 +988,7 @@ sub _doPaste
 			}
 			if (@missing_rp)
 			{
-				error("route_point: referenced waypoint(s) not on E80 and not in clipboard: "
+				error("route_point: referenced waypoint(s) not on the ESeries plotter and not in clipboard: "
 				    . join(', ', @missing_rp));
 				return;
 			}
@@ -1435,7 +1435,7 @@ sub _collectNameConflicts
 sub _formatNameConflicts
 {
 	my ($panel, $conflicts) = @_;
-	my $spoke = uc($panel);
+	my $spoke = $panel eq 'e80' ? 'ESeries' : uc($panel);
 	my $n     = scalar @$conflicts;
 	my @lines = ("$spoke operation blocked: $n name collision(s):");
 	for my $c (@$conflicts)
@@ -1502,7 +1502,7 @@ sub _doPush
 		my $n = scalar @items;
 		if ($cmd_id == $CTX_CMD_PUSH_FSH)
 		{
-			my $msg = "Push $n item(s) from E80 to FSH?";
+			my $msg = "Push $n item(s) from the ESeries plotter to FSH?";
 			return if !($nmDialogs::suppress_confirm || confirmDialog($tree, $msg, 'Push'));
 			# E80<->FSH share identical name/comment limits + color palette;
 			# no lossy transform check needed.
@@ -1516,7 +1516,7 @@ sub _doPush
 		}
 		else
 		{
-			my $msg = "Push $n item(s) from E80 to database?";
+			my $msg = "Push $n item(s) from the ESeries plotter to database?";
 			return if !($nmDialogs::suppress_confirm || confirmDialog($tree, $msg, 'Push'));
 			my $issues = _preflightLossyTransform(\@items, 'e80_to_db');
 			if (_hasLossyIssues($issues))
@@ -1540,7 +1540,7 @@ sub _doPush
 		my $n = scalar @items;
 		if ($cmd_id == $CTX_CMD_PUSH_E80)
 		{
-			my $msg = "Push $n item(s) from FSH to E80?";
+			my $msg = "Push $n item(s) from FSH to the ESeries plotter?";
 			return if !($nmDialogs::suppress_confirm || confirmDialog($tree, $msg, 'Push'));
 			# E80<->FSH symmetric; no lossy transform check needed.
 			my @push_conflicts = _collectNameConflicts(\@items, 'e80', $right_click_node);
@@ -1640,7 +1640,7 @@ sub _doPush
 		return;
 	}
 	my $n2      = scalar @db_items;
-	my $msg2    = "Push $n2 item(s) from database to E80?";
+	my $msg2    = "Push $n2 item(s) from database to the ESeries plotter?";
 	my $proceed2 = $nmDialogs::suppress_confirm
 		? 1
 		: confirmDialog($tree, $msg2, 'Push');

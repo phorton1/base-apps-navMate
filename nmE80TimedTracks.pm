@@ -194,7 +194,7 @@ sub _applyToggle
     my $now_enabled = ($now == 0) ? 1 : 0;
     if ($now_enabled != $want_enabled)
     {
-        $progress->{error} = "write did not take (E80 still reads "
+        $progress->{error} = "write did not take (ESeries still reads "
             . ($now_enabled ? "ENABLED" : "DISABLED") . ")";
         return;
     }
@@ -217,7 +217,7 @@ sub doToggle
 
     if (Pub::WX::ProgressDialog::isActive() || _isBusy())
     {
-        okDialog($frame, "Another E80 operation is in progress -- please wait.", $DLG_TITLE);
+        okDialog($frame, "Another ESeries operation is in progress -- please wait.", $DLG_TITLE);
         return;
     }
 
@@ -225,14 +225,14 @@ sub doToggle
     my $ver = connectedUnitVersion();
     if (!$db || !$db->{connected} || !defined($ver))
     {
-        okDialog($frame, "No E80 is connected on the DATABASE service.", $DLG_TITLE);
+        okDialog($frame, "No ESeries plotter is connected on the DATABASE service.", $DLG_TITLE);
         return;
     }
     if ($ver < $MIN_VERSION)
     {
         okDialog($frame,
             "Timed-track recording requires the custom firmware v5.73 or later.\n\n"
-            . "The connected E80 reports v$ver, which cannot record timed tracks.",
+            . "The connected ESeries plotter reports v$ver, which cannot record timed tracks.",
             $DLG_TITLE);
         return;
     }
@@ -251,7 +251,7 @@ sub _launchRead
     my $progress = Pub::WX::ProgressDialog::newProgressData(0, 1);   # workers=1: close on worker-done
     $progress->{active} = 1;
 
-    my $dlg = Pub::WX::ProgressDialog->new($frame, "Reading E80 timed-track setting...", 0, $progress);
+    my $dlg = Pub::WX::ProgressDialog->new($frame, "Reading ESeries timed-track setting...", 0, $progress);
     if (!$dlg)
     {
         _release();
@@ -299,9 +299,9 @@ sub _askToggle
 
     my $dlg = Wx::Dialog->new($frame, -1, $DLG_TITLE, [-1,-1], [440,250], wxDEFAULT_DIALOG_STYLE);
 
-    Wx::StaticText->new($dlg, -1, "Connected E80:  v$version", [20,15]);
+    Wx::StaticText->new($dlg, -1, "Connected ESeries:  v$version", [20,15]);
     Wx::StaticText->new($dlg, -1,
-        "When timed-track recording is ON, the E80 stamps each recorded\n"
+        "When timed-track recording is ON, the ESeries plotter stamps each recorded\n"
         . "track point with the wall-clock date/time and true depth.  When\n"
         . "OFF, it records stock tracks (position and depth only, no time).",
         [20,42], [400,70]);
@@ -335,14 +335,14 @@ sub _launchWrite
     my ($frame, $want_value) = @_;
     if (!_acquire())
     {
-        okDialog($frame, "Another E80 operation is in progress -- please wait.", $DLG_TITLE);
+        okDialog($frame, "Another ESeries operation is in progress -- please wait.", $DLG_TITLE);
         return;
     }
 
     my $progress = Pub::WX::ProgressDialog::newProgressData(0, 1);   # workers=1: close on worker-done
     $progress->{active} = 1;
 
-    my $dlg = Pub::WX::ProgressDialog->new($frame, "Updating E80 timed-track setting...", 0, $progress);
+    my $dlg = Pub::WX::ProgressDialog->new($frame, "Updating ESeries timed-track setting...", 0, $progress);
     if (!$dlg)
     {
         _release();
@@ -388,7 +388,7 @@ sub onIdle
         {
             okDialog($f, "Timed-track recording is already "
                 . ($cur_enabled ? "ENABLED" : "DISABLED")
-                . " on the E80 -- no change made.", $DLG_TITLE);
+                . " on the ESeries plotter -- no change made.", $DLG_TITLE);
             return;
         }
 
@@ -400,8 +400,8 @@ sub onIdle
     # phase 'write': confirm the result of the write
     my $state = ($progress && $progress->{result_enabled}) ? "ENABLED" : "DISABLED";
     my $msg   = ($progress && $progress->{result_nochange})
-        ? "Timed-track recording was already $state on the E80."
-        : "Timed-track recording is now $state on the E80.";
+        ? "Timed-track recording was already $state on the ESeries plotter."
+        : "Timed-track recording is now $state on the ESeries plotter.";
     okDialog($f, $msg, $DLG_TITLE);
 }
 
@@ -414,7 +414,7 @@ sub apiGet
     # Read the current state, blocking on the calling (HTTP) thread.
     # { connected => 1, version, value, enabled } or { error }.
 {
-    return { error => 'another E80 operation is in progress' } if !_acquire();
+    return { error => 'another ESeries operation is in progress' } if !_acquire();
 
     my $db  = _db();
     my $ver = connectedUnitVersion();
@@ -447,10 +447,10 @@ sub apiSet
 
     my $ver = connectedUnitVersion();
     return { error => 'E80 DATABASE service is not connected' } if !defined($ver);
-    return { error => "connected E80 is v$ver; timed tracks need v$MIN_VERSION+" }
+    return { error => "connected ESeries is v$ver; timed tracks need v$MIN_VERSION+" }
         if $ver < $MIN_VERSION;
 
-    return { error => 'another E80 operation is in progress' } if !_acquire();
+    return { error => 'another ESeries operation is in progress' } if !_acquire();
     my $want_value = $enabled ? 0 : 1;
     my $progress = {};
     _applyToggle($want_value, $progress);
