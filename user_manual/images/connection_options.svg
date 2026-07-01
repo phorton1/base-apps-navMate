@@ -329,7 +329,7 @@
      font-style="italic"
      fill="#555555"
      id="text76">single new ethernet cable</text>
-  <!-- ===================== BAND 2: Existing router configuration ===================== -->
+  <!-- ===================== BAND 2: Existing switch configuration ===================== -->
   <text
      x="730"
      y="346"
@@ -337,7 +337,7 @@
      font-size="20"
      font-weight="bold"
      fill="#1a1a1a"
-     id="text78">Existing router configuration</text>
+     id="text78">Existing switch configuration</text>
   <g
      stroke="#1f1f1f"
      id="g88">
@@ -378,7 +378,7 @@
      text-anchor="middle"
      font-size="14"
      fill="#1a1a1a"
-     id="text90">Existing Router</text>
+     id="text90">Existing Switch</text>
   <g
      stroke="#1f1f1f"
      id="g104">
@@ -442,7 +442,7 @@
      font-size="14"
      fill="#1a1a1a"
      id="text106">E-Series Plotter</text>
-  <!-- existing cable: plotter <-> router -->
+  <!-- existing cable: plotter <-> switch -->
   <line
      x1="757"
      y1="420"
@@ -479,8 +479,8 @@
      font-size="12.5"
      font-style="italic"
      fill="#555555"
-     id="text114">plug into existing router</text>
-  <!-- proposed new link: router -> computer -->
+     id="text114">plug into existing switch</text>
+  <!-- proposed new link: switch -> computer -->
   <path
      d="M528 432 C450 432, 380 431, 297 430"
      fill="none"

@@ -35,12 +35,20 @@ of which end with your computer talking to the plotter:
 - **No existing cable** -- the simplest case. Run a single standard Ethernet cable straight from
   the plotter to your computer. Modern computers sort out the wiring automatically, so an
   ordinary "straight-through" cable is all you need.
-- **Existing router** -- if your boat already has a network (most often the old Raymarine
+- **Existing switch** -- if your boat already has a network (most often the old Raymarine
   network switch), plug both the plotter and your computer into it; they find each other
   through it.
 - **Crossover cable** -- if you have an old *crossover* cable left over from wiring two marine
   devices directly together, replace it with a standard cable and a switch. The diagram marks
   this case so you know to swap it out.
+
+> **Use a plain switch -- not a Wi-Fi router.** For the switch above, an inexpensive *unmanaged*
+> Ethernet switch (or the old Raymarine one) is the safe choice. A **Wi-Fi router**, or a
+> "smart"/managed switch, can quietly filter out the plotter's network traffic -- the plotter then
+> seems to vanish from navMate, and on a boat with a second (repeater) display it can cut that
+> display's navigation feed from the master plotter. If a plotter that was working suddenly goes
+> blank, suspect a Wi-Fi router or managed switch in the path first. (The technical cause is *IGMP
+> snooping*, a form of multicast filtering that a plain switch does not do.)
 
 ## The network step
 
