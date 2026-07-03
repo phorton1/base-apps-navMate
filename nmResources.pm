@@ -13,7 +13,7 @@ use Wx qw(:everything);
 use Pub::WX::Resources;
 use Pub::WX::AppConfig;
 use Pub::Ray::NET::a_utils qw(@E80_SYMS);
-use Pub::Utils qw($resource_dir $temp_dir);
+use Pub::Utils qw(is_win $resource_dir $temp_dir);
 
 
 BEGIN
@@ -216,7 +216,7 @@ my $database_menu = [
 	$ID_SEPARATOR,
 	# Commit/Revert navMate.db to git is a dev-only feature (the packaged DB is
 	# not under git); omit the menu items when packaged.
-	($Cava::Packager::PACKAGED ? () : ($COMMAND_COMMIT_DB, $COMMAND_REVERT_DB, $ID_SEPARATOR)),
+	(($Cava::Packager::PACKAGED || !is_win()) ? () : ($COMMAND_COMMIT_DB, $COMMAND_REVERT_DB, $ID_SEPARATOR)),
 	$COMMAND_SAVE_OUTLINE,
 	$COMMAND_RESTORE_OUTLINE,
 	$ID_SEPARATOR,

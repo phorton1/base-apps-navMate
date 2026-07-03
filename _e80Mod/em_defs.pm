@@ -9,8 +9,8 @@
 package em_defs;
 use strict;
 use warnings;
-use Pub::Utils;			# $resource_dir (set by e80Mod via setStandardCavaResourceDir)
-use Cava::Packager;		# $Cava::Packager::PACKAGED
+use Pub::Utils;			# $resource_dir (set by e80Mod via setStandardResourceDir)
+use if is_win, 'Cava::Packager';		# $Cava::Packager::PACKAGED
 
 BEGIN
 {
@@ -74,7 +74,7 @@ our $DEV_ROOT = '/base/apps/navMate';
 sub mods_dir
 {
 	# PACKAGED -> {app}/res/mods ($resource_dir is set by e80Mod.pm via
-	# setStandardCavaResourceDir); DEV -> the canonical mods/ source.
+	# setStandardResourceDir); DEV -> the canonical mods/ source.
 	return $Cava::Packager::PACKAGED
 		? "$resource_dir/mods"
 		: "$DEV_ROOT/mods";

@@ -10,7 +10,7 @@ use threads::shared;
 use Time::HiRes qw(time);
 use POSIX qw(strftime);
 use Pub::Utils;
-use Cava::Packager;
+use if is_win, 'Cava::Packager';
 use n_defs;
 use Pub::Ray::NET::a_utils qw(northEastToLatLon @E80_SYMS);
 
@@ -48,12 +48,12 @@ BEGIN
 }
 
 
-our $app_dir = 'C:\base\apps\navMate';
+our $app_dir = is_win() ? 'C:\base\apps\navMate' : '/base/apps/navMate';
 
 # Cava resource root: dev = the in-repo _res folder; packaged = the bundled
 # resource dir.  _site and sym_catalog now live under it, as $resource_dir/site
 # and $resource_dir/sym_catalog.
-setStandardCavaResourceDir("$app_dir/_res");
+setStandardResourceDir("$app_dir/_res");
 
 
 #---------------------------------

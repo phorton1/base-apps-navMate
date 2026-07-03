@@ -33,7 +33,7 @@ use warnings;
 use threads;
 use threads::shared;
 use JSON::PP qw(encode_json decode_json);
-use Pub::Utils qw(display warning error $resource_dir);
+use Pub::Utils qw(display warning error is_win $resource_dir);
 use Pub::HTTP::Response qw(json_response);
 use Pub::Ray::NET::h_server;
 use navPrefs qw(getPref setPref $PREF_HTTP_PORT $PREF_MAP_BROWSER $PREF_FORCE_TIMED_TRACKS);
@@ -172,8 +172,16 @@ sub openMapBrowser
 {
 	my $browser = getPref($PREF_MAP_BROWSER) // '';
 	my $url     = 'http://localhost:'.getPref($PREF_HTTP_PORT).'/map.html';
-	my $cmd     = $browser ? "start $browser $url" : "start \"\" $url";
-	system(1, "cmd /c $cmd");
+	if (is_win())
+	{
+		my $cmd = $browser ? "start $browser $url" : "start \"\" $url";
+		system(1, "cmd /c $cmd");
+	}
+	else
+	{
+		my $cmd = $browser ? "$browser $url" : "xdg-open $url";
+		system("$cmd &");
+	}
 }
 
 

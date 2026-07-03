@@ -23,7 +23,7 @@ use threads;
 use threads::shared;
 use JSON::PP qw(decode_json);
 use Wx qw(:everything);
-use Pub::Utils qw(display getAppFrame);
+use Pub::Utils qw(display getAppFrame is_win);
 use Pub::WX::Dialogs;
 use Pub::Ray::NET::a_defs qw(%KNOWN_SERVER_IPS);
 use Pub::Ray::NET::c_RAYDP;
@@ -33,12 +33,12 @@ use e80ScreenGrab;
 my $dbg = 0;
 
 # session default for the directory dialog (the configuration library); remembered in memory only
-my $CONFIG_LIBRARY = 'C:/dat/Rhapsody/E80Configs';
+my $CONFIG_LIBRARY = is_win() ? 'C:/dat/Rhapsody/E80Configs' : '/base_data/data/navMate/E80Configs';
 my $last_folder    = $CONFIG_LIBRARY;
 
 # session default for the screen-grab file dialog (separate from the config library, per request);
 # remembered in memory only.  The library my_mkdir's the parent on write, so it need not pre-exist.
-my $GRAB_LIBRARY   = 'C:/dat/Rhapsody/E80Screens';
+my $GRAB_LIBRARY   = is_win() ? 'C:/dat/Rhapsody/E80Screens' : '/base_data/data/navMate/E80Screens';
 my $last_grab_dir  = $GRAB_LIBRARY;
 
 # the configuration manifest (written last by a successful save).  Its presence is the

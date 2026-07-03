@@ -29,7 +29,7 @@ use warnings;
 use Exporter 'import';
 use POSIX qw(mktime strftime);
 use XML::Simple qw(:strict);
-use Pub::Utils qw(display warning error);
+use Pub::Utils qw(display warning error is_win);
 use n_defs;
 use navDB;
 
@@ -84,7 +84,7 @@ sub ocpnGuidToNavUuid
 	return $g1 . substr($g5,0,8);
 }
 
-my $GPSBABEL_DEFAULT = 'C:/Program Files/GPSBabel/gpsbabel.exe';
+my $GPSBABEL_DEFAULT = is_win() ? 'C:/Program Files/GPSBabel/gpsbabel.exe' : '/usr/bin/gpsbabel';
 
 
 sub find_gpsbabel
@@ -304,7 +304,7 @@ sub import_gps_file
 		{
 			return { error => "gpsbabel not found at $GPSBABEL_DEFAULT -- .gdb import unavailable" };
 		}
-		$tmp_file = ($ENV{TEMP} // $ENV{TMP} // 'C:/Windows/Temp') . "/navmate_gps_import_$$.gpx";
+		$tmp_file = ($ENV{TEMP} // $ENV{TMP} // (is_win() ? 'C:/Windows/Temp' : '/tmp')) . "/navmate_gps_import_$$.gpx";
 		my $cmd = qq{"$gbs" -i gdb -f "$file_path" -o gpx -F "$tmp_file" 2>NUL};
 		my $rc  = system($cmd);
 		if ($rc || !-f $tmp_file)

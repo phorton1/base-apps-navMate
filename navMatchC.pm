@@ -43,8 +43,8 @@
 package navMatchC;
 use strict;
 use warnings;
-use Win32;
-use Pub::Utils qw(display warning error $resource_dir $temp_dir);
+use Pub::Utils qw(display warning error is_win $resource_dir $temp_dir);
+use if is_win, 'Win32';
 use n_utils qw($app_dir);
 use navMatch;
 

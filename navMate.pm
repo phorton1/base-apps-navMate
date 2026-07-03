@@ -1,4 +1,5 @@
-﻿#---------------------------------------------
+#!/usr/bin/perl
+#---------------------------------------------
 # navMate.pm
 #---------------------------------------------
 
@@ -39,7 +40,7 @@ use navVisibility;
 use navOutline;
 use navSelection;
 use navServer;
-use Pub::Ray::NET::s_serial;
+use if is_win, 'Pub::Ray::NET::s_serial';
 use nmResources;
 use nmFrame;
 
@@ -64,7 +65,7 @@ sub _handleSerialCommand
 	dispatchNavMateCommand($lpart, $rpart);
 }
 
-my $serial = Pub::Ray::NET::s_serial->new(\&_handleSerialCommand);
+my $serial = is_win() ? Pub::Ray::NET::s_serial->new(\&_handleSerialCommand) : undef;
 
 loadOutline('db');
 loadOutline('fsh');
@@ -93,7 +94,7 @@ Pub::Ray::NET::a_defs::initServices(wpmgr => 1, track => 1, filesys => 1, db => 
 Pub::Ray::NET::c_RAYDP->new();
 $raydp->start();
 
-$serial->start();
+$serial->start() if $serial;
 
 display(0,0,"starting app");
 

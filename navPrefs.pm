@@ -55,7 +55,7 @@ sub init_prefs
 
 	Pub::Prefs::initPrefs("$data_dir/navMate.prefs", {});
 
-	setPref($PREF_DATABASE_PATH, $packaged ? "$data_dir/navMate.db" : $NAVMATE_DATABASE)
+	setPref($PREF_DATABASE_PATH, ($packaged || !is_win()) ? "$data_dir/navMate.db" : $NAVMATE_DATABASE)
 		if !defined getPref($PREF_DATABASE_PATH);
 	setPref($PREF_MAP_BROWSER, '')
 		if !defined getPref($PREF_MAP_BROWSER);
