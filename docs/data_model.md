@@ -318,7 +318,7 @@ same three provenance columns, added in schema 11.3:
 
 | Column | Type | Meaning |
 |---|---|---|
-| `source` | TEXT | Originating subsystem for the row. Known values include `'onetimeImport'` (legacy KML rebuild), `'navMate'` (created interactively in winDatabase), and importer-specific strings such as `'import_gdb:<file>'` set by `gpsImport` and the Michelle reconciliation pass. The set is open-ended -- new importers may introduce new values. |
+| `source` | TEXT | Originating subsystem for the row. Known values include `'onetimeImport'` (legacy KML rebuild), `'navMate'` (created interactively in winDatabase), and importer-specific strings such as `'import_gdb:<file>'` set by `navGPX` and the Michelle reconciliation pass. The set is open-ended -- new importers may introduce new values. |
 | `created_ts` | INTEGER | Unix epoch seconds at row creation. `NOT NULL DEFAULT 0`; the insert trigger backfills `0`. |
 | `modified_ts` | INTEGER | Unix epoch seconds at last UPDATE. `NOT NULL DEFAULT 0` (schema 13.0); never persists as `0` -- the triggers always resolve it to a real timestamp. |
 
@@ -484,7 +484,7 @@ to characterize.)
 | `'kml_timespan'` | From KML `gx:TimeSpan` - track-level span, accurate |
 | `'phorton'` | Enriched from phorton.com `map_data/` index - see Data Migration |
 | `'import'` | No temporal information available; value is the import timestamp |
-| `'gdb'` | From a `.gpx` / `.gdb` import via `gpsImport` (per-point timestamps) |
+| `'gdb'` | From a `.gpx` / `.gdb` import via `navGPX` (per-point timestamps) |
 | `'nav'` | Created interactively in winDatabase (`New Waypoint` etc.) |
 | `'user'` | Set by navOpsDB on user-driven waypoint creation paths |
 

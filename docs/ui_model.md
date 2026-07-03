@@ -204,12 +204,15 @@ Paste), separated by a divider.
 |---|---|---|
 | Show on Map | any non-root node | Mark the node visible on the Leaflet canvas |
 | Hide on Map | any non-root node | Mark the node hidden on the Leaflet canvas |
-| Export KML file (.kml)... | any non-root node | Subtree export via `navKML::exportKMLSubtree($path, $uuid)`; the subtree's own top-level element lands directly under `<Document>` (no `navMate` wrapper). Default filename is the node's sanitized name |
+| Import GPS file (.gpx[, .gdb])... | any collection (branch or group) | Import GPX (and `.gdb` when `gpsbabel` is on PATH) via `navGPX::import_gps_file`. Consumes `<navmate:uuid>` / synthesized `<opencpn:guid>` tags to reuse waypoints and rejoin route references instead of duplicating |
+| Export GPS file (.gpx)... | any non-root node | Subtree export via `navGPX::export_gps_subtree($path, $uuid)`, flattened into GPX `wpt`/`rte`/`trk` (the collection hierarchy is not carried). Each object carries its navMate uuid as a `<navmate:uuid>` extension and a synthesized `<opencpn:guid>`. Default filename is the node's sanitized name |
 | Import KML file (.kml)... | branch collection only | Subtree import via `navKML::importKMLSubtree($path, $target_uuid)`. Restricted to branches (not groups, not leaf objects) to keep the "import into container" semantics distinct from paste-before-node / paste-after-node |
-| Import GPS file (.gpx[, .gdb])... | any collection (branch or group) | Import GPX (and `.gdb` when `gpsbabel` is on PATH) via `gpsImport::import_gps_file` |
+| Export KML file (.kml)... | any non-root node | Subtree export via `navKML::exportKMLSubtree($path, $uuid)`; the subtree's own top-level element lands directly under `<Document>` (no `navMate` wrapper). Default filename is the node's sanitized name |
 
-Last-used directory for both KML dialogs is persisted under config key `kml_dir`,
-shared with the top-level `Database -> Import KML` / `Export KML` commands.
+The context menu orders these per format -- import then export for GPS, then
+for KML. Last-used directory for the KML dialogs is persisted under config key
+`kml_dir` (shared with the top-level `Database -> Import KML` / `Export KML`
+commands); the GPS dialogs share `gps_dir`.
 
 ---
 

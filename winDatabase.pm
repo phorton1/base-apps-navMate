@@ -68,6 +68,7 @@ our $CTX_CMD_NEW_GROUP  = 10564;
 our $CTX_CMD_IMPORT_GPS = 10565;
 our $CTX_CMD_IMPORT_KML = 10566;
 our $CTX_CMD_EXPORT_KML = 10567;
+our $CTX_CMD_EXPORT_GPS = 10568;
 our $CTX_CMD_FIND_THIS  = 10570;
 our $CTX_CMD_MULTI_EDIT = 10571;
 
@@ -252,6 +253,7 @@ sub new
 	EVT_MENU($this, $CTX_CMD_IMPORT_GPS, \&_onImportGPS);
 	EVT_MENU($this, $CTX_CMD_IMPORT_KML, \&_onImportKML);
 	EVT_MENU($this, $CTX_CMD_EXPORT_KML, \&_onExportKML);
+	EVT_MENU($this, $CTX_CMD_EXPORT_GPS, \&_onExportGPS);
 	EVT_MENU($this, $CTX_CMD_FIND_THIS,  \&_onFindThis);
 	EVT_MENU($this, $CTX_CMD_MULTI_EDIT, \&_onMultiEdit);
 	EVT_MENU($this, $CTX_CMD_RENAME,     \&_onRename);

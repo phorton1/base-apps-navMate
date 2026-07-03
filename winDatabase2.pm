@@ -31,7 +31,7 @@ use navServer;
 use navOps qw(buildContextMenu onContextMenuCommand);
 use winRename qw($CTX_CMD_RENAME isRenameHomogeneous onRenameDB);
 use nmResources;
-use gpsImport qw(import_gps_file find_gpsbabel);
+use navGPX qw(import_gps_file export_gps_subtree find_gpsbabel);
 use navMatch;
 use winFind;
 use winMultiEditor;
@@ -42,7 +42,7 @@ use winMultiEditor;
 our ($CTX_CMD_SHOW_MAP, $CTX_CMD_HIDE_MAP, $CTX_CMD_DELETE,
      $CTX_CMD_NEW_BRANCH, $CTX_CMD_NEW_GROUP,
      $CTX_CMD_IMPORT_GPS, $CTX_CMD_IMPORT_KML, $CTX_CMD_EXPORT_KML,
-     $CTX_CMD_FIND_THIS, $CTX_CMD_MULTI_EDIT);
+     $CTX_CMD_EXPORT_GPS, $CTX_CMD_FIND_THIS, $CTX_CMD_MULTI_EDIT);
 
 # File-scoped state.  %rendered_uuids is `our` because winDatabase.pm's
 # _onSave checks it to know whether an edited object is currently on
@@ -785,25 +785,28 @@ sub _buildContextMenu
 			$menu->Append($CTX_CMD_FIND_THIS, 'Find This...');
 		}
 
-		# Import/Export block.  Separator is unconditional within this branch
-		# because Export KML applies to every non-root node, so there is
-		# always at least one item below it.  Import KML is restricted to
-		# branch collections (not groups, not leaf objects) to keep the
-		# "import into container" semantics distinct from paste-before/after.
+		# Import/Export block, ordered per format: import then export for
+		# GPS, then for KML.  The separator is unconditional within this
+		# branch because the Export items apply to every non-root node, so
+		# there is always at least one item below it.  The Import items are
+		# restricted to collections (Import KML further to branches) to keep
+		# the "import into container" semantics distinct from paste.
 		$menu->AppendSeparator();
-		$menu->Append($CTX_CMD_EXPORT_KML, 'Export KML file (.kml)...');
 
-		my $sub_type = ($right_click_node->{data} // {})->{node_type} // '';
-		if ($node_type eq 'collection' && $sub_type eq $NODE_TYPE_BRANCH)
-		{
-			$menu->Append($CTX_CMD_IMPORT_KML, 'Import KML file (.kml)...');
-		}
 		if ($node_type eq 'collection')
 		{
 			my $gbs       = find_gpsbabel();
 			my $gps_label = $gbs ? 'Import GPS file (.gpx, .gdb)...' : 'Import GPS file (.gpx)...';
 			$menu->Append($CTX_CMD_IMPORT_GPS, $gps_label);
 		}
+		$menu->Append($CTX_CMD_EXPORT_GPS, 'Export GPS file (.gpx)...');
+
+		my $sub_type = ($right_click_node->{data} // {})->{node_type} // '';
+		if ($node_type eq 'collection' && $sub_type eq $NODE_TYPE_BRANCH)
+		{
+			$menu->Append($CTX_CMD_IMPORT_KML, 'Import KML file (.kml)...');
+		}
+		$menu->Append($CTX_CMD_EXPORT_KML, 'Export KML file (.kml)...');
 	}
 
 	return $menu;
@@ -1290,6 +1293,40 @@ sub _onExportKML
 	if ($@)
 	{
 		Wx::MessageBox("Export KML failed: $@", 'Export failed', wxOK | wxICON_ERROR, $this);
+	}
+}
+
+
+sub _onExportGPS
+{
+	my ($this, $event) = @_;
+	my $node = $this->{_right_click_node} // {};
+	my $type = $node->{type} // '';
+	my $uuid = ($type eq 'route_point') ? $node->{uuid} : ($node->{data} // {})->{uuid};
+	return if !$uuid;
+
+	my $name = ($node->{data} // {})->{name} // '';
+	$name =~ s/[^\w\-]+/_/g;
+	$name = 'navMate' if $name eq '';
+
+	my $default_dir = readConfig('gps_dir') || '';
+	my $dlg = Wx::FileDialog->new($this, 'Export GPS file', $default_dir, "$name.gpx",
+		'GPX files (*.gpx)|*.gpx|All files (*.*)|*.*',
+		wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	if ($dlg->ShowModal() != wxID_OK)
+	{
+		$dlg->Destroy();
+		return;
+	}
+	my $path = $dlg->GetPath();
+	writeConfig('gps_dir', $dlg->GetDirectory());
+	$dlg->Destroy();
+	return if !$path;
+
+	eval { export_gps_subtree($path, $uuid) };
+	if ($@)
+	{
+		Wx::MessageBox("Export GPX failed: $@", 'Export failed', wxOK | wxICON_ERROR, $this);
 	}
 }
 
