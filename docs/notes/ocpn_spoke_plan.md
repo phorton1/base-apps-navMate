@@ -250,3 +250,50 @@ here), `navVisibility.pm` (`'ocpn'` store), `navOps.pm` (snapshot + panel branch
 data + view menu), `nmFrame.pm` (createPane + onIdle refresh clock), `navServer.pm` (feed the
 model + `commands[]` on GET + reset), `test/uuid_index.md`, `test/full_cycle_runbook.md`,
 `test/master_plan.md`.
+
+---
+
+## Alpha results (2026-07-05) -- wire proven end-to-end, Mode-2 on real OpenCPN
+
+The hub half was BUILT and the initial full alpha run PASS against oe-claude's live oESeries plugin
+under real OpenCPN (co-driven turn-by-turn in `C:\src\OpenCPN\oESeries\docs\notes\build_and_test_oe.md`).
+What actually got built + proven on the hub side (all in the working tree, UNCOMMITTED):
+
+**Built (hub half):**
+- `navIdentity.pm` (NEW) -- promoted the uuid<->GUID codec out of `navGPX.pm` + `makeOCPNUUID` (`0x4f`)
+  + `reconcileGuidToUuid` (idempotent foreign mint) + `projectUuidToGuid`. `navGPX.pm` now imports it.
+- `nmOCPNDirectOps.pm` (NEW) -- the pure ingest/project/command-build layer: `ingestInventory`
+  (marks/routes/tracks, mark-vs-vertex split, vertex materialization), `projectDBMarksToWire`,
+  `buildMarkCommand`/`buildRouteCommand` (route = full-embed).
+- `navOCPN.pm` (REWRITTEN) -- structured ocdb held as ONE shared JSON scalar under one lock
+  (HTTP thread pool); `pollView`/`receiveInventory`/`dumpState`/`resetState`/`enqueueCommands`/
+  `_consumeResults` + accessors; `jsonResponse` (see below).
+- `navServer.pm` -- `/api/ocpn` now the full sec-2A body + structured dump.
+- `_testOEServer.pm` (NEW, repo root) -- headless harness: real `/api/ocpn` over the real ocdb, plus
+  `/debug/reset|project|enqueue|health` (autonomous-peer surface). Opens the dev DB READ-ONLY.
+- `test/_fixtures/ocpn_nasty_strings.json` + throwaway fixtures (in `C:\_temp`).
+
+**Load-bearing hub design decisions that emerged during the alpha:**
+- **Wire encoding**: `/api/ocpn` MUST bypass `Pub::my_encode_json` (renders bools as `"1"`,
+  HTML-entity-encodes non-ASCII) and encode with `JSON::PP` ascii mode. See memory
+  `ocpn_wire_json_encoding`. R3 nasty-strings = codepoint-equality, not byte-for-byte.
+- **Full-state REPLACE (not upsert)**: each POST is the plugin's COMPLETE inventory (sec 12), so
+  `ingestInventory` REBUILDS marks/routes/tracks each POST (keeping the persistent guid map) -- else
+  a plugin-side delete leaks forever. Reports `*_removed`.
+- **Echo-no-remint** holds structurally: ingest never advances `navmate_dt` (only `enqueueCommands`
+  does), so an echoed object never mints a command. Proven every run.
+- **Diag retire is guid-agnostic** (a `{op:diag}` ack retires the pending diag regardless of guid,
+  since 2A allows `guid:"*"`); `dumpState.last_results` preserves the last NON-empty results[] (the
+  plugin re-POSTs with empty results[], which must not clobber diag data).
+
+**Bench-proven (Mode-2, real OpenCPN):** identity round-trips for marks/routes/tracks; the ~84
+double-count deduped at source (oe fix) + hub-side by identity; merge-on-apply; idempotent-on-retry;
+**write-side GUID preservation for all three types incl. R2 PASS** (`AddPlugInRouteExV2` keeps caller
+per-vertex `m_GUID`); **R1 = LEAK, measured + transient** (`OBJECTS_NO_LAYERS` is the 5.12.4 stub;
+mitigation is plugin-side; hub tolerates + reads `results[].ok`).
+
+**STILL DEFERRED (unbuilt; the plan's Steps 1,4,5 + parts of 7 remain):** the schema-13.1 migration
+(`0x4f`/`ocpn_guid_map` PERSISTENCE, `db_version` counter, `icon_name` shadow, `sym<->icon` table) --
+the alpha ran the guid map + command DT IN-MEMORY only; `winOCPN` pane; `navOpsOCPN` + the
+paste/push navOps wiring; the `test/ocpn` runbook module. The alpha proved the WIRE + direct-ops;
+these wire it into the app.

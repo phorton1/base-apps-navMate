@@ -1,0 +1,17 @@
+{
+   "dt" : 1719950500,
+   "marks" : [
+      {
+         "created_ts" : 0,
+         "description" : "navMate-origin round-trip",
+         "guid" : "aa4e0001-6e61-4764-8d61-bbccddee7465",
+         "icon" : "",
+         "lat" : 10.5,
+         "lon" : -83.25,
+         "name" : "NM Origin Mark"
+      }
+   ],
+   "results" : [],
+   "routes" : [],
+   "tracks" : []
+}

@@ -1,0 +1,17 @@
+{
+   "dt" : 1719950400,
+   "marks" : [
+      {
+         "created_ts" : 1719950400,
+         "description" : "CJK \u6e2f\u53e3 astral \ud83d\udea2 combining e\u0301 end",
+         "guid" : "12345678-2222-3333-4444-556677889900",
+         "icon" : "anchor",
+         "lat" : 9.12345678901234,
+         "lon" : -82.9876543210988,
+         "name" : "quote\" back\\slash tab\ttab new\nline"
+      }
+   ],
+   "results" : [],
+   "routes" : [],
+   "tracks" : []
+}

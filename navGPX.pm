@@ -32,6 +32,7 @@ use XML::Simple qw(:strict);
 use Pub::Utils qw(display warning error is_win);
 use n_defs;
 use navDB;
+use navIdentity qw(navUuidToOcpnGuid ocpnGuidToNavUuid);
 
 our @EXPORT = qw(import_gps_file export_gps_subtree find_gpsbabel);
 
@@ -54,35 +55,10 @@ our @EXPORT = qw(import_gps_file export_gps_subtree find_gpsbabel);
 # MAGIC = ascii("navMate") = 6e61764d617465 -- a 56-bit recognizer that is
 # vanishingly unlikely to collide with a real (random) OpenCPN GUID.
 
-my $NM_GUID_MAGIC = '6e61764d617465';   # "navMate"
-
-sub navUuidToOcpnGuid
-{
-	my ($u) = @_;
-	return undef if !defined $u || $u !~ /^[0-9a-fA-F]{16}$/;
-	$u = lc $u;
-	my $m = $NM_GUID_MAGIC;
-	return substr($u,0,8) . '-'
-		. substr($m,0,4) . '-'
-		. '4' . substr($m,4,3) . '-'
-		. '8' . substr($m,7,3) . '-'
-		. substr($u,8,8) . substr($m,10,4);
-}
-
-sub ocpnGuidToNavUuid
-{
-	my ($g) = @_;
-	return undef if !defined $g;
-	$g = lc $g;
-	return undef if $g !~ /^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$/;
-	my ($g1,$g2,$g3,$g4,$g5) = ($1,$2,$3,$4,$5);
-	my $m = $NM_GUID_MAGIC;
-	return undef unless $g2          eq substr($m,0,4);
-	return undef unless substr($g3,1,3) eq substr($m,4,3);
-	return undef unless substr($g4,1,3) eq substr($m,7,3);
-	return undef unless substr($g5,8,4) eq substr($m,10,4);
-	return $g1 . substr($g5,0,8);
-}
+# The uuid<->GUID codec was PROMOTED to navIdentity.pm (protocol sec 4) so the
+# GPX spoke, navOCPN / nmOCPNDirectOps, and the DB layer all share one copy.
+# navUuidToOcpnGuid / ocpnGuidToNavUuid are imported at the top of this file;
+# the MAGIC = ascii("navMate") recognizer lives there now.
 
 my $GPSBABEL_DEFAULT = is_win() ? 'C:/Program Files/GPSBabel/gpsbabel.exe' : '/usr/bin/gpsbabel';
 

@@ -400,21 +400,24 @@ sub handle_request
 	}
 	elsif ($uri eq '/api/ocpn')
 	{
-		# navMate<->OpenCPN spoke (the oESeries plugin).  RUDIMENTARY v0; see navOCPN.pm
-		# and C:\src\OpenCPN\oESeries\readme.md.
-		#   GET  /api/ocpn         - poll: { ok, navmate_dt, ocpn_dt }.  navmate_dt stays 0
-		#                            (epoch) until the deferred db_version gate exists.
-		#   GET  /api/ocpn?dump=1  - readback: adds { recv_count, last_recv, payload }.
-		#   POST /api/ocpn         - oESeries sends an inventory { dt, waypoints:[...] };
-		#                            navOCPN remembers dt, stashes + logs it, returns the view.
+		# navMate<->OpenCPN spoke (the oESeries plugin); protocol
+		# C:\src\OpenCPN\oESeries\docs\protocol.md sec 2/2A.  Structured ocdb via
+		# navOCPN + nmOCPNDirectOps.
+		#   GET  /api/ocpn         - poll view { ok, navmate_dt, ocpn_dt, commands:[] }.
+		#                            navmate_dt stays 0 until the db_version gate (M3).
+		#   GET  /api/ocpn?dump=1  - structured ocdb readback (marks/routes/tracks by uuid,
+		#                            the guid reconcile map, counts) for headless asserts.
+		#   POST /api/ocpn         - a sec-2A inventory { dt, marks/routes/tracks/results };
+		#                            navOCPN ingests into the IN-MEMORY ocdb (never the
+		#                            canonical DB) and returns the poll view + ingest summary.
 		if (($request->{method} // '') eq 'POST')
 		{
 			my $h = $request->getPostJSON();
-			return json_response($request, { ok => 0, error => 'missing or invalid JSON body' }) if !$h;
-			return json_response($request, navOCPN::receiveInventory($h));
+			return navOCPN::jsonResponse($request, { ok => JSON::PP::false, error => 'missing or invalid JSON body' }) if !$h;
+			return navOCPN::jsonResponse($request, navOCPN::receiveInventory($h));
 		}
 		my $params = $request->{params} || {};
-		return json_response($request, $params->{dump}
+		return navOCPN::jsonResponse($request, $params->{dump}
 			? navOCPN::dumpState()
 			: navOCPN::pollView());
 	}

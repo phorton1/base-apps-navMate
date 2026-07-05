@@ -1,0 +1,77 @@
+{
+   "dt" : 1719960000,
+   "marks" : [
+      {
+         "created_ts" : 1000,
+         "description" : "standalone A",
+         "guid" : "aaaaaaaa-1111-2222-3333-444444444444",
+         "icon" : "anchor",
+         "lat" : 9.1,
+         "lon" : -82.1,
+         "name" : "Mark A"
+      },
+      {
+         "created_ts" : 2000,
+         "description" : "shared point",
+         "guid" : "55555555-1111-2222-3333-666666666666",
+         "icon" : "buoy1",
+         "lat" : 9.2,
+         "lon" : -82.2,
+         "name" : "Shared S"
+      }
+   ],
+   "results" : [],
+   "routes" : [
+      {
+         "description" : "m2 route",
+         "guid" : "99999999-1111-2222-3333-aaaaaaaaaaaa",
+         "name" : "Route R",
+         "points" : [
+            {
+               "guid" : "aaaaaaaa-1111-2222-3333-444444444444",
+               "position" : 0
+            },
+            {
+               "guid" : "77777777-1111-2222-3333-888888888888",
+               "mark" : {
+                  "created_ts" : 0,
+                  "description" : "",
+                  "guid" : "77777777-1111-2222-3333-888888888888",
+                  "icon" : "",
+                  "lat" : 9.15,
+                  "lon" : -82.15,
+                  "name" : "Vertex V"
+               },
+               "position" : 1
+            },
+            {
+               "guid" : "55555555-1111-2222-3333-666666666666",
+               "position" : 2
+            }
+         ]
+      }
+   ],
+   "tracks" : [
+      {
+         "guid" : "bbbbbbbb-1111-2222-3333-cccccccccccc",
+         "name" : "Track T",
+         "points" : [
+            {
+               "lat" : 9.1,
+               "lon" : -82.1,
+               "ts" : 5000
+            },
+            {
+               "lat" : 9.11,
+               "lon" : -82.11,
+               "ts" : 5001
+            },
+            {
+               "lat" : 9.12,
+               "lon" : -82.12,
+               "ts" : 5002
+            }
+         ]
+      }
+   ]
+}
