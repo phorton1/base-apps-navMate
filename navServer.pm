@@ -41,6 +41,7 @@ use nmResources qw(ensureLeafletNative ensureLeafletMask leafletNativePath leafl
 use nmDialogs qw($suppress_confirm $suppress_outcome $suppress_error_dialog);
 use navDB;
 use navFSH;
+use navOCPN;
 use nmE80DirectOps;
 use nmE80TimedTracks;
 use base qw(Pub::Ray::NET::h_server);
@@ -396,6 +397,26 @@ sub handle_request
 			routes    => $fsh_db->{routes}    // {},
 			tracks    => $fsh_db->{tracks}    // {},
 		});
+	}
+	elsif ($uri eq '/api/ocpn')
+	{
+		# navMate<->OpenCPN spoke (the oESeries plugin).  RUDIMENTARY v0; see navOCPN.pm
+		# and C:\src\OpenCPN\oESeries\readme.md.
+		#   GET  /api/ocpn         - poll: { ok, navmate_dt, ocpn_dt }.  navmate_dt stays 0
+		#                            (epoch) until the deferred db_version gate exists.
+		#   GET  /api/ocpn?dump=1  - readback: adds { recv_count, last_recv, payload }.
+		#   POST /api/ocpn         - oESeries sends an inventory { dt, waypoints:[...] };
+		#                            navOCPN remembers dt, stashes + logs it, returns the view.
+		if (($request->{method} // '') eq 'POST')
+		{
+			my $h = $request->getPostJSON();
+			return json_response($request, { ok => 0, error => 'missing or invalid JSON body' }) if !$h;
+			return json_response($request, navOCPN::receiveInventory($h));
+		}
+		my $params = $request->{params} || {};
+		return json_response($request, $params->{dump}
+			? navOCPN::dumpState()
+			: navOCPN::pollView());
 	}
 	elsif ($uri eq '/api/timed_tracks')
 	{
