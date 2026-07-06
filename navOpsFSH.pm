@@ -851,6 +851,7 @@ sub _cutPasteCleanupWp
 	if    ($src eq 'database') { _cutDatabaseWaypoint($nav_uuid, $tree); }
 	elsif ($src eq 'e80')      { _cutE80Waypoint($nav_uuid, $tree); }
 	elsif ($src eq 'fsh')      { _cutFSHWaypoint($nav_uuid, $tree); }
+	elsif ($src eq 'ocpn')     { _cutOCPNWaypoint($nav_uuid, $tree); }
 }
 
 
@@ -861,6 +862,7 @@ sub _cutPasteCleanupGroup
 	if    ($src eq 'database') { _cutDatabaseGroup($nav_uuid, $tree); }
 	elsif ($src eq 'e80')      { _cutE80Group($nav_uuid, $tree); }
 	elsif ($src eq 'fsh')      { _cutFSHGroup($nav_uuid, $tree); }
+	elsif ($src eq 'ocpn')     { _cutOCPNGroup($nav_uuid, $tree); }
 }
 
 
@@ -871,6 +873,7 @@ sub _cutPasteCleanupRoute
 	if    ($src eq 'database') { _cutDatabaseRoute($nav_uuid, $tree); }
 	elsif ($src eq 'e80')      { _cutE80Route($nav_uuid, $tree); }
 	elsif ($src eq 'fsh')      { _cutFSHRoute($nav_uuid, $tree); }
+	elsif ($src eq 'ocpn')     { _cutOCPNRoute($nav_uuid, $tree); }
 }
 
 

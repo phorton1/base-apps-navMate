@@ -63,6 +63,7 @@ my @ALL_PASTE_CMDS = (
 	$CTX_CMD_PUSH,
 	$CTX_CMD_PUSH_FSH,
 	$CTX_CMD_PUSH_E80,
+	$CTX_CMD_PUSH_OCPN,
 );
 my @ALL_NEW_CMDS = (
 	$CTX_CMD_NEW_WAYPOINT, $CTX_CMD_NEW_GROUP, $CTX_CMD_NEW_ROUTE, $CTX_CMD_NEW_BRANCH,
@@ -127,7 +128,7 @@ sub _classifyAgainstDB
 sub setCopy
 {
 	my ($source, $items) = @_;
-	my $class = ($source eq 'e80' || $source eq 'fsh')
+	my $class = ($source eq 'e80' || $source eq 'fsh' || $source eq 'ocpn')
 		? (_classifyAgainstDB($items) // 'paste')
 		: undef;
 	$clipboard = { source => $source, cut_flag => 0, items => $items // [],
@@ -217,10 +218,10 @@ sub _pasteRuleAllows
 	my $dest_is_ref_only    = $dest_is_route_point || $dest_is_route_obj;
 
 	# DB-cut to spoke is rejected (would lose canonical state).
-	if (($panel eq 'e80' || $panel eq 'fsh') && $cut_flag && $source eq 'database')
+	if (($panel eq 'e80' || $panel eq 'fsh' || $panel eq 'ocpn') && $cut_flag && $source eq 'database')
 	{
 		return (0, 'db_cut_to_spoke',
-		        'Cannot paste a database Cut to ' . ($panel eq 'e80' ? 'ESeries' : uc($panel)),
+		        'Cannot paste a database Cut to ' . ($panel eq 'e80' ? 'ESeries' : $panel eq 'ocpn' ? 'OpenCPN' : uc($panel)),
 		        'user_error');
 	}
 
@@ -292,6 +293,22 @@ sub _pasteRuleAllows
 			        'impl_error');
 		}
 	}
+	elsif ($panel eq 'ocpn')
+	{
+		# OpenCPN paste just enqueues commands; drop position is meaningless,
+		# but keep the same positive-list shape as the other spokes so a stray
+		# drop target (e.g. an individual waypoint) is rejected cleanly.
+		my $ok_ocpn = ($rt eq 'header')
+		           || $rt eq 'my_waypoints'
+		           || $rt eq 'route'
+		           || $rt eq 'route_point';
+		if (!$ok_ocpn)
+		{
+			return (0, 'ocpn_invalid_paste_dest',
+			        "paste at OpenCPN destination type '$rt' not supported",
+			        'impl_error');
+		}
+	}
 
 	# Before/After on a root-level branch.  The root IS a real, position-
 	# ordered container (parent_uuid=''), so branches/groups CAN be placed
@@ -323,18 +340,23 @@ sub _pasteRuleAllows
 		}
 	}
 
-	# D2: a route_point clipboard item is meaningful only at a route or
-	# route_point destination -- everywhere else it would either be lumped
-	# in with waypoints by the executor (latent bug) or silently skipped.
-	# Reject explicitly across all panels.
-	if (!$dest_is_ref_only)
+	# D2: a route_point clipboard item is meaningful at a route or route_point
+	# destination (ref-append) OR at a DB collection, where it now MATERIALIZES
+	# as a real waypoint from its own carried data (_pasteItemsToCollection /
+	# the Paste-Before/After path).  That is the supported way to bring an
+	# OpenCPN pure route vertex -- not surfaced as a standalone mark -- into
+	# navMate.db.  Reject it only at other destinations (a track, or a SPOKE
+	# collection whose executor does NOT materialize route_points -- D6 also
+	# guards those).
+	my $dest_is_db_collection = ($panel eq 'database' && ($rt eq 'root' || $rt eq 'collection'));
+	if (!$dest_is_ref_only && !$dest_is_db_collection)
 	{
 		for my $item (@$items)
 		{
 			if (($item->{type} // '') eq 'route_point')
 			{
 				return (0, 'route_point_at_non_route',
-				        'route_point items can only be pasted at a route or route_point destination',
+				        'route_point items can only be pasted at a route, route_point, or database collection destination',
 				        'impl_error');
 			}
 		}
@@ -381,7 +403,7 @@ sub _pasteRuleAllows
 	# evaluated here either.  This lets the natural wp+group multi-
 	# select case (a group plus one of its own member WPs) survive D6
 	# at a header:groups paste -- only the group item is checked.
-	if (!$positional && ($panel eq 'e80' || $panel eq 'fsh'))
+	if (!$positional && ($panel eq 'e80' || $panel eq 'fsh' || $panel eq 'ocpn'))
 	{
 		my %accepts = (
 			'header:groups' => { group       => 1 },
@@ -743,6 +765,16 @@ sub _getNewMenuItemsRaw
 	my $nt   = ($right_click_node->{data} // {})->{node_type} // '';
 	my $ot   = ($right_click_node->{data} // {})->{obj_type}  // '';
 
+	if ($panel eq 'ocpn')
+	{
+		# OpenCPN has no group/branch concept -- only New Waypoint / New Route.
+		return ({ id => $CTX_CMD_NEW_WAYPOINT, label => 'New Waypoint' })
+			if ($t eq 'header' && $kind eq 'groups') || $t eq 'my_waypoints' || $t eq 'waypoint';
+		return ({ id => $CTX_CMD_NEW_ROUTE, label => 'New Route' })
+			if $t eq 'header' && $kind eq 'routes';
+		return ();  # tracks header, track, route, route_point
+	}
+
 	if ($panel eq 'database')
 	{
 		return (
@@ -950,7 +982,7 @@ sub _getPasteMenuItemsRaw
 	# Tracks-header is NOW a paste destination on both E80 and FSH
 	# (E80 added 2026-05-28 via the TRACK writer-session protocol;
 	# FSH was always a writer).
-	if ($panel eq 'e80' || $panel eq 'fsh')
+	if ($panel eq 'e80' || $panel eq 'fsh' || $panel eq 'ocpn')
 	{
 		return () if $t eq 'track';
 		return () if $t eq 'track_group';
@@ -960,7 +992,7 @@ sub _getPasteMenuItemsRaw
 	# E80/FSH: header folders, my_waypoints, groups, and routes (route = ordered WP collection).
 	# DB:      root, collection nodes (branch/group), and route object nodes (REF append).
 	my $is_collection;
-	if ($panel eq 'e80' || $panel eq 'fsh')
+	if ($panel eq 'e80' || $panel eq 'fsh' || $panel eq 'ocpn')
 	{
 		$is_collection = $t eq 'header'
 		              || $t eq 'my_waypoints'
@@ -976,7 +1008,7 @@ sub _getPasteMenuItemsRaw
 
 	# PASTE_BEFORE/AFTER: destination supports positional insertion (adjacent to, not into).
 	# E80/FSH: route_point only. DB: any item or collection node except root.
-	my $positional = ($panel eq 'e80' || $panel eq 'fsh')
+	my $positional = ($panel eq 'e80' || $panel eq 'fsh' || $panel eq 'ocpn')
 		? ($t eq 'route_point')
 		: ($t eq 'object' || $t eq 'route_point' || $t eq 'collection');
 
@@ -1080,6 +1112,15 @@ sub getPushMenuItems
 		return @items;
 	}
 
+	if ($panel eq 'ocpn')
+	{
+		# OpenCPN spoke offers only Push to DB (no spoke->spoke projection).
+		my @items;
+		push @items, { id => $CTX_CMD_PUSH, label => 'Push to DB' }
+			if _ocpnNodesAllInDB(\@nodes);
+		return @items;
+	}
+
 	# database panel
 	my @items;
 	if ($peers->{wpmgr} && _dbNodesAllInE80($peers->{wpmgr}, \@nodes))
@@ -1090,7 +1131,68 @@ sub getPushMenuItems
 	{
 		push @items, { id => $CTX_CMD_PUSH_FSH, label => 'Push to FSH' };
 	}
+	if ($peers->{ocpn_db} && _dbNodesAllInOCPN($peers->{ocpn_db}, \@nodes))
+	{
+		push @items, { id => $CTX_CMD_PUSH_OCPN, label => 'Push to OpenCPN' };
+	}
 	return @items;
+}
+
+
+sub _ocpnNodesAllInDB
+{
+	# OpenCPN tree-node UUIDs are already navMate no-dash form (navIdentity
+	# mints them), so the DB lookup is direct -- like E80, unlike FSH.  OpenCPN
+	# has no group/my_waypoints record to push as a unit.
+	my ($nodes) = @_;
+	my $dbh = connectDB();
+	return 0 if !$dbh;
+	my $ok = 1;
+	for my $node (@$nodes)
+	{
+		my $t    = $node->{type} // '';
+		my $uuid = $node->{uuid} // '';
+		if (!$uuid || $t eq 'header' || $t eq 'my_waypoints' || $t eq 'route_point')
+		{
+			$ok = 0; last;
+		}
+		my $found;
+		if    ($t eq 'waypoint') { $found = getWaypoint($dbh, $uuid); }
+		elsif ($t eq 'route')    { $found = getRoute($dbh, $uuid);    }
+		elsif ($t eq 'track')    { $found = getTrack($dbh, $uuid);    }
+		else                     { $ok = 0; last; }
+		if (!$found) { $ok = 0; last; }
+	}
+	disconnectDB($dbh);
+	return $ok;
+}
+
+
+sub _dbNodesAllInOCPN
+{
+	# DB selection nodes carry navMate-form UUIDs; the ocdb (navOCPN::shapedDb)
+	# is keyed by the same form -- direct lookup.  OpenCPN has no groups, so a
+	# collection node has no OpenCPN home and is not push-to-OCPN eligible.
+	my ($ocpn_db, $nodes) = @_;
+	for my $node (@$nodes)
+	{
+		my $t  = $node->{type}  // '';
+		my $d  = $node->{data}  // {};
+		my $ot = $d->{obj_type}  // '';
+		my $uuid = $d->{uuid} // '';
+		return 0 if !$uuid || $t eq 'root' || $t eq 'route_point';
+		my $found;
+		if ($t eq 'object')
+		{
+			if    ($ot eq 'waypoint') { $found = $ocpn_db->{waypoints}{$uuid}; }
+			elsif ($ot eq 'route')    { $found = $ocpn_db->{routes}{$uuid};    }
+			elsif ($ot eq 'track')    { $found = $ocpn_db->{tracks}{$uuid};    }
+			else                      { return 0; }
+		}
+		else { return 0; }
+		return 0 if !$found;
+	}
+	return 1;
 }
 
 

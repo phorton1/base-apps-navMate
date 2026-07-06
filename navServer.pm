@@ -284,7 +284,7 @@ sub new
 		HTTP_DEFAULT_LOCATION => '/map.html',
 		HTTP_MAX_THREADS      => 4,
 		HTTP_KEEP_ALIVE       => 0,
-		HTTP_DEBUG_QUIET_RE   => '\/poll',
+		HTTP_DEBUG_QUIET_RE   => '\/poll|\/api\/ocpn',
 	};
 	return $class->SUPER::new($params);
 }
@@ -345,13 +345,13 @@ sub handle_request
 		my ($colls,  $e1) = navDB::rawQuery($dbh,
 			"SELECT uuid, name, parent_uuid, node_type, position, source, created_ts, modified_ts FROM collections ORDER BY name");
 		my ($wps,    $e2) = navDB::rawQuery($dbh,
-			"SELECT uuid, name, collection_uuid, wp_type, sym, color, db_version, e80_version, kml_version, position, source, created_ts, modified_ts FROM waypoints ORDER BY name");
+			"SELECT uuid, name, collection_uuid, wp_type, sym, color, position, source, created_ts, modified_ts FROM waypoints ORDER BY name");
 		my ($routes, $e3) = navDB::rawQuery($dbh,
-			"SELECT uuid, name, collection_uuid, color, db_version, e80_version, kml_version, position, source, created_ts, modified_ts FROM routes ORDER BY name");
+			"SELECT uuid, name, collection_uuid, color, position, source, created_ts, modified_ts FROM routes ORDER BY name");
 		my ($rtwps,  $e4) = navDB::rawQuery($dbh,
 			"SELECT route_uuid, wp_uuid, position FROM route_waypoints ORDER BY route_uuid, position");
 		my ($tracks, $e5) = navDB::rawQuery($dbh,
-			"SELECT uuid, name, collection_uuid, ts_start, ts_end, ts_source, color, db_version, e80_version, kml_version, position, source, created_ts, modified_ts, point_count FROM tracks ORDER BY name");
+			"SELECT uuid, name, collection_uuid, ts_start, ts_end, ts_source, color, position, source, created_ts, modified_ts, point_count FROM tracks ORDER BY name");
 		navDB::disconnectDB($dbh);
 		my $err = $e1 || $e2 || $e3 || $e4 || $e5;
 		return json_response($request,{ error => $err }) if $err;

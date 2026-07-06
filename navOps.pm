@@ -29,6 +29,7 @@ use nmDialogs;
 require navOpsDB;
 require navOpsE80;
 require navOpsFSH;
+require navOpsOCPN;
 
 
 BEGIN
@@ -114,7 +115,7 @@ sub buildContextMenu
 	my ($panel, $right_click_node, @nodes) = @_;
 	my $menu = Wx::Menu->new();
 
-	my $peers = { wpmgr => _wpmgr(), fsh_db => _fshDb() };
+	my $peers = { wpmgr => _wpmgr(), fsh_db => _fshDb(), ocpn_db => _ocpnDb() };
 	my @del   = getDeleteMenuItems($panel, $right_click_node, @nodes);
 	my @new   = getNewMenuItems($panel, $right_click_node);
 	my @copy  = getCopyMenuItems($panel, @nodes);
@@ -219,7 +220,8 @@ sub dispatchNavOpsCommand
 	}
 	elsif ($cmd_id == $CTX_CMD_PUSH
 	    || $cmd_id == $CTX_CMD_PUSH_FSH
-	    || $cmd_id == $CTX_CMD_PUSH_E80)
+	    || $cmd_id == $CTX_CMD_PUSH_E80
+	    || $cmd_id == $CTX_CMD_PUSH_OCPN)
 	{
 		_doPush($cmd_id, $panel, $right_click_node, $tree, @nodes);
 	}
@@ -494,6 +496,38 @@ sub _snapshotNodes
 			else
 			{
 				my $item = _snapshotFSHNode($db, $node);
+				push @items, $item if $item;
+			}
+		}
+	}
+	elsif ($panel eq 'ocpn')
+	{
+		my $db = _ocpnDb();
+		for my $node (@nodes)
+		{
+			my $t = $node->{type} // '';
+			if ($t eq 'header')
+			{
+				my $kind = $node->{kind} // '';
+				my $src  = $kind eq 'groups' ? ($db->{waypoints} // {})
+				         : $kind eq 'routes' ? ($db->{routes}    // {})
+				         : $kind eq 'tracks' ? ($db->{tracks}    // {})
+				         : {};
+				my $type = $kind eq 'groups' ? 'waypoint'
+				         : $kind eq 'routes' ? 'route'
+				         : $kind eq 'tracks' ? 'track' : '';
+				next if !$type;
+				for my $uuid (sort keys %$src)
+				{
+					# the 'groups' header enumerates standalone marks only
+					next if $type eq 'waypoint' && !$src->{$uuid}{is_standalone};
+					my $item = _snapshotOCPNNode($db, { type => $type, uuid => $uuid, data => $src->{$uuid} });
+					push @items, $item if $item;
+				}
+			}
+			else
+			{
+				my $item = _snapshotOCPNNode($db, $node);
 				push @items, $item if $item;
 			}
 		}
@@ -852,6 +886,10 @@ sub _doDelete
 	{
 		navOps::_deleteFSH($cmd_id, $right_click_node, $tree, @nodes);
 	}
+	elsif ($panel eq 'ocpn')
+	{
+		navOps::_deleteOCPN($cmd_id, $right_click_node, $tree, @nodes);
+	}
 	else
 	{
 		navOps::_deleteDB($cmd_id, $right_click_node, $tree, @nodes);
@@ -898,7 +936,7 @@ sub _doPaste
 		}
 	}
 
-	my $is_spoke = ($panel eq 'e80' || $panel eq 'fsh');
+	my $is_spoke = ($panel eq 'e80' || $panel eq 'fsh' || $panel eq 'ocpn');
 
 	# Step 1: Ancestor-wins resolution (SS6.2)
 	my @orig_items = @{$cb->{items}};
@@ -1042,6 +1080,12 @@ sub _doPaste
 				return;
 			}
 		}
+		elsif ($panel eq 'ocpn')
+		{
+			# OpenCPN spoke: a pushed route FULL-EMBEDS every vertex in its
+			# command (protocol sec 2A inbound rule), so there is no
+			# "member must already be present" dependency -- nothing to gate.
+		}
 		else
 		{
 			my $dep_dbh = connectDB();
@@ -1067,25 +1111,42 @@ sub _doPaste
 					return;
 				}
 			}
-			# Standalone route_points on DB destination: also order-independent
-			# (sibling WP records may be in the same paste); same fallback.
-			my @missing_rp;
-			for my $rp (@standalone_rps)
+			# Standalone route_points: a REF-append destination (a route object,
+			# or a route_point anchor for BEFORE/AFTER) requires the referenced
+			# waypoint to already exist -- appendRouteWaypoint links by uuid and
+			# does NOT materialize (navOpsDB.pm route-object path).  But pasting a
+			# route_point INTO A COLLECTION materializes it as a NEW waypoint from
+			# its own carried data (_pasteItemsToCollection), so there is no
+			# dependency to enforce there.  This gate is what lets an OpenCPN PURE
+			# route vertex -- which is not surfaced as a standalone mark -- become
+			# a real navMate waypoint: copy the route's points, paste them into a
+			# collection, THEN paste the route (whose members now pre-exist and
+			# resolve as shared refs).  The waypoints-first-then-route paradigm is
+			# unchanged; this only unblocks getting the vertices in at all.
+			my $rt_dest     = $right_click_node->{type} // '';
+			my $rot_dest    = ($right_click_node->{data} // {})->{obj_type} // '';
+			my $dest_is_ref = ($rt_dest eq 'route_point')
+			               || ($rt_dest eq 'object' && $rot_dest eq 'route');
+			if ($dest_is_ref)
 			{
-				my $u = $rp->{uuid} // '';
-				next if !$u;
-				if (!$clip_wp_uuids{$u})
+				my @missing_rp;
+				for my $rp (@standalone_rps)
 				{
-					my $wp = getWaypoint($dep_dbh, $u);
-					push @missing_rp, $u if !$wp;
+					my $u = $rp->{uuid} // '';
+					next if !$u;
+					if (!$clip_wp_uuids{$u})
+					{
+						my $wp = getWaypoint($dep_dbh, $u);
+						push @missing_rp, $u if !$wp;
+					}
 				}
-			}
-			if (@missing_rp)
-			{
-				disconnectDB($dep_dbh);
-				error("route_point: referenced waypoint(s) not in database and not in clipboard: "
-				    . join(', ', @missing_rp));
-				return;
+				if (@missing_rp)
+				{
+					disconnectDB($dep_dbh);
+					error("route_point: referenced waypoint(s) not in database and not in clipboard: "
+					    . join(', ', @missing_rp));
+					return;
+				}
 			}
 			disconnectDB($dep_dbh);
 		}
@@ -1115,7 +1176,7 @@ sub _doPaste
 			my $mixed_wp_group = (scalar(@type_list) == 2 && $types{waypoint} && $types{group});
 			if (!$mixed_wp_group)
 			{
-				error(uc($panel) . " paste requires homogeneous content (cannot mix routes, tracks, and waypoints)");
+				error(($panel eq 'e80' ? 'ESeries' : $panel eq 'ocpn' ? 'OpenCPN' : uc($panel)) . " paste requires homogeneous content (cannot mix routes, tracks, and waypoints)");
 				return;
 			}
 		}
@@ -1144,7 +1205,12 @@ sub _doPaste
 
 		if (($cb->{source} // '') eq 'database')
 		{
-			my $direction = ($panel eq 'e80') ? 'db_to_e80' : 'db_to_fsh';
+			# db_to_ocpn is intentionally NOT in _preflightLossyTransform's
+			# spoke lists: OpenCPN strings are unbounded and there is no palette,
+			# so a db->ocpn paste is lossless -- no truncation warning.
+			my $direction = ($panel eq 'e80')  ? 'db_to_e80'
+			              : ($panel eq 'ocpn') ? 'db_to_ocpn'
+			              :                      'db_to_fsh';
 			my $paste_issues = _preflightLossyTransform(\@effective, $direction);
 			if (_hasLossyIssues($paste_issues))
 			{
@@ -1154,6 +1220,10 @@ sub _doPaste
 		if ($panel eq 'e80')
 		{
 			navOps::_pasteE80($cmd_id, $right_click_node, $tree, \@effective, $cb);
+		}
+		elsif ($panel eq 'ocpn')
+		{
+			navOps::_pasteOCPN($cmd_id, $right_click_node, $tree, \@effective, $cb);
 		}
 		else
 		{
@@ -1173,7 +1243,7 @@ sub _doPaste
 		my $is_paste_new_db = ($cmd_id == $CTX_CMD_PASTE_NEW
 		                   || $cmd_id == $CTX_CMD_PASTE_NEW_BEFORE
 		                   || $cmd_id == $CTX_CMD_PASTE_NEW_AFTER);
-		if (!$is_paste_new_db && ($src eq 'e80' || $src eq 'fsh'))
+		if (!$is_paste_new_db && ($src eq 'e80' || $src eq 'fsh' || $src eq 'ocpn'))
 		{
 			my $coll_dbh = connectDB();
 			if ($coll_dbh)
@@ -1317,6 +1387,11 @@ sub _collectNameConflicts
 	$is_paste_new //= 0;
 	my @conflicts;
 
+	# OpenCPN spoke: objects are upsert-by-GUID with unbounded names (protocol
+	# sec 9), so duplicate names never force a rename -- the whole no-silent-
+	# rename collision preflight simply does not apply.  Skip it.
+	return () if $panel eq 'ocpn';
+
 	# Flatten items to a checkable entry list.  Each entry =
 	#   { type, name, lc_name, uuid, source } -- "source" names the
 	# location in the batch for the error message.
@@ -1435,7 +1510,7 @@ sub _collectNameConflicts
 sub _formatNameConflicts
 {
 	my ($panel, $conflicts) = @_;
-	my $spoke = $panel eq 'e80' ? 'ESeries' : uc($panel);
+	my $spoke = $panel eq 'e80' ? 'ESeries' : $panel eq 'ocpn' ? 'OpenCPN' : uc($panel);
 	my $n     = scalar @$conflicts;
 	my @lines = ("$spoke operation blocked: $n name collision(s):");
 	for my $c (@$conflicts)
@@ -1565,6 +1640,43 @@ sub _doPush
 		return;
 	}
 
+	if ($panel eq 'ocpn')
+	{
+		# OpenCPN selection -> DB (CTX_CMD_PUSH only).  The OpenCPN spoke offers
+		# no cross-spoke push (spoke->spoke is a forbidden projection); Push to
+		# DB is the only outbound-from-pane operation.
+		my @items = _snapshotNodes($panel, @nodes);
+		if (!@items)
+		{
+			warning(0, 0, "_doPush: nothing to push");
+			return;
+		}
+		my $n = scalar @items;
+		my $msg = "Push $n item(s) from OpenCPN to database?";
+		return if !($nmDialogs::suppress_confirm || confirmDialog($tree, $msg, 'Push'));
+		# OpenCPN -> DB is lossless (unbounded strings, no palette); no lossy check.
+		navOps::_pushFromOCPN($right_click_node, $tree, \@items);
+		return;
+	}
+
+	# DB panel: CTX_CMD_PUSH_OCPN -- direct push DB -> OpenCPN (enqueue commands
+	# the polling plugin will apply).  Lossless: no truncation/palette, so no
+	# lossy-transform or name-collision preflight.
+	if ($cmd_id == $CTX_CMD_PUSH_OCPN)
+	{
+		my @db_items = _snapshotNodes('database', @nodes);
+		if (!@db_items)
+		{
+			warning(0, 0, "_doPush: nothing to push");
+			return;
+		}
+		my $n3   = scalar @db_items;
+		my $msg3 = "Push $n3 item(s) from database to OpenCPN?";
+		return if !($nmDialogs::suppress_confirm || confirmDialog($tree, $msg3, 'Push'));
+		navOps::_pushToOCPN($right_click_node, $tree, \@db_items);
+		return;
+	}
+
 	# DB panel: CTX_CMD_PUSH_FSH is unambiguous -- direct push DB -> FSH.
 	if ($cmd_id == $CTX_CMD_PUSH_FSH)
 	{
@@ -1609,12 +1721,14 @@ sub _doPush
 		}
 		my $source = $cb->{source} // 'e80';
 		my $n      = scalar @items;
-		my $msg    = "Push $n item(s) from " . uc($source) . " to database?";
+		my $msg    = "Push $n item(s) from " . ($source eq 'e80' ? 'ESeries' : $source eq 'ocpn' ? 'OpenCPN' : uc($source)) . " to database?";
 		my $proceed = $nmDialogs::suppress_confirm
 			? 1
 			: confirmDialog($tree, $msg, 'Push');
 		return if !$proceed;
-		my $direction = ($source eq 'fsh') ? 'fsh_to_db' : 'e80_to_db';
+		my $direction = ($source eq 'fsh')  ? 'fsh_to_db'
+		              : ($source eq 'ocpn') ? 'ocpn_to_db'
+		              :                       'e80_to_db';
 		my $cb_issues = _preflightLossyTransform(\@items, $direction);
 		if (_hasLossyIssues($cb_issues))
 		{
@@ -1623,6 +1737,10 @@ sub _doPush
 		if ($source eq 'fsh')
 		{
 			navOps::_pushFromFSH($right_click_node, $tree, \@items);
+		}
+		elsif ($source eq 'ocpn')
+		{
+			navOps::_pushFromOCPN($right_click_node, $tree, \@items);
 		}
 		else
 		{
@@ -1800,6 +1918,10 @@ sub _doNew
 		{
 			navOps::_newFSHRoute($right_click_node, $tree);
 		}
+		elsif ($panel eq 'ocpn')
+		{
+			navOps::_newOCPNRoute($right_click_node, $tree);
+		}
 		else
 		{
 			navOps::_newE80Route($right_click_node, $tree);
@@ -1814,6 +1936,10 @@ sub _doNew
 		elsif ($panel eq 'fsh')
 		{
 			navOps::_newFSHWaypoint($right_click_node, $tree);
+		}
+		elsif ($panel eq 'ocpn')
+		{
+			navOps::_newOCPNWaypoint($right_click_node, $tree);
 		}
 		else
 		{
@@ -1970,6 +2096,7 @@ sub _cmdLabel
 	return 'PUSH'              if $cmd_id == $CTX_CMD_PUSH;
 	return 'PUSH TO FSH'       if $cmd_id == $CTX_CMD_PUSH_FSH;
 	return 'PUSH TO E80'       if $cmd_id == $CTX_CMD_PUSH_E80;
+	return 'PUSH TO OpenCPN'   if $cmd_id == $CTX_CMD_PUSH_OCPN;
 	return "CMD_$cmd_id";
 }
 

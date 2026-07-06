@@ -31,6 +31,8 @@ use navFSH;
 use winDatabase;
 use winE80;
 use winFSH;
+use winOCPN;
+use navOCPN;
 use winMonitor;
 use Pub::Ray::NET::winFILESYS;
 use navOneTimeImport;
@@ -61,6 +63,7 @@ sub new
 	EVT_MENU($this, $WIN_MONITOR,				\&onCommand);
 	EVT_MENU($this, $WIN_FSH,					\&onCommand);
 	EVT_MENU($this, $WIN_FILESYS,				\&onCommand);
+	EVT_MENU($this, $WIN_OCPN,					\&onCommand);
 	EVT_MENU($this, $COMMAND_NEW_FSH,			\&onCommand);
 	EVT_MENU($this, $COMMAND_OPEN_FSH_FILE,		\&onCommand);
 	EVT_MENU($this, $COMMAND_SAVE_FSH_FILE,		\&onCommand);
@@ -201,6 +204,8 @@ sub onIdle
 		$e80->onClearMap() if $e80;
 		my $fsh = $this->findPane($WIN_FSH);
 		$fsh->onClearMap() if $fsh;
+		my $ocpn = $this->findPane($WIN_OCPN);
+		$ocpn->onClearMap() if $ocpn;
 	}
 
 	my $wpmgr_on = ($raydp && $raydp->findImplementedService('WPMGR', 1)) ? 1 : 0;
@@ -282,6 +287,20 @@ sub onIdle
 		}
 	}
 
+	# OpenCPN spoke refresh clock: navOCPN bumps its shared version once per
+	# inventory POST from the oESeries plugin.  Refresh the pane on change,
+	# parallel to the E80 getVersion clock above (POSTs are infrequent, so no
+	# debounce is needed).
+	{
+		my $ov = navOCPN::getSharedVersion();
+		if ($ov != ($this->{_ocpn_version} // -1))
+		{
+			$this->{_ocpn_version} = $ov;
+			my $ocpn = $this->findPane($WIN_OCPN);
+			$ocpn->refresh() if $ocpn;
+		}
+	}
+
 	sleep(0.02);
 	$event->RequestMore();
 }
@@ -297,6 +316,7 @@ sub createPane
 	return winE80->new($this, $book, $id, $data)       if $id == $WIN_E80;
 	return winMonitor->new($this, $book, $id, $data)   if $id == $WIN_MONITOR;
 	return winFSH->new($this, $book, $id, $data)       if $id == $WIN_FSH;
+	return winOCPN->new($this, $book, $id, $data)      if $id == $WIN_OCPN;
 	return winFILESYS->new($this, $book, $id, $data, $CMD_DOWNLOAD) if $id == $WIN_FILESYS;
 	return $this->SUPER::createPane($id, $book, $data);
 }
@@ -327,7 +347,7 @@ sub onCommand
 	{
 		$this->createPane($id);
 	}
-	elsif ($id == $WIN_E80 || $id == $WIN_MONITOR || $id == $WIN_FSH || $id == $WIN_FILESYS)
+	elsif ($id == $WIN_E80 || $id == $WIN_MONITOR || $id == $WIN_FSH || $id == $WIN_FILESYS || $id == $WIN_OCPN)
 	{
 		my $pane = $this->findPane($id);
 		if (!$pane)
@@ -450,6 +470,8 @@ sub onCommand
 		$e80->onClearMap() if $e80;
 		my $fsh = $this->findPane($WIN_FSH);
 		$fsh->onClearMap() if $fsh;
+		my $ocpn = $this->findPane($WIN_OCPN);
+		$ocpn->onClearMap() if $ocpn;
 	}
 	elsif ($id == $COMMAND_REVERT_DB)
 	{

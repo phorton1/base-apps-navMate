@@ -11,6 +11,7 @@ use Pub::Utils;
 use Pub::Database;
 use n_defs;
 use n_utils;
+use navIdentity;
 use navVisibility qw(pruneDbVisible getDbVisible setDbVisible batchSetDbVisible clearAllDbVisible);
 use navPrefs qw(getPref $PREF_DATABASE_PATH);
 
@@ -73,6 +74,10 @@ BEGIN
 		loadSymMap
 		symForWpType
 		wpTypeForSym
+		symForIcon
+		iconForSym
+		persistOCPNIdentity
+		loadOCPNGuidMap
 		isMapped
 		moveWaypoint
 		moveCollection
@@ -136,9 +141,6 @@ my $db_def = {
 		"ts_source       TEXT    NOT NULL DEFAULT ''",
 		"source          TEXT    NOT NULL DEFAULT ''",
 		"collection_uuid TEXT NOT NULL",
-		"db_version      INTEGER NOT NULL DEFAULT 0",
-		"e80_version     INTEGER NOT NULL DEFAULT 0",
-		"kml_version     INTEGER NOT NULL DEFAULT 0",
 		"position        REAL    NOT NULL DEFAULT 0",
 		"modified_ts     INTEGER NOT NULL DEFAULT 0",
 	],
@@ -149,9 +151,6 @@ my $db_def = {
 		"comment         TEXT    NOT NULL DEFAULT ''",
 		"color           TEXT    NOT NULL DEFAULT ''",
 		"collection_uuid TEXT NOT NULL",
-		"db_version      INTEGER NOT NULL DEFAULT 0",
-		"e80_version     INTEGER NOT NULL DEFAULT 0",
-		"kml_version     INTEGER NOT NULL DEFAULT 0",
 		"position        REAL    NOT NULL DEFAULT 0",
 		"source          TEXT    NOT NULL DEFAULT ''",
 		"created_ts      INTEGER NOT NULL DEFAULT 0",
@@ -175,11 +174,7 @@ my $db_def = {
 		"ts_source       TEXT    NOT NULL DEFAULT ''",
 		"point_count     INTEGER NOT NULL DEFAULT 0",
 		"collection_uuid TEXT NOT NULL",
-		"db_version      INTEGER NOT NULL DEFAULT 0",
-		"e80_version     INTEGER NOT NULL DEFAULT 0",
-		"kml_version     INTEGER NOT NULL DEFAULT 0",
 		"position        REAL    NOT NULL DEFAULT 0",
-		"companion_uuid  TEXT    NOT NULL DEFAULT ''",
 		"source          TEXT    NOT NULL DEFAULT ''",
 		"created_ts      INTEGER NOT NULL DEFAULT 0",
 		"modified_ts     INTEGER NOT NULL DEFAULT 0",
@@ -194,6 +189,26 @@ my $db_def = {
 		"temp_k     INTEGER NOT NULL DEFAULT 0",
 		"ts         INTEGER NOT NULL DEFAULT 0",
 		"PRIMARY KEY (track_uuid, position)",
+	],
+
+	# Generic per-spoke shadow: maps a spoke's native identity
+	# to the canonical navMate object, plus an opaque per-spoke JSON blob for
+	# round-trippable fields with no navMate home.  Identity (namespace/native_id/
+	# nav_uuid) is structured + indexed and resolved on every ingest; `data` is
+	# never queried, only carried (default '{}').  SPARSE: only foreign objects
+	# and/or objects with spoke extras get a row -- navMate-origin identity still
+	# reverses table-free via the navIdentity MAGIC codec, so the codec and the
+	# shadow are complementary, not redundant.  first_seen is bound on the raw
+	# INSERT OR IGNORE (never insert_record, which would force-0 it).  Idempotent by
+	# PK.  OpenCPN uses namespace='ocpn', native_id=the 128-bit GUID; the shape
+	# generalizes to 'fsh'/'e80' if they grow foreign-identity/extended-data needs.
+	spoke_shadow => [
+		"namespace  TEXT    NOT NULL",
+		"native_id  TEXT    NOT NULL",
+		"nav_uuid   TEXT    NOT NULL",
+		"data       TEXT    NOT NULL DEFAULT '{}'",
+		"first_seen INTEGER NOT NULL DEFAULT 0",
+		"PRIMARY KEY (namespace, native_id)",
 	],
 
 };
@@ -450,12 +465,21 @@ sub openDB
 		warning(0,0,"navDB::openDB migration to 13.0 complete");
 	}
 
+	if ($stored eq '13.0')
+	{
+		warning(0,0,"navDB::openDB migrating schema 13.0 -> 13.1 (OpenCPN spoke persistence)");
+		_migrateTo131($dbh);
+		$stored = '13.1';
+		warning(0,0,"navDB::openDB migration to 13.1 complete");
+	}
+
 	# Provenance triggers: auto-populate created_ts and modified_ts.
 	# Idempotent (CREATE TRIGGER IF NOT EXISTS); runs every openDB so
 	# fresh DBs and migrated DBs both end up with the triggers active.
 	# Relies on SQLite's default PRAGMA recursive_triggers = OFF so the
 	# triggers' own UPDATEs do not re-fire triggers.
 	_createTriggers($dbh);
+	_createIndexes($dbh);
 
 	my ($stored_major)   = split(/\./, $stored);
 	my ($expected_major) = split(/\./, $SCHEMA_VERSION);
@@ -500,6 +524,7 @@ sub loadSymMap
 {
 	my ($dbh) = @_;
 	%_mapped_syms = ();
+	_initSymIcons();
 	my $rec = $dbh->get_record("SELECT value FROM key_values WHERE key='wp_mapped_syms'");
 	return if !$rec || !defined $rec->{value};
 	my $h = my_decode_json($rec->{value});
@@ -534,6 +559,93 @@ sub isMapped
 	return 0 if !defined $wp_type || !defined $sym;
 	my $mapped = symForWpType($wp_type);
 	return defined($mapped) && $mapped == $sym ? 1 : 0;
+}
+
+
+#---------------------------------
+# sym <-> OpenCPN icon  (protocol.md sec 7, schema 13.1)
+#---------------------------------
+# Hop B of the two-hop symbol map (the plugin only ever sees a raw IconName
+# string; the whole map is hub-internal).  Built from the @SYM_DEFAULT_ICONS
+# constant (n_defs), lazily on first use so it is robust to loadSymMap timing.
+#   iconForSym($sym)  -> OpenCPN IconName ('' for out-of-range)
+#   symForIcon($icon) -> sym (0..35); '' or any unrecognized name -> the NAV
+#                        catch-all sym (E80_SYM_SQUARE), per the sec-7 note that
+#                        the map is not a bijection and '' is a real wire value.
+# The reverse folds many icons onto one sym (first sym wins), which is expected.
+
+my %_icon_for_sym;
+my %_sym_for_icon;
+
+sub _initSymIcons
+{
+	%_icon_for_sym = ();
+	%_sym_for_icon = ();
+	for my $sym (0 .. $#SYM_DEFAULT_ICONS)
+	{
+		my $icon = $SYM_DEFAULT_ICONS[$sym];
+		$_icon_for_sym{$sym} = $icon;
+		$_sym_for_icon{$icon} = $sym if !exists $_sym_for_icon{$icon};
+	}
+}
+
+sub iconForSym
+{
+	my ($sym) = @_;
+	_initSymIcons() if !%_icon_for_sym;
+	return '' if !defined $sym;
+	return $_icon_for_sym{$sym + 0} // '';
+}
+
+sub symForIcon
+{
+	my ($icon) = @_;
+	_initSymIcons() if !%_sym_for_icon;
+	return $WP_DEFAULT_SYMS{$WP_TYPE_NAV} if !defined $icon || $icon eq '';
+	return $_sym_for_icon{$icon} if exists $_sym_for_icon{$icon};
+	return $WP_DEFAULT_SYMS{$WP_TYPE_NAV};   # catch-all: unrecognized icon
+}
+
+
+#---------------------------------
+# OpenCPN foreign-GUID persistence  (protocol sec 4, schema 13.1)
+#---------------------------------
+# When a FOREIGN (OpenCPN-born) object is pasted into navMate.db, its opaque
+# 128-bit GUID can't be reversed from the minted 0x4f uuid algorithmically, so
+# it is PERSISTED here (bidirectional) -- both to key the record and to re-emit
+# the original GUID on a later outbound push.  navMate-origin GUIDs reverse
+# table-free via the navIdentity codec and are NEVER stored (skipped below).
+# All idempotent.  (The raw-IconName shadow was removed with schema 13.1's
+# icon_name drop; the $icon arg is retained but unused pending the spoke rework.)
+
+sub persistOCPNIdentity
+{
+	my ($dbh, $uuid, $guid, $icon) = @_;
+	return if !$dbh || !$uuid;
+	if (defined $guid && $guid ne '' && !navIdentity::ocpnGuidToNavUuid($guid))
+	{
+		# foreign guid -> a first_seen-stamped map row (raw insert, never
+		# insert_record, so first_seen is not force-0'd).  Idempotent by PK.
+		$dbh->do("INSERT OR IGNORE INTO spoke_shadow (namespace, native_id, nav_uuid, first_seen) VALUES ('ocpn',?,?,?)",
+			[$guid, $uuid, time()]);
+	}
+}
+
+sub loadOCPNGuidMap
+{
+	# Build the { fwd=>{guid=>uuid}, rev=>{uuid=>guid} } reconcile map from the
+	# persisted spoke_shadow (namespace='ocpn' rows), for OUTBOUND projection of a
+	# foreign object whose original guid can't be synthesized (nmOCPNDirectOps::projectUuidToGuid).
+	my ($dbh) = @_;
+	my (%fwd, %rev);
+	return { fwd => \%fwd, rev => \%rev, counter => 0 } if !$dbh;
+	my $rows = $dbh->get_records("SELECT native_id, nav_uuid FROM spoke_shadow WHERE namespace='ocpn'");
+	for my $r (@{$rows // []})
+	{
+		$fwd{$r->{native_id}} = $r->{nav_uuid};
+		$rev{$r->{nav_uuid}}  = $r->{native_id};
+	}
+	return { fwd => \%fwd, rev => \%rev, counter => 0 };
 }
 
 
@@ -592,7 +704,7 @@ sub _createTables
 	my ($dbh) = @_;
 	for my $table (qw(
 		key_values collections waypoints routes route_waypoints
-		tracks track_points))
+		tracks track_points spoke_shadow))
 	{
 		next if $dbh->tableExists($table);
 		$dbh->createTable($table)
@@ -658,6 +770,31 @@ BEGIN
      WHERE uuid = NEW.uuid;
 END
 SQL
+	}
+
+	# db_version generation counter (protocol.md sec 3/13): every top-level
+	# INSERT/UPDATE/DELETE on a WGRT object bumps the single key_values
+	# 'db_version' row.  These write ONLY to key_values (which has no triggers),
+	# so there is no recursion under SQLite's default PRAGMA recursive_triggers =
+	# OFF -- and the ts-triggers' inner WGRT UPDATEs above do not re-fire these
+	# under OFF either, so db_version advances EXACTLY ONCE per top-level
+	# statement.  Distinct from the per-row db_version COLUMN (a stale per-object
+	# stamp) -- do not conflate.  Feeds the OpenCPN spoke's generation token /
+	# mutation detection; navmate_dt stays enqueue-driven and separate
+	# (navOCPN::enqueueCommands).
+	for my $table (qw(waypoints routes tracks))
+	{
+		for my $op (qw(insert update delete))
+		{
+			my $OP = uc $op;
+			$dbh->do(<<SQL, []);
+CREATE TRIGGER IF NOT EXISTS ${table}_bump_ver_${op} AFTER $OP ON $table
+FOR EACH ROW
+BEGIN
+    UPDATE key_values SET value = value + 1 WHERE key = 'db_version';
+END
+SQL
+		}
 	}
 
 	return 1;
@@ -780,6 +917,64 @@ sub _migrateTo13
 
 
 #---------------------------------
+# _migrateTo131
+#---------------------------------
+# Schema 13.0 -> 13.1: OpenCPN spoke persistence.  ADDITIVE minor bump, so the
+# major-version reimport gate (see openDB) is NOT tripped -- existing DBs migrate
+# in place.  Two DDL pieces here:
+#   - spoke_shadow  - the generic per-spoke identity+extended-data table (OpenCPN
+#       uses namespace='ocpn', native_id=the 128-bit GUID -> 0x4f nav uuid).  Created
+#       via createTable() (the same call a fresh install uses) so a migrated DB and a
+#       fresh DB converge on a byte-identical schema.
+#   - schema cleanup: DROP the dead per-object *_version columns, the vestigial
+#       tracks.companion_uuid, and waypoints.icon_name via dropUnusedTableColumns
+#       (see the sub body).
+# The additive key_values rows (ocpn_uuid_counter, db_version, generation,
+# sym_icons) are seeded idempotently by _initKeyValues (which runs earlier in
+# openDB); the db_version bump triggers by _createTriggers; the nav_uuid reverse
+# index by _createIndexes.  Nothing else to do here.
+
+sub _migrateTo131
+{
+	my ($dbh) = @_;
+
+	$dbh->createTable('spoke_shadow') if !$dbh->tableExists('spoke_shadow');
+	# Schema cleanup (drop-only, stays a minor bump).  Dropped from the table defs
+	# above and rebuilt out of each live table here via dropUnusedTableColumns, so a
+	# migrated DB and a fresh 13.1 install converge on a byte-identical schema:
+	#   - the dead per-object db_version/e80_version/kml_version columns (waypoints/
+	#     routes/tracks) -- never read for logic; the live db_version generation
+	#     signal is a key_values COUNTER, not these columns (de-conflicts the name).
+	#   - the vestigial tracks.companion_uuid (matched-on nowhere; mta_uuid is the
+	#     canonical track identity in every spoke).
+	#   - waypoints.icon_name (no longer added; dropped defensively if a DB already
+	#     ran the earlier icon_name migration).
+	$dbh->dropUnusedTableColumns('waypoints');
+	$dbh->dropUnusedTableColumns('routes');
+	$dbh->dropUnusedTableColumns('tracks');
+	$dbh->do("UPDATE key_values SET value='13.1' WHERE key='schema_version'", []);
+
+	return 1;
+}
+
+
+#---------------------------------
+# _createIndexes
+#---------------------------------
+# Idempotent secondary indexes, created on every openDB (after the tables and
+# any migration exist).  Currently just the spoke_shadow reverse lookup
+# ((namespace, nav_uuid) -> native_id), needed to re-emit a foreign object's
+# original opaque spoke identity on outbound projection.
+
+sub _createIndexes
+{
+	my ($dbh) = @_;
+	$dbh->do("CREATE INDEX IF NOT EXISTS idx_spoke_shadow_nav ON spoke_shadow(namespace, nav_uuid)", []);
+	return 1;
+}
+
+
+#---------------------------------
 # _initKeyValues
 #---------------------------------
 
@@ -790,8 +985,23 @@ sub _initKeyValues
 		[$SCHEMA_VERSION]);
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('uuid_counter', '0')");
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('fsh_uuid_counter', '0')");
+	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('ocpn_uuid_counter', '0')");
+	# OpenCPN spoke (schema 13.1): the global mutation counter the *_bump_ver
+	# triggers advance, and a 'generation' token seeded at DB create/reset so the
+	# plugin can detect a hub that lost state (protocol.md sec 13).  time() gives
+	# a fresh generation on every reimport/reset; an in-place migration keeps the
+	# existing row (INSERT OR IGNORE), so the generation only changes on a real
+	# DB recreate.
+	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('db_version', '0')");
+	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('generation', ?)", [time()]);
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('wp_mapped_syms', ?)",
 		[my_encode_json(\%WP_DEFAULT_SYMS)]);
+	# OpenCPN spoke sym->icon table (schema 13.1, protocol sec 7): seeded from
+	# the @SYM_DEFAULT_ICONS constant for the record / future editability.  The
+	# in-effect map is the constant (navDB::iconForSym/symForIcon); this row is
+	# informational, mirroring wp_mapped_syms.
+	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('sym_icons', ?)",
+		[my_encode_json(\@SYM_DEFAULT_ICONS)]);
 	# Phase 2.5 rename: wp_default_syms -> wp_mapped_syms.  The row holds
 	# the in-effect mapping (editable later via the Remapping dialog),
 	# not the constant defaults -- those live in %WP_DEFAULT_SYMS.
@@ -1075,8 +1285,8 @@ sub insertTrack
 	$dbh->do(qq{
 		INSERT INTO tracks
 			(uuid, name, color, ts_start, ts_end, ts_source,
-			 point_count, collection_uuid, companion_uuid, position)
-		VALUES (?,?,?,?,?,?,?,?,?,?)},
+			 point_count, collection_uuid, position)
+		VALUES (?,?,?,?,?,?,?,?,?)},
 		[$uuid,
 		$a{name},
 		_normalizeColor($a{color}),
@@ -1085,7 +1295,6 @@ sub insertTrack
 		$a{ts_source}       // '',
 		$a{point_count}    // 0,
 		$a{collection_uuid},
-		$a{companion_uuid} // '',
 		$position]);
 	return $uuid;
 }
@@ -1362,7 +1571,7 @@ sub getTrack
 {
 	my ($dbh, $uuid) = @_;
 	return $dbh->get_record(
-		"SELECT uuid, name, comment, color, ts_start, ts_end, ts_source, point_count, collection_uuid, position, companion_uuid, source, created_ts, modified_ts FROM tracks WHERE uuid=?",
+		"SELECT uuid, name, comment, color, ts_start, ts_end, ts_source, point_count, collection_uuid, position, source, created_ts, modified_ts FROM tracks WHERE uuid=?",
 		[$uuid]);
 }
 

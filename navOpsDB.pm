@@ -131,7 +131,7 @@ sub _insertFreshWaypoint
 	# Reverse-map: spoke records carry sym but no wp_type.  Derive it
 	# from the mapping if the source didn't supply one.
 	my $wp_type = $wp->{wp_type} // wpTypeForSym($sym) // $WP_TYPE_NAV;
-	return insertWaypoint($dbh,
+	my $new_uuid = insertWaypoint($dbh,
 		name            => $wp->{name}    // '',
 		comment         => $wp->{comment} // '',
 		lat             => $wp->{lat},
@@ -146,6 +146,11 @@ sub _insertFreshWaypoint
 		collection_uuid => $coll_uuid,
 		position        => $position,
 	);
+	# OpenCPN inbound: shadow the foreign GUID + raw icon so a later push back
+	# re-emits the exact original object (protocol sec 4/7).
+	navDB::persistOCPNIdentity($dbh, $new_uuid, $wp->{guid}, $wp->{icon})
+		if $source eq 'ocpn';
+	return $new_uuid;
 }
 
 
@@ -189,6 +194,8 @@ sub _pasteOneWaypointToDB
 			collection_uuid => $coll_uuid,
 			position        => $position,
 		);
+		navDB::persistOCPNIdentity($dbh, $uuid, $wp->{guid}, $wp->{icon})
+			if $source eq 'ocpn';
 		return 'created';
 	}
 
@@ -574,7 +581,16 @@ sub _pasteItemsToCollection
 		my $pos  = $positions[$idx];
 		my $t    = $item->{type} // '';
 
-		if ($t eq 'waypoint')
+		# A route_point pasted INTO a collection materializes as a real
+		# waypoint, identical to the Paste-Before/After path (see the
+		# 'waypoint || route_point' branch below at the positional executor).
+		# This is the only way an OpenCPN PURE route vertex (not surfaced as a
+		# standalone mark) can be brought into navMate.db: copy the route's
+		# points, paste them as waypoints, then paste the route (whose members
+		# now pre-exist and resolve as shared refs -- the paradigm is unchanged,
+		# waypoints-first-then-route).  The point keeps its uuid, so a later
+		# route paste shares the same waypoint record.
+		if ($t eq 'waypoint' || $t eq 'route_point')
 		{
 			if ($fresh)
 			{
@@ -756,7 +772,6 @@ sub _pasteItemsToCollection
 					ts_source       => $ts_source,
 					point_count     => scalar @$pts,
 					collection_uuid => $target_uuid,
-					companion_uuid  => (($source eq 'e80' || $source eq 'fsh') ? $track->{trk_uuid} : undef),
 					position        => $pos,
 				);
 				if (@db_pts)
@@ -1020,7 +1035,6 @@ sub _pasteDB
 							ts_source       => $ts_src,
 							point_count     => scalar @$pts,
 							collection_uuid => $coll_uuid,
-							companion_uuid  => (($source eq 'e80' || $source eq 'fsh') ? $tr->{trk_uuid} : undef),
 							position        => $pos,
 						);
 						if (@db_pts)
@@ -1553,13 +1567,9 @@ sub _pushFromE80
 		elsif ($t eq 'track')
 		{
 			# PUSH-tracks (E80 -> DB) syncs the user-visible fields
-			# (name, color) from the E80-db cache to the DB row, plus
-			# the transport-metadata companion_uuid (the trk_uuid that
-			# E80 currently associates with this track).  Points are
-			# immutable on E80 so we don't touch the track_points table.
-			# Matched by mta_uuid only (which is the canonical identity);
-			# trk_uuid drift between DB and E80 is normal and expected
-			# (every PASTE causes E80 to mint a fresh trk_uuid).
+			# (name, color) from the E80-db cache to the DB row.  Points
+			# are immutable on E80 so we don't touch the track_points table.
+			# Matched by mta_uuid only (the canonical track identity).
 			my $td  = $item->{data} // {};
 			my $rec = getTrack($dbh, $uuid);
 			next if !$rec;
@@ -1571,11 +1581,10 @@ sub _pushFromE80
 				? e80ColorIndexToAbgr($td->{color})
 				: $rec->{color};
 			$dbh->do(
-				"UPDATE tracks SET name=?, color=?, companion_uuid=?, modified_ts=strftime('%s','now') WHERE uuid=?",
+				"UPDATE tracks SET name=?, color=?, modified_ts=strftime('%s','now') WHERE uuid=?",
 				[
 					$td->{name}     // $rec->{name},
 					$td_color,
-					$td->{trk_uuid} // $rec->{companion_uuid},
 					$uuid,
 				]);
 		}

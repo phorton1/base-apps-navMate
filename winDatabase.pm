@@ -810,7 +810,6 @@ sub _showObject
 		my $ts_start = tsText($t->{ts_start});
 		my $ts_end   = tsText($t->{ts_end});
 		$text .= _fmt('uuid',            ($t->{uuid} // '') . '  {mta_uuid}');
-		$text .= _fmt('companion_uuid', ($t->{companion_uuid} // '(none)') . '  {trk_uuid}');
 		$text .= _fmt('name',            $t->{name});
 		$text .= _fmt('comment',         $t->{comment});
 		$text .= _fmt('color',           $t->{color});

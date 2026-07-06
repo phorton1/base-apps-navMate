@@ -278,7 +278,7 @@ sub _exportTrack
 	$s .= _extData("$pad  ",
 		nm_uuid        => $track->{uuid},
 		nm_type        => 'track',
-		($track->{companion_uuid} ? (companion_uuid => $track->{companion_uuid}) : ()));
+		);
 	$s .= "$pad  <LineString>\n";
 	$s .= "$pad    <tessellate>1</tessellate>\n";
 	$s .= "$pad    <coordinates>$coords</coordinates>\n";
@@ -652,7 +652,7 @@ sub _importTrack
 			ts_source       => $TS_SOURCE_IMPORT,
 			point_count     => scalar @pts,
 			collection_uuid => $coll_uuid,
-			companion_uuid  => $ext->{companion_uuid});
+			);
 		insertTrackPoints($dbh, $nm_uuid, \@pts);
 	}
 	else
@@ -666,7 +666,7 @@ sub _importTrack
 			ts_source       => $TS_SOURCE_IMPORT,
 			collection_uuid => $coll_uuid,
 			point_count     => scalar @pts,
-			companion_uuid  => $ext->{companion_uuid});
+			);
 		insertTrackPoints($dbh, $uuid, \@pts);
 	}
 }

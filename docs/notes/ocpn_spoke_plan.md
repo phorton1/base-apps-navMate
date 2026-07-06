@@ -297,3 +297,22 @@ mitigation is plugin-side; hub tolerates + reads `results[].ok`).
 the alpha ran the guid map + command DT IN-MEMORY only; `winOCPN` pane; `navOpsOCPN` + the
 paste/push navOps wiring; the `test/ocpn` runbook module. The alpha proved the WIRE + direct-ops;
 these wire it into the app.
+
+## UX build (2026-07-05, co-built in `opencpn_implementation.md`) -- BUILT, awaiting alpha
+
+The full two-way user feature is now built and compiling (working tree, uncommitted); co-built with
+oe-claude in `docs/notes/opencpn_implementation.md` (Turns 1-5). Landed: schema **13.1** (all four
+pieces persistent now, migration `13.0->13.1` additive), `winOCPN.pm` (read-only live browser +
+`navVisibility` `'ocpn'` store + `nmResources`/`nmFrame` wiring + onIdle refresh clock),
+`navOpsOCPN.pm` + the `'ocpn'` arms across `navOps`/`navClipboard`/`navOpsFSH`/`navOpsDB` (inbound
+PASTE reuses `_pasteDB`; outbound = **both** Push-to-OpenCPN from the DB pane AND paste-into-pane,
+Patrick's call), the outbound projector `nmOCPNDirectOps::buildCommandsForItems` (manifestation XOR
+= route-membership-structural, full-embed routes -- unit-verified), the 36-entry `sym<->icon` table
+(`@SYM_DEFAULT_ICONS` + `navDB::symForIcon`/`iconForSym`), and foreign-GUID persistence
+(`persistOCPNIdentity`/`loadOCPNGuidMap`, write on inbound paste + read-merge on outbound push).
+Design decisions this round: (1) the pane is **read-only** in v1 (mutation via navOps, not in-pane
+editing) -- lowest wx risk + matches the live-projection nature; (2) **No "New..."** for the OCPN
+pane (objects arrive by paste/push); (3) `generation` token surfaced but its consumer deferred
+(oe self-heals via `ocpn_dt`->0 + idempotent apply). **Remaining:** the `test/ocpn` runbook (needs a
+new folder + real results -> held for the alpha), Patrick's hands-on UX alpha of the pane, then ONE
+Mode-2 bench pass with oe driven from the real UI.

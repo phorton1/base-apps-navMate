@@ -37,6 +37,7 @@ use threads::shared;
 use JSON::PP qw(encode_json decode_json);
 use Pub::Utils qw(display warning error);
 use Pub::HTTP::Response;
+use navDB qw(symForIcon);
 use nmOCPNDirectOps;
 
 our $dbg_ocpn = 0;			# 0 = log received inventories; raise to quiet
@@ -189,6 +190,43 @@ sub enqueueCommands
 
 
 #------------------------------------------------------------
+# pushItems($items, $op) - project canonical clip items -> commands -> queue
+#------------------------------------------------------------
+# The outbound entry point navOps calls: a PASTE/PUSH of hub objects INTO the
+# OpenCPN spoke.  Delegates the projection + manifestation XOR to
+# nmOCPNDirectOps::buildCommandsForItems (passing the ocdb guid map so a foreign
+# object round-trips its original opaque guid), then enqueues the batch (which
+# bumps navmate_dt so the plugin's next GET fetches it).  $op: 'add' (default,
+# upsert) or 'delete'.  Returns the enqueue summary.
+
+sub pushItems
+{
+	my ($items, $op) = @_;
+	$op ||= 'add';
+	my $map;
+	{
+		lock($state_lock);
+		my $ocdb = _loadOcdb();
+		$map = $ocdb->{map};   # a decoded (non-shared) copy -- safe to extend
+	}
+	# Merge the PERSISTED foreign-guid map (protocol sec 4): an OpenCPN object
+	# pasted into navMate.db and pushed back AFTER the plugin forgot it (so it is
+	# no longer in the in-memory ocdb map) still re-emits its original opaque
+	# guid.  The ocdb map wins on conflict (it is the live truth).
+	my $dbh = navDB::connectDB();
+	if ($dbh)
+	{
+		my $dbmap = navDB::loadOCPNGuidMap($dbh);
+		navDB::disconnectDB($dbh);
+		$map->{rev}{$_} //= $dbmap->{rev}{$_} for keys %{$dbmap->{rev} || {}};
+		$map->{fwd}{$_} //= $dbmap->{fwd}{$_} for keys %{$dbmap->{fwd} || {}};
+	}
+	my $cmds = nmOCPNDirectOps::buildCommandsForItems($items, $map, $op);
+	return enqueueCommands($cmds);
+}
+
+
+#------------------------------------------------------------
 # _consumeResults($results) - retire acked commands  (caller holds lock)
 #------------------------------------------------------------
 
@@ -294,6 +332,105 @@ sub getTracks
 	lock($state_lock);
 	my $ocdb = _loadOcdb();
 	return [ map { $ocdb->{tracks}{$_} } sort keys %{$ocdb->{tracks} || {}} ];
+}
+
+
+#------------------------------------------------------------
+# getSharedVersion() - a monotonic "ocdb changed" counter for the pane clock
+#------------------------------------------------------------
+# Bumped once per inventory POST (receiveInventory increments $recv_count).
+# nmFrame's onIdle polls this and calls winOCPN->refresh() on change, exactly
+# as the E80 pane refreshes off b_sock::getVersion.
+
+sub getSharedVersion
+{
+	lock($state_lock);
+	return $recv_count + 0;
+}
+
+
+#------------------------------------------------------------
+# shapedDb() - the ocdb reshaped into the winTreeBase/navOps record form
+#------------------------------------------------------------
+# Central projection of the raw ocdb (marks/routes/tracks keyed by uuid) into
+# the SAME record shape winE80/winFSH use, so the winOCPN pane, its feature
+# builders, and navOps' snapshot/paste all consume one canonical form:
+#   waypoints => { uuid => { uuid,name,comment,lat,lon,sym,color,guid,origin,
+#                            icon,is_standalone } }
+#   routes    => { uuid => { uuid,name,comment,color,guid,origin,
+#                            wpts=>[ {uuid,name,lat,lon} ] } }
+#   tracks    => { uuid => { uuid,name,color,guid,origin,points=>[{lat,lon,ts}],cnt } }
+# Route wpts are resolved against the marks map; sym is derived from the raw
+# icon via the hub's icon<->sym table (navDB).  Pure route-vertices stay in
+# waypoints (routes resolve them) but carry is_standalone=0 so callers can
+# exclude them from "My Waypoints".
+
+sub shapedDb
+{
+	my $marks  = getMarks()  || [];
+	my $routes = getRoutes() || [];
+	my $tracks = getTracks() || [];
+
+	my %wps;
+	for my $m (@$marks)
+	{
+		next if !defined $m->{uuid};
+		$wps{$m->{uuid}} = {
+			uuid          => $m->{uuid},
+			name          => $m->{name}        // '',
+			comment       => $m->{description}  // '',
+			lat           => ($m->{lat} // 0) + 0,
+			lon           => ($m->{lon} // 0) + 0,
+			icon          => $m->{icon}         // '',
+			sym           => navDB::symForIcon($m->{icon}),
+			color         => 0,
+			guid          => $m->{guid}         // '',
+			origin        => $m->{origin}       // 'ocpn',
+			is_standalone => defined($m->{is_standalone}) ? $m->{is_standalone} : 1,
+		};
+	}
+
+	my %rts;
+	for my $r (@$routes)
+	{
+		next if !defined $r->{uuid};
+		my @wpts;
+		for my $p (sort { ($a->{position}//0) <=> ($b->{position}//0) } @{$r->{points} || []})
+		{
+			my $wp = $wps{$p->{wp_uuid} // ''};
+			push @wpts, $wp ? {
+				uuid => $wp->{uuid}, name => $wp->{name}, lat => $wp->{lat}, lon => $wp->{lon},
+			} : { uuid => $p->{wp_uuid} // '', name => '', lat => 0, lon => 0 };
+		}
+		$rts{$r->{uuid}} = {
+			uuid    => $r->{uuid},
+			name    => $r->{name}        // '',
+			comment => $r->{description}  // '',
+			color   => 0,
+			guid    => $r->{guid}         // '',
+			origin  => $r->{origin}       // 'ocpn',
+			wpts    => \@wpts,
+		};
+	}
+
+	my %trks;
+	for my $t (@$tracks)
+	{
+		next if !defined $t->{uuid};
+		my @pts = map { { lat => ($_->{lat}//0)+0, lon => ($_->{lon}//0)+0, ts => int($_->{ts}//0) } }
+		          @{$t->{points} || []};
+		$trks{$t->{uuid}} = {
+			uuid   => $t->{uuid},
+			name   => $t->{name}   // '',
+			color  => 0,
+			guid   => $t->{guid}   // '',
+			origin => $t->{origin} // 'ocpn',
+			points => \@pts,
+			cnt    => scalar(@pts),
+		};
+	}
+
+	return { waypoints => \%wps, routes => \%rts, tracks => \%trks };
 }
 
 

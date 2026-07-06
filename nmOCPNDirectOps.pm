@@ -26,6 +26,7 @@ package nmOCPNDirectOps;
 use strict;
 use warnings;
 use navIdentity qw(ocpnGuidToNavUuid reconcileGuidToUuid projectUuidToGuid);
+use navDB qw(iconForSym);
 
 our $dbg = 0;
 
@@ -91,7 +92,7 @@ sub ingestInventory
 		next if !defined $uuid;
 		my $foreign = defined(ocpnGuidToNavUuid($m->{guid})) ? 0 : 1;
 		$n_foreign++ if $foreign;
-		$ocdb->{marks}{$uuid} = _wireMarkToOcdb($m, $uuid, $foreign);
+		$ocdb->{marks}{$uuid} = _wireMarkToOcdb($m, $uuid, $foreign, 1);   # standalone mark
 	}
 
 	my $rsum = _ingestRoutes($ocdb, $routes);
@@ -154,7 +155,7 @@ sub _ingestRoutes
 			if (ref($p->{mark}) eq 'HASH')   # pure vertex -> materialize once
 			{
 				my $foreign = defined(ocpnGuidToNavUuid($p->{guid})) ? 0 : 1;
-				$ocdb->{marks}{$wpuuid} = _wireMarkToOcdb($p->{mark}, $wpuuid, $foreign)
+				$ocdb->{marks}{$wpuuid} = _wireMarkToOcdb($p->{mark}, $wpuuid, $foreign, 0)   # pure vertex
 					if !exists $ocdb->{marks}{$wpuuid};
 				$n_vertices++;
 			}
@@ -227,7 +228,7 @@ sub _ingestTracks
 
 sub _wireMarkToOcdb
 {
-	my ($m, $uuid, $foreign) = @_;
+	my ($m, $uuid, $foreign, $standalone) = @_;
 	return {
 		guid        => $m->{guid},
 		uuid        => $uuid,
@@ -238,6 +239,11 @@ sub _wireMarkToOcdb
 		icon        => defined($m->{icon})        ? $m->{icon}        : '',
 		created_ts  => int($m->{created_ts} // 0),
 		origin      => $foreign ? 'ocpn' : 'navmate',
+		# is_standalone: 1 = a free-standing OpenCPN mark (GetFSStatus true,
+		# rides in marks[]); 0 = a pure route vertex materialized here so the
+		# route can reference it.  The winOCPN pane shows only standalone marks
+		# under "My Waypoints" (a vertex is not a browsable waypoint, sec 5).
+		is_standalone => $standalone ? 1 : 0,
 	};
 }
 
@@ -332,6 +338,142 @@ sub buildRouteCommand
 		};
 	}
 	return $cmd;
+}
+
+
+sub buildTrackCommand
+{
+	my ($op, $track) = @_;
+	my $cmd = { op => $op, type => 'track', guid => $track->{guid} };
+	if ($op ne 'delete')
+	{
+		my @points = map { {
+			lat => ($_->{lat} // 0) + 0,
+			lon => ($_->{lon} // 0) + 0,
+			ts  => int($_->{ts} // 0),
+		} } @{$track->{points} || []};
+		$cmd->{fields} = {
+			name   => $track->{name} // '',
+			points => \@points,
+		};
+	}
+	return $cmd;
+}
+
+
+#-----------------------------------------------------------------------
+# buildCommandsForItems($items, $map, $op) -- canonical clip items -> commands[]
+#-----------------------------------------------------------------------
+# The OUTBOUND projector: takes navOps canonical clip items (a DB/E80/FSH
+# snapshot -- {type,uuid,data,members,route_points}) and mints the sec-2A
+# commands[] batch the polling plugin will apply.  This is where the hub-side
+# manifestation policy lives (protocol sec 8), NOT in navOps:
+#
+#   - ROUTES full-embed every vertex (there is no add-by-ref on the plugin
+#     side, sec 2A inbound rule); each vertex's guid is projected from its uuid.
+#   - MANIFESTATION XOR: a waypoint that is a member of a pushed route manifests
+#     ONCE, as that route's vertex -- so a standalone 'waypoint'/'group-member'
+#     item whose uuid is already a route vertex is SKIPPED (else OpenCPN would
+#     face a per-vertex m_GUID collision, since AddPlugInRouteExV2 preserves the
+#     caller guid verbatim -- R2 PASS).  Route membership is structural (the
+#     item actually rides inside a route_points list), never the wp_type guess.
+#   - TRACKS map 1:1.
+#
+# $map is the guid reconcile map (ocdb/DB form) so a FOREIGN (0x4f) uuid re-emits
+# its original opaque OpenCPN guid; navMate/FSH-origin uuids project table-free
+# via the navIdentity codec ($map may be undef).  $op defaults to 'add' (the
+# plugin upserts add-of-existing, so add doubles as update; sec 8).
+
+sub _clipWpToMark
+{
+	my ($uuid, $d, $map) = @_;
+	$d //= {};
+	return {
+		guid        => projectUuidToGuid($uuid, $map),
+		name        => defined($d->{name})    ? $d->{name}    : '',
+		lat         => ($d->{lat} // 0) + 0,
+		lon         => ($d->{lon} // 0) + 0,
+		description => defined($d->{comment}) ? $d->{comment} : '',
+		icon        => _iconForClipWp($d),
+		created_ts  => int($d->{created_ts} // 0),
+	};
+}
+
+sub _iconForClipWp
+{
+	# Prefer a preserved raw OpenCPN IconName shadow (a foreign object round-
+	# tripping); otherwise derive the icon from the navMate sym (sec 7).  '' is
+	# a valid result (the plugin sets an empty IconName verbatim).
+	my ($d) = @_;
+	return $d->{icon_name} if defined($d->{icon_name}) && $d->{icon_name} ne '';
+	return navDB::iconForSym($d->{sym}) if defined $d->{sym};
+	return '';
+}
+
+sub buildCommandsForItems
+{
+	my ($items, $map, $op) = @_;
+	$items ||= [];
+	$op    ||= 'add';
+	my @cmds;
+	my %route_member;   # uuids manifested as route vertices this batch (XOR set)
+
+	# Pass 1 -- routes (full-embed); record their member uuids.
+	for my $it (@$items)
+	{
+		next if ($it->{type} // '') ne 'route';
+		my @points;
+		my %members;
+		for my $rp (@{$it->{route_points} || []})
+		{
+			my $wpu = $rp->{uuid};
+			next if !defined $wpu;
+			$route_member{$wpu} = 1;
+			my $mark = _clipWpToMark($wpu, $rp->{data}, $map);
+			$members{$wpu} = $mark;
+			push @points, { wp_uuid => $wpu, position => int($rp->{position} // 0), guid => $mark->{guid} };
+		}
+		my $route = {
+			guid   => projectUuidToGuid($it->{uuid}, $map),
+			name   => ($it->{data} // {})->{name}    // '',
+			description => ($it->{data} // {})->{comment} // '',
+			points => \@points,
+		};
+		push @cmds, buildRouteCommand($op, $route, \%members);
+	}
+
+	# Pass 2 -- standalone marks (waypoints + group members), XOR-skipping any
+	# uuid already manifested as a route vertex above.
+	for my $it (@$items)
+	{
+		my $t = $it->{type} // '';
+		if ($t eq 'waypoint')
+		{
+			next if $route_member{$it->{uuid} // ''};
+			push @cmds, buildMarkCommand($op, _clipWpToMark($it->{uuid}, $it->{data}, $map));
+		}
+		elsif ($t eq 'group')
+		{
+			for my $m (@{$it->{members} || []})
+			{
+				next if ($m->{type} // '') ne 'waypoint';
+				next if $route_member{$m->{uuid} // ''};
+				push @cmds, buildMarkCommand($op, _clipWpToMark($m->{uuid}, $m->{data}, $map));
+			}
+		}
+		elsif ($t eq 'track')
+		{
+			my $d   = $it->{data} // {};
+			my @pts = @{$d->{points} || []};
+			push @cmds, buildTrackCommand($op, {
+				guid   => projectUuidToGuid($it->{uuid}, $map),
+				name   => $d->{name} // '',
+				points => \@pts,
+			});
+		}
+	}
+
+	return \@cmds;
 }
 
 

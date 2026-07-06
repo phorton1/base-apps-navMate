@@ -31,6 +31,7 @@ BEGIN
 		$WP_TYPE_POI
 		@WP_TYPE_NAMES
 		%WP_DEFAULT_SYMS
+		@SYM_DEFAULT_ICONS
 
 		$TS_SOURCE_E80
 		$TS_SOURCE_KML_TIMESPAN
@@ -66,6 +67,7 @@ BEGIN
 		$CTX_CMD_PUSH
 		$CTX_CMD_PUSH_FSH
 		$CTX_CMD_PUSH_E80
+		$CTX_CMD_PUSH_OCPN
 
 	);
 }
@@ -75,7 +77,7 @@ our $NAVMATE_DATABASE = 'C:/dat/Rhapsody/navMate.db';
 
 # Schema version: integer part = breaking change (reimport required),
 # decimal part = non-breaking change (advisory).
-our $SCHEMA_VERSION = '13.0';
+our $SCHEMA_VERSION = '13.1';
 
 # waypoints.wp_type values (integer enum)
 our $WP_TYPE_NAV       = 0;
@@ -115,6 +117,50 @@ our %WP_DEFAULT_SYMS = (
 	$WP_TYPE_POI       => $E80_SYM_TRIANGLE_I,
 );
 
+# OpenCPN spoke (protocol.md sec 7): sym (0..35) -> the closest of OpenCPN's 43
+# default IconNames (from ProcessDefaultIcons).  Positional: index == sym.  NOT
+# a bijection (OpenCPN's set is open and coarser), so the icon->sym reverse
+# (navDB::symForIcon) folds many icons onto one sym with a catch-all default.
+# Grounded in the E80 sym catalog (Pub::Ray::NET::a_utils $E80_SYM_* 0..35).
+our @SYM_DEFAULT_ICONS = (
+	'square',      #  0 X
+	'circle',      #  1 CIRCLE
+	'square',      #  2 SQUARE
+	'triangle',    #  3 TRIANGLE
+	'diamond',     #  4 DIAMOND
+	'diamond',     #  5 SHADED_DIAMOND
+	'anchor',      #  6 ANCHOR
+	'rock1',       #  7 SKULL (danger)
+	'square',      #  8 SQUARE_X
+	'triangle',    #  9 TRIANGLE_I
+	'triangle',    # 10 DOWN_TRI_T
+	'mob',         # 11 CIRCLE_M (MOB)
+	'buoy1',       # 12 BUOY
+	'litevessel',  # 13 SAILBOAT
+	'wreck1',      # 14 SHIPWRECK
+	'food',        # 15 COCKTAIL
+	'scuba',       # 16 SWIMMER
+	'boundary',    # 17 EXCLAMATION (warning)
+	'empty',       # 18 CLOUD
+	'camping',     # 19 TREE
+	'coral',       # 20 REEF
+	'kelp',        # 21 WEEDS
+	'scuba',       # 22 DIVE_FLAG
+	'scuba',       # 23 BLUE_FLAG
+	'fish',        # 24 BIG_FISH
+	'fish',        # 25 FISH
+	'fishhaven',   # 26 FISH_STAR
+	'fishhaven',   # 27 FISH_TWO_STAR
+	'fishhaven',   # 28 FISH_THREE_STAR
+	'fish',        # 29 TWO_FISH
+	'fish',        # 30 SWORDFISH
+	'fish',        # 31 DOLPHIN
+	'fish',        # 32 SHARK
+	'fishhaven',   # 33 LOBSTER
+	'fishing',     # 34 SPORTFISHEER
+	'fishing',     # 35 TRAWLER
+);
+
 # ts_source values (waypoints.ts_source, tracks.ts_source)
 our $TS_SOURCE_E80          = 'e80';
 our $TS_SOURCE_KML_TIMESPAN = 'kml_timespan';
@@ -152,6 +198,7 @@ our $CTX_CMD_NEW_BRANCH			= 10233;
 our $CTX_CMD_PUSH				= 10250;
 our $CTX_CMD_PUSH_FSH			= 10251;
 our $CTX_CMD_PUSH_E80			= 10252;
+our $CTX_CMD_PUSH_OCPN			= 10253;
 
 
 1;

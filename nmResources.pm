@@ -34,6 +34,7 @@ BEGIN
 		$WIN_E80
 		$WIN_MONITOR
 		$WIN_FILESYS
+		$WIN_OCPN
 		$CMD_DOWNLOAD
 
 		$COMMAND_OPEN_MAP
@@ -87,6 +88,7 @@ our $WIN_E80					= 10012;
 our $WIN_MONITOR				= 10013;
 our $WIN_FSH					= 10014;
 our $WIN_FILESYS				= 10015;
+our $WIN_OCPN					= 10016;
 
 our $CMD_DOWNLOAD				= 10100;
 
@@ -138,6 +140,7 @@ my $pane_data = {
 	$WIN_MONITOR	=> ['Unused String3', 'content'],
 	$WIN_FSH		=> ['Unused String4', 'content'],
 	$WIN_FILESYS	=> ['Unused String5', 'content'],
+	$WIN_OCPN		=> ['Unused String6', 'content'],
 };
 
 my $command_data = {
@@ -147,6 +150,7 @@ my $command_data = {
 	$WIN_MONITOR				=> ['Monitor',				'Monitor and control service monitoring bits'],
 	$WIN_FSH					=> ['FSH',					'FSH file browser'],
 	$WIN_FILESYS				=> ['FileSys',				'ESeries removable media file system'],
+	$WIN_OCPN					=> ['OpenCPN',				'Live OpenCPN (oESeries plugin) contents'],
 	$CMD_DOWNLOAD				=> ['Download',				'Download selected items'],
 	$COMMAND_NEW_FSH			=> ['New',					'Create a new empty untitled FSH in memory'],
 	$COMMAND_OPEN_FSH_FILE		=> ['Open File...',			'Load an FSH archive file into the FSH browser'],
@@ -194,6 +198,7 @@ my $main_menu = [
 	'database_menu,&Database',
 	'e80_menu,&ESeries',
 	'fsh_menu,&FSH',
+	'ocpn_menu,&OpenCPN',
 	'utils_menu,&Utils',
 	'help_menu,&Help',
 ];
@@ -204,6 +209,7 @@ my $view_menu = [
 	$WIN_MONITOR,
 	$WIN_FSH,
 	$WIN_FILESYS,
+	$WIN_OCPN,
 	$ID_SEPARATOR,
 	$COMMAND_OPEN_MAP,
 	$COMMAND_CLEAR_MAP,
@@ -266,6 +272,12 @@ my $fsh_menu = [
 	$COMMAND_RESTORE_FSH_OUTLINE,
 ];
 
+# Top-level OpenCPN menu -- intentionally empty for now; its items (spoke-level
+# OpenCPN operations) are a later conversation.  The empty array still renders
+# the "OpenCPN" title in the menu bar, between FSH and Utils.
+my $ocpn_menu = [
+];
+
 my $utils_menu = [
 	$COMMAND_SYM_MAPPING,
 	$COMMAND_FORCE_SYM_RESET,
@@ -290,6 +302,7 @@ $resources = { %$resources,
 	database_menu            => $database_menu,
 	e80_menu                 => $e80_menu,
 	fsh_menu                 => $fsh_menu,
+	ocpn_menu                => $ocpn_menu,
 	utils_menu               => $utils_menu,
 	help_menu                => $help_menu,
 	filesys_context_menu     => $filesys_context_menu,

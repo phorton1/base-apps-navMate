@@ -25,6 +25,7 @@ use Pub::Utils qw(display warning error $UTILS_COLOR_LIGHT_MAGENTA);
 use Pub::WX::Dialogs;
 use navDB;
 use navFSH;
+use navOCPN;
 use n_defs;
 use Pub::Ray::NET::a_defs qw($E80_MAX_NAME);
 
@@ -37,6 +38,7 @@ BEGIN
 		isRenameHomogeneous
 		onRenameDB
 		onRenameFSH
+		onRenameOCPN
 	);
 }
 
@@ -89,6 +91,16 @@ sub isRenameHomogeneous
 			my $t = $n->{type} // '';
 			return undef if $t ne 'waypoint' && $t ne 'group'
 			             && $t ne 'route'    && $t ne 'track';
+			push @kinds, $t;
+		}
+	}
+	elsif ($panel eq 'ocpn')
+	{
+		# OpenCPN top-level types are waypoint/route/track (no groups).
+		for my $n (@nodes)
+		{
+			my $t = $n->{type} // '';
+			return undef if $t ne 'waypoint' && $t ne 'route' && $t ne 'track';
 			push @kinds, $t;
 		}
 	}
@@ -443,6 +455,64 @@ sub onRenameDB
 # Called from winFSH EVT_MENU handler for $CTX_CMD_RENAME.
 # Selection nodes carry node->{uuid} (FSH-format) and node->{data}{name}.
 # Preflight enforces 15-char ceiling and per-type uniqueness.
+
+sub onRenameOCPN
+{
+	# OpenCPN rename: same dialog as the other spokes, but the apply ENQUEUES an
+	# outbound update command per object (OpenCPN has no name-uniqueness and no
+	# length limit, so the preflight universe is empty with no max -- only the
+	# intra-batch duplicate guard that preflightRename always runs applies).
+	my ($pane, @nodes) = @_;
+	my $label = isRenameHomogeneous('ocpn', @nodes);
+	return if !$label;
+
+	display(-1, 0, "===== RENAME (ocpn) STARTED =====", 0, $UTILS_COLOR_LIGHT_MAGENTA);
+
+	my @pairs;
+	my %node_by_id;
+	for my $n (@nodes)
+	{
+		my $uuid = $n->{uuid};
+		next if !$uuid;
+		push @pairs, [$uuid, ($n->{data} // {})->{name} // ''];
+		$node_by_id{$uuid} = $n;
+	}
+	if (!@pairs)
+	{
+		display(-1, 0, "===== RENAME (ocpn) FINISHED =====", 0, $UTILS_COLOR_LIGHT_MAGENTA);
+		return;
+	}
+
+	my $preflight = sub {
+		my ($proposed) = @_;
+		return preflightRename($proposed, [], 0);   # no existing universe, no max
+	};
+
+	my $result = showRenameDialog($pane, $label, \@pairs, $preflight);
+	if (!$result)
+	{
+		display(-1, 0, "===== RENAME (ocpn) FINISHED =====", 0, $UTILS_COLOR_LIGHT_MAGENTA);
+		return;
+	}
+
+	# Apply: snapshot each node with its new name (a full canonical item, so a
+	# route full-embeds its vertices) and push the batch as upserts.
+	my $db = navOps::_ocpnDb();
+	my @items;
+	for my $p (@$result)
+	{
+		my $node = $node_by_id{$p->[0]};
+		next if !$node;
+		$node->{data}{name} = $p->[1];
+		my $item = navOps::_snapshotOCPNNode($db, $node);
+		push @items, $item if $item;
+	}
+	navOCPN::pushItems(\@items, 'add') if @items;
+	$pane->refresh();
+
+	display(-1, 0, "===== RENAME (ocpn) FINISHED =====", 0, $UTILS_COLOR_LIGHT_MAGENTA);
+}
+
 
 sub onRenameFSH
 {

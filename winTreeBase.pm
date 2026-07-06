@@ -1122,7 +1122,6 @@ sub _buildTrackFeature
     my ($this, $uuid, $track) = @_;
     my $pts = ref $track->{points} eq 'ARRAY' ? $track->{points} : [];
     return undef if !@$pts;
-    my $comp = $track->{companion_uuid} // $track->{trk_uuid};
 
     # Per-point depth (cm) and timestamp for the map hover/info-box, plus a
     # track-level timed-vs-stock kind.  DB points are already decoded hub
@@ -1168,7 +1167,6 @@ sub _buildTrackFeature
             depth_cm    => \@depth_cm,
             ts          => \@ts,
             track_kind  => $timed ? 'timed' : 'stock',
-            ($comp ? (companion_uuid => $comp) : ()),
         },
         geometry   => { type => 'LineString',
             coordinates => [map { [($_->{lon}//0)+0, ($_->{lat}//0)+0] } @$pts] },

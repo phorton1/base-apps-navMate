@@ -60,6 +60,11 @@ BEGIN
 		clearAllFSHVisible
 		getAllFSHVisibleUUIDs
 		batchRemoveFSHVisible
+		getOCPNVisible
+		setOCPNVisible
+		clearAllOCPNVisible
+		getAllOCPNVisibleUUIDs
+		batchRemoveOCPNVisible
 		addVisibilityObserver
 		removeVisibilityObserver
 		beginVisibilityBatch
@@ -71,6 +76,7 @@ BEGIN
 my %db_vis;
 my %e80_vis;
 my %fsh_vis;
+my %ocpn_vis;
 
 my @observers;       # list of subref closures
 my $batch_depth = 0;
@@ -159,7 +165,10 @@ sub loadViewState
 	my $fsh = $state{fsh_visibility};
 	%fsh_vis = ($fsh && ref $fsh eq 'HASH') ? %$fsh : ();
 
-	display(0, 0, 'navVisibility: loaded ' . scalar(keys %db_vis) . ' db + ' . scalar(keys %e80_vis) . ' e80 + ' . scalar(keys %fsh_vis) . ' fsh visible objects');
+	my $ocpn = $state{ocpn_visibility};
+	%ocpn_vis = ($ocpn && ref $ocpn eq 'HASH') ? %$ocpn : ();
+
+	display(0, 0, 'navVisibility: loaded ' . scalar(keys %db_vis) . ' db + ' . scalar(keys %e80_vis) . ' e80 + ' . scalar(keys %fsh_vis) . ' fsh + ' . scalar(keys %ocpn_vis) . ' ocpn visible objects');
 }
 
 
@@ -167,9 +176,10 @@ sub saveViewState
 {
 	my $file = _stateFile();
 	my $state = {
-		db_visibility  => \%db_vis,
-		e80_visibility => \%e80_vis,
-		fsh_visibility => \%fsh_vis,
+		db_visibility   => \%db_vis,
+		e80_visibility  => \%e80_vis,
+		fsh_visibility  => \%fsh_vis,
+		ocpn_visibility => \%ocpn_vis,
 	};
 	my $json = encode_json($state);
 	open(my $fh, '>:raw', $file) or do { error("navVisibility: cannot write $file: $!"); return; };
@@ -326,6 +336,53 @@ sub batchRemoveFSHVisible
 	return if !@$uuids_ref;
 	beginVisibilityBatch();
 	setFSHVisible($_, 0) for @$uuids_ref;
+	endVisibilityBatch();
+}
+
+
+#----------------------------------
+# OCPN visibility  (OpenCPN spoke)
+#----------------------------------
+
+sub getOCPNVisible
+{
+	my ($uuid) = @_;
+	return ($uuid && $ocpn_vis{$uuid}) ? 1 : 0;
+}
+
+
+sub setOCPNVisible
+{
+	my ($uuid, $val) = @_;
+	return if !$uuid;
+	my $new = $val ? 1 : 0;
+	my $old = $ocpn_vis{$uuid} ? 1 : 0;
+	return if $new == $old;
+	if ($new) { $ocpn_vis{$uuid} = 1    }
+	else      { delete $ocpn_vis{$uuid} }
+	_notify('ocpn', $uuid, $new);
+}
+
+
+sub clearAllOCPNVisible
+{
+	my @uuids = keys %ocpn_vis;
+	return if !@uuids;
+	beginVisibilityBatch();
+	setOCPNVisible($_, 0) for @uuids;
+	endVisibilityBatch();
+}
+
+
+sub getAllOCPNVisibleUUIDs { return keys %ocpn_vis }
+
+
+sub batchRemoveOCPNVisible
+{
+	my ($uuids_ref) = @_;
+	return if !@$uuids_ref;
+	beginVisibilityBatch();
+	setOCPNVisible($_, 0) for @$uuids_ref;
 	endVisibilityBatch();
 }
 
