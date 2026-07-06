@@ -58,6 +58,10 @@ navMate stands on the work of these open-source projects:
 - **[parsefsh](https://github.com/rahra/parsefsh)** by Bernhard R. Fischer -- the open-source
   C project that first decoded the Raymarine FSH archive format; navMate's FSH support
   (through the Pub::Ray library) is built on that groundwork (GPL).
+- **[OpenCPN](https://opencpn.org/)** -- the open-source marine chart plotter navMate exchanges
+  waypoints, routes, and tracks with, via the companion `oESeries` OpenCPN plugin built against
+  OpenCPN's plugin API. OpenCPN and any of its assets navMate incorporates (for example, its
+  waypoint icon set) are used under the GNU General Public License v3.
 - **[Google Maps](https://developers.google.com/maps)** -- satellite tile imagery via the
   Maps JavaScript API (`lyrs=s`). Requires a Google Maps Platform API key; usage subject to
   the Google Maps Platform Terms of Service.
