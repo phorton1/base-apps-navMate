@@ -35,7 +35,7 @@ use warnings;
 use threads;
 use threads::shared;
 use JSON::PP qw(encode_json decode_json);
-use Pub::Utils qw(display warning error);
+use Pub::Utils qw(display warning error $data_dir);
 use Pub::HTTP::Response;
 use navDB qw(symForIcon);
 use nmOCPNDirectOps;
@@ -51,6 +51,35 @@ my $last_recv_ts  :shared = 0;
 my $recv_count    :shared = 0;
 my $last_ingest_json :shared = '';	# the last ingest summary (marks_in vs distinct etc.)
 my $last_results_json :shared = '';	# the last POSTed results[] (incl diag data) for asserts
+
+# Symbol channel (protocol sec 7 / co-design Turn 25).  Every POST carries an
+# icon_hash (SHA-256 over the plugin's foreign non-nm: icon name set).  HASH-FIRST
+# / FETCH-ON-DEMAND: we only ever hold the hash; when it names a library we don't
+# have on disk yet we raise want_icons in the poll view, and the plugin's next
+# POST carries the full ocpn_icons[] which we cache to disk (the OpenCPN-icon
+# library, keyed by hash, under $data_dir).  Persistent across resets; the disk
+# cache is the durable library, these vars are just the live channel state.
+my $icon_hash    :shared = '';		# last icon_hash the plugin reported ('' = none yet)
+my $want_icons   :shared = 0;		# ask the plugin to include ocpn_icons[] next POST
+my $icon_forced  :shared = 0;		# a /debug/want_icons force (sticky until icons arrive)
+
+# Wire self-versioning (protocol.md "Versioning", spec 1.0).  Each side announces
+# the contract IT speaks in its own envelope -- navMate in the GET poll view, the
+# plugin in its POST.  MAJOR.MINOR string; MINOR = upward-compatible additive,
+# MAJOR = breaking.  ABSENT == "1.0" baseline (so a pre-versioning plugin reads as
+# 1.0 and nothing breaks).  SOFT floor: warn once if the peer's MAJOR is below the
+# minimum, but NEVER gate -- co-dev must survive a version skew.
+our $PROTOCOL_VERSION   = '1.0';	# the contract navMate speaks
+my  $PROTOCOL_MIN_MAJOR = 1;		# minimum peer MAJOR before we warn
+my  $peer_protocol   :shared = '';	# the plugin's last-announced protocol_version
+my  $peer_ver_warned :shared = 0;	# warn-once latch (re-armed on a version change)
+
+sub _verMajor
+{
+	my ($v) = @_;
+	return 1 if !defined $v || $v eq '';   # absent == 1.0 baseline
+	return ($v =~ /^(\d+)/) ? int($1) : 1;
+}
 
 
 #------------------------------------------------------------
@@ -97,6 +126,117 @@ sub _commands
 
 
 #------------------------------------------------------------
+# symbol channel -- the persistent OpenCPN-icon disk cache (sec 7)
+#------------------------------------------------------------
+# The durable icon library lives under $data_dir/ocpn_icons/<hash>.json -- one
+# file per distinct icon set, keyed by the plugin's icon_hash.  navMate NEVER
+# reads OpenCPN's filesystem (the plugin may be on another machine); the library
+# is built solely from what crosses the wire (the ocpn_icons[] fetch).  The hash
+# is a SHA-256 hex string from the plugin; we validate it as hex before ever
+# using it as a filename (no path-injection from the wire).
+
+sub _validHash { return (defined $_[0] && $_[0] =~ /^[0-9a-fA-F]{16,128}$/) ? 1 : 0; }
+
+sub _iconCacheDir
+{
+	my $dir = "$data_dir/ocpn_icons";
+	mkdir($dir) if !-d $dir;
+	return $dir;
+}
+
+sub _iconCachePath { return _iconCacheDir()."/$_[0].json"; }
+
+sub _iconCacheHas
+{
+	my ($hash) = @_;
+	return (_validHash($hash) && -f _iconCachePath($hash)) ? 1 : 0;
+}
+
+sub _iconCacheStore
+{
+	my ($hash, $icons) = @_;
+	if (!_validHash($hash))
+	{
+		warning(0,0,"navOCPN: refusing to cache icons under non-hex hash '".($hash//'')."'");
+		return 0;
+	}
+	my $rec = {
+		icon_hash   => "$hash",
+		received_ts => time(),
+		count       => scalar(@$icons),
+		icons       => $icons,
+	};
+	my $path = _iconCachePath($hash);
+	if (open(my $fh, '>', $path))
+	{
+		binmode($fh);
+		print $fh encode_json($rec);
+		close($fh);
+		display($dbg_ocpn,0,"navOCPN: cached ".scalar(@$icons)." OpenCPN icons for hash $hash");
+		return 1;
+	}
+	warning(0,0,"navOCPN: could not write icon cache $path: $!");
+	return 0;
+}
+
+sub _iconCacheLoad
+{
+	my ($hash) = @_;
+	return undef if !_iconCacheHas($hash);
+	open(my $fh, '<', _iconCachePath($hash)) or return undef;
+	binmode($fh);
+	local $/;
+	my $raw = <$fh>;
+	close($fh);
+	return eval { decode_json($raw) };
+}
+
+
+#------------------------------------------------------------
+# _processIconChannel($body) -- run the hash gate on a POST  (caller holds lock)
+#------------------------------------------------------------
+# Ingest-first: if this POST actually carried ocpn_icons[], cache the library
+# under its hash and the request is satisfied.  Otherwise track the reported hash
+# and raise want_icons on a cache MISS (or while a /debug force is live), so the
+# plugin's next POST brings the library.  A cache HIT stays quiet -- only the hash
+# rides, never the payload (fetch-on-demand).
+
+sub _processIconChannel
+{
+	my ($body) = @_;
+	my $hash  = defined($body->{icon_hash}) ? "$body->{icon_hash}" : '';
+	my $icons = (ref($body->{ocpn_icons}) eq 'ARRAY') ? $body->{ocpn_icons} : undef;
+
+	if ($icons && @$icons)   # the library arrived
+	{
+		my $key = ($hash ne '') ? $hash : $icon_hash;
+		_iconCacheStore($key, $icons);
+		$icon_hash   = $hash if $hash ne '';
+		$want_icons  = 0;
+		$icon_forced = 0;
+		return;
+	}
+
+	return if $hash eq '';   # a bare ack/poll POST with no symbol traffic
+	$icon_hash  = $hash;
+	$want_icons = ($icon_forced || !_iconCacheHas($hash)) ? 1 : 0;
+}
+
+# _iconChannelState() -- structured channel state (caller holds lock)
+sub _iconChannelState
+{
+	my $lib = _iconCacheHas($icon_hash) ? _iconCacheLoad($icon_hash) : undef;
+	return {
+		icon_hash  => "$icon_hash",
+		want_icons => ($want_icons ? JSON::PP::true : JSON::PP::false),
+		forced     => ($icon_forced ? JSON::PP::true : JSON::PP::false),
+		cached     => ($lib ? JSON::PP::true : JSON::PP::false),
+		icon_count => ($lib ? ($lib->{count} + 0) : 0),
+	};
+}
+
+
+#------------------------------------------------------------
 # pollView() - the version view navMate returns on every GET / POST
 #------------------------------------------------------------
 # ok is a JSON BOOL (sec 2A: "ok is a JSON bool everywhere"); commands is
@@ -107,9 +247,12 @@ sub pollView
 	lock($state_lock);
 	return {
 		ok         => JSON::PP::true,
+		protocol_version => $PROTOCOL_VERSION,   # the contract navMate speaks (self-announce)
 		navmate_dt => $navmate_dt + 0,
 		ocpn_dt    => $ocpn_dt + 0,
 		commands   => _commands(),
+		# symbol channel (sec 7): true = include ocpn_icons[] in your next POST.
+		want_icons => ($want_icons ? JSON::PP::true : JSON::PP::false),
 	};
 }
 
@@ -128,6 +271,20 @@ sub receiveInventory
 
 	my $dt = defined($body->{dt}) ? $body->{dt} + 0 : 0;
 
+	# Wire self-versioning: record the plugin's announced protocol_version (absent
+	# == 1.0 baseline) and soft-floor-warn ONCE if its MAJOR is below our minimum.
+	# Never gate -- a version skew must not blank the pane.
+	my $pv = (defined($body->{protocol_version}) && $body->{protocol_version} ne '')
+		? "$body->{protocol_version}" : '1.0';
+	$peer_ver_warned = 0 if $pv ne $peer_protocol;   # re-arm the latch on a change
+	$peer_protocol   = $pv;
+	if (_verMajor($pv) < $PROTOCOL_MIN_MAJOR && !$peer_ver_warned)
+	{
+		warning(0,0,"navOCPN: OpenCPN plugin speaks protocol $pv; navMate needs ".
+			"$PROTOCOL_MIN_MAJOR.x -- some features may not work, please update the plugin");
+		$peer_ver_warned = 1;
+	}
+
 	my $ocdb    = _loadOcdb();
 	my $summary = nmOCPNDirectOps::ingestInventory($ocdb, $body);
 	_storeOcdb($ocdb);
@@ -137,6 +294,11 @@ sub receiveInventory
 	# guid+op).  This does NOT bump navmate_dt -- retiring an ack is not a new
 	# canonical mutation, and neither is the ingest above -- so an echoed object
 	# reappearing in marks[] can never re-mint a command (the echo invariant).
+	# Symbol channel (sec 7): run the icon_hash gate / ingest any ocpn_icons[]
+	# BEFORE building the view, so want_icons in THIS response already reflects a
+	# just-satisfied fetch (icons in this POST) or a fresh miss (new hash).
+	_processIconChannel($body);
+
 	my $acked = _consumeResults($body->{results});
 	# Preserve the last NON-EMPTY results[] -- the plugin re-POSTs several times
 	# (results batch, then echo, then steady-state) and the later POSTs carry an
@@ -227,6 +389,42 @@ sub pushItems
 
 
 #------------------------------------------------------------
+# pushFieldUpdate($nav_type, $uuid, \%changed) - a field-level edit -> update cmd
+#------------------------------------------------------------
+# The winOCPN inline-editor Save path (sec 8): enqueue an 'update' carrying ONLY
+# the fields the user changed, so the plugin's read-modify-write leaves every
+# untouched OpenCPN-only field at its live value.  $changed is in wire shape
+# (description not comment; B fields flat, range_rings nested); [R] fields and
+# undefs are dropped by buildUpdateCommand.  Projects uuid->guid via the merged
+# ocdb+DB map exactly as pushItems, so a foreign object re-emits its opaque guid.
+
+sub pushFieldUpdate
+{
+	my ($nav_type, $uuid, $changed) = @_;
+	return { ok => JSON::PP::false, error => 'no fields' }
+		if ref($changed) ne 'HASH' || !%$changed;
+	return { ok => JSON::PP::false, error => 'no uuid' } if !defined $uuid || $uuid eq '';
+
+	my $map;
+	{
+		lock($state_lock);
+		my $ocdb = _loadOcdb();
+		$map = $ocdb->{map};
+	}
+	my $dbh = navDB::connectDB();
+	if ($dbh)
+	{
+		my $dbmap = navDB::loadOCPNGuidMap($dbh);
+		navDB::disconnectDB($dbh);
+		$map->{rev}{$_} //= $dbmap->{rev}{$_} for keys %{$dbmap->{rev} || {}};
+		$map->{fwd}{$_} //= $dbmap->{fwd}{$_} for keys %{$dbmap->{fwd} || {}};
+	}
+	my $cmd = nmOCPNDirectOps::buildUpdateCommand($nav_type, $uuid, $map, $changed);
+	return enqueueCommands([$cmd]);
+}
+
+
+#------------------------------------------------------------
 # _consumeResults($results) - retire acked commands  (caller holds lock)
 #------------------------------------------------------------
 
@@ -271,6 +469,8 @@ sub dumpState
 	my $ocdb = _loadOcdb();
 	return {
 		ok         => JSON::PP::true,
+		protocol_version => $PROTOCOL_VERSION,
+		peer_protocol    => "$peer_protocol",
 		navmate_dt => $navmate_dt + 0,
 		ocpn_dt    => $ocpn_dt + 0,
 		recv_count => $recv_count + 0,
@@ -285,6 +485,7 @@ sub dumpState
 		tracks   => $ocdb->{tracks} || {},
 		map      => $ocdb->{map}    || { fwd => {}, rev => {}, counter => 0 },
 		commands => _commands(),
+		icon_channel => _iconChannelState(),
 		last_ingest  => ($last_ingest_json  ? eval { decode_json($last_ingest_json)  } : undef),
 		last_results => ($last_results_json ? eval { decode_json($last_results_json) } : []),
 	};
@@ -305,7 +506,70 @@ sub resetState
 	$navmate_dt    = 0;
 	$last_recv_ts  = 0;
 	$recv_count    = 0;
+	# Clear the live symbol-channel state (re-evaluated on the next POST); the
+	# on-disk icon library is DURABLE and deliberately NOT deleted here -- reset
+	# is the clear_e80 analog for the spoke inventory, not the icon library.
+	$icon_hash    = '';
+	$want_icons   = 0;
+	$icon_forced  = 0;
+	$peer_protocol   = '';
+	$peer_ver_warned = 0;
 	return { ok => JSON::PP::true, reset => JSON::PP::true };
+}
+
+
+#------------------------------------------------------------
+# protocol-version accessors (winOCPN surface, sec Versioning)
+#------------------------------------------------------------
+
+sub protocolVersion { return $PROTOCOL_VERSION; }
+
+sub peerProtocolVersion
+{
+	lock($state_lock);
+	return "$peer_protocol";
+}
+
+
+#------------------------------------------------------------
+# symbol-channel accessors (harness driver + winOCPN, phase b)
+#------------------------------------------------------------
+# setWantIcons($on): force (or clear) the fetch request independent of cache
+# state -- the harness POSTs /debug/want_icons to capture the full ocpn_icons[]
+# even when the library is already cached.  Sticky until the icons actually
+# arrive (see _processIconChannel).
+sub setWantIcons
+{
+	my ($on) = @_;
+	$on = defined($on) ? ($on ? 1 : 0) : 1;
+	lock($state_lock);
+	$want_icons  = $on;
+	$icon_forced = $on;
+	return { ok => JSON::PP::true, want_icons => ($want_icons ? JSON::PP::true : JSON::PP::false) };
+}
+
+sub iconChannelState
+{
+	lock($state_lock);
+	return _iconChannelState();
+}
+
+# currentIconHash -- the live vocabulary hash ('' = none yet); winOCPN reloads
+# its picker when this changes.
+sub currentIconHash
+{
+	lock($state_lock);
+	return "$icon_hash";
+}
+
+# loadIconLibrary($hash): the cached ocpn_icons[] record for a hash (defaults to
+# the live icon_hash) -- winOCPN's symbol picker reads its images/names here.
+sub loadIconLibrary
+{
+	my ($hash) = @_;
+	lock($state_lock);
+	$hash = $icon_hash if !defined $hash || $hash eq '';
+	return _iconCacheLoad($hash);
 }
 
 
@@ -356,7 +620,7 @@ sub getSharedVersion
 # the SAME record shape winE80/winFSH use, so the winOCPN pane, its feature
 # builders, and navOps' snapshot/paste all consume one canonical form:
 #   waypoints => { uuid => { uuid,name,comment,lat,lon,sym,color,guid,origin,
-#                            icon,is_standalone } }
+#                            icon,is_standalone,b } }   # b = OpenCPN B superset
 #   routes    => { uuid => { uuid,name,comment,color,guid,origin,
 #                            wpts=>[ {uuid,name,lat,lon} ] } }
 #   tracks    => { uuid => { uuid,name,color,guid,origin,points=>[{lat,lon,ts}],cnt } }
@@ -387,6 +651,9 @@ sub shapedDb
 			guid          => $m->{guid}         // '',
 			origin        => $m->{origin}       // 'ocpn',
 			is_standalone => defined($m->{is_standalone}) ? $m->{is_standalone} : 1,
+			# the OpenCPN category-B superset, carried opaquely (winOCPN shows it
+			# read-only, phase b; navOps persists it to spoke_shadow.data, phase c).
+			b             => (ref($m->{b}) eq 'HASH') ? $m->{b} : {},
 		};
 	}
 
@@ -410,6 +677,7 @@ sub shapedDb
 			guid    => $r->{guid}         // '',
 			origin  => $r->{origin}       // 'ocpn',
 			wpts    => \@wpts,
+			b       => (ref($r->{b}) eq 'HASH') ? $r->{b} : {},   # from/to/visible/active[R]
 		};
 	}
 
@@ -427,6 +695,7 @@ sub shapedDb
 			origin => $t->{origin} // 'ocpn',
 			points => \@pts,
 			cnt    => scalar(@pts),
+			b      => (ref($t->{b}) eq 'HASH') ? $t->{b} : {},   # from/to
 		};
 	}
 

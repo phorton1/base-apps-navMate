@@ -16,6 +16,8 @@
 #   GET  /api/ocpn?dump=1     - structured ocdb readback (asserts read this)
 #   POST /api/ocpn            - ingest a sec-2A inventory into the in-memory ocdb
 #   POST /debug/reset         - zero the spoke (clear_e80 analog)
+#   GET/POST /debug/want_icons[?on=0] - force want_icons so the next plugin POST
+#                               carries the full ocpn_icons[] (symbol-channel capture)
 #   GET  /debug/project?limit=N - project N real dev-DB waypoints (READ-ONLY) to a
 #                               ready-to-POST sec-2A inventory { dt, marks, ... }
 #   GET  /debug/health        - { ok, port, db_path, db_ok }
@@ -43,6 +45,11 @@ use navOCPN;
 use base qw(Pub::HTTP::ServerBase);
 
 my $SQLITE_OPEN_READONLY = 0x00000001;   # DBD::SQLite OPEN_READONLY
+my $post_seq :shared = 0;                # sequence counter for raw-POST-body dump files
+# Raw POST bodies are a CLAUDE debug artifact, so they go to Claude's temp dir --
+# deliberately kept DISTINCT from navMate's operational $temp_dir.  Override with
+# --rawlog=<dir>; set to '' to disable capture.
+my $rawpost_dir :shared = 'C:/_temp/base-apps-navMate';
 
 
 #---------------------------------------------
@@ -60,6 +67,7 @@ sub handle_request
 	{
 		if ($method eq 'POST')
 		{
+			_logRawPost($request);
 			my $h = $request->getPostJSON();
 			return navOCPN::jsonResponse($request, { ok => JSON::PP::false, error => 'missing or invalid JSON body' }) if !$h;
 			return navOCPN::jsonResponse($request, navOCPN::receiveInventory($h));
@@ -82,6 +90,18 @@ sub handle_request
 		my $cmds = (ref($h) eq 'HASH' && ref($h->{commands}) eq 'ARRAY') ? $h->{commands} : $h;
 		return navOCPN::jsonResponse($request, navOCPN::enqueueCommands($cmds));
 	}
+	elsif ($uri eq '/debug/want_icons')
+	{
+		# Symbol-channel driver: FORCE want_icons so the plugin's next POST carries
+		# the full ocpn_icons[] (the ~370), even when the library is already cached
+		# -- lets us capture the raw payload (via _logRawPost) on demand.  ?on=0 (or
+		# body {on:0}) clears it.  Sticky until the icons actually arrive.
+		my $on = 1;
+		$on = 0 if defined($params->{on}) && !$params->{on};
+		my $h = eval { $request->getPostJSON() };
+		$on = ($h->{on} ? 1 : 0) if ref($h) eq 'HASH' && exists $h->{on};
+		return navOCPN::jsonResponse($request, navOCPN::setWantIcons($on));
+	}
 	elsif ($uri eq '/debug/project')
 	{
 		my $limit = int($params->{limit} // 10);
@@ -100,6 +120,43 @@ sub handle_request
 		});
 	}
 	return navOCPN::jsonResponse($request, { ok => JSON::PP::false, error => "unknown endpoint: $uri" });
+}
+
+
+#---------------------------------------------
+# _logRawPost($request) - dump the raw POST body to a temp file
+#---------------------------------------------
+# The raw wire body can be large (inventories, and eventually icon payloads), so
+# we write it to a sequenced file and emit only a short one-line pointer.  This
+# lets us inspect EXACTLY what the plugin sent (icon_hash, the B superset, ...) as
+# distinct from what survives the hub's ingest.  Writes to $rawpost_dir (Claude's
+# temp), NOT navMate's operational $temp_dir.  Read-only; never touches wire/ocdb.
+
+sub _logRawPost
+{
+	my ($request) = @_;
+	return if !$rawpost_dir;
+	mkdir($rawpost_dir) if !-d $rawpost_dir;
+	my $raw = eval { $request->get_decoded_content() };
+	$raw = $request->{content} if !defined $raw;
+	$raw = '' if !defined $raw;
+	my $n;
+	{
+		lock($post_seq);
+		$n = ++$post_seq;
+	}
+	my $path = sprintf("%s/oe_post_%03d.json", $rawpost_dir, $n);
+	if (open(my $fh, '>', $path))
+	{
+		binmode($fh);
+		print $fh $raw;
+		close($fh);
+		display(0, 0, sprintf("RAW POST #%d: %d bytes -> %s", $n, length($raw), $path));
+	}
+	else
+	{
+		warning(0, 0, "could not write raw POST to $path: $!");
+	}
 }
 
 
@@ -154,7 +211,7 @@ sub _projectFromDB
 #---------------------------------------------
 
 my $port = 9999;
-GetOptions('port=i' => \$port) or die "bad args\n";
+GetOptions('port=i' => \$port, 'rawlog=s' => \$rawpost_dir) or die "bad args\n";
 
 setStandardTempDir('navMate');
 setStandardDataDir('navMate');

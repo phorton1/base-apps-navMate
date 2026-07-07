@@ -25,10 +25,140 @@
 package nmOCPNDirectOps;
 use strict;
 use warnings;
+use JSON::PP ();
+use Scalar::Util qw(reftype);
 use navIdentity qw(ocpnGuidToNavUuid reconcileGuidToUuid projectUuidToGuid);
 use navDB qw(iconForSym);
 
 our $dbg = 0;
+
+
+#-----------------------------------------------------------------------
+# the OpenCPN "category-B" superset  (protocol sec 2A / co-design Turn 25)
+#-----------------------------------------------------------------------
+# Beyond the A-fields (guid/name/lat/lon/description/icon/created_ts) every wire
+# mark carries an OpenCPN-specific superset navMate has no native home for.  We
+# carry it OPAQUELY as a self-contained `b` blob on the ocdb mark -- never merged
+# into navMate's own model, so it cannot bleed across (e.g. OpenCPN `visible`
+# stays SEPARATE from navMate's navVisibility).  It rides the ingest into the
+# ocdb, surfaces read-only in the winOCPN editor (phase b), persists to the
+# spoke_shadow `data` blob at the canonical seam (phase c), and re-emits verbatim
+# on an outbound round-trip so a foreign mark keeps full fidelity.
+#
+# Typed so a JSON round-trip through the ocdb (and the eventual nlohmann parse on
+# the plugin side) stays well-formed: bools as JSON bools, ints/nums numeric,
+# strings present-else-''.  range_rings is a nested typed struct; hyperlinks are
+# carried verbatim (APPLY is bench-deferred, display-only for now).
+my @B_BOOL = qw( visible name_shown active scamin_on );
+my @B_INT  = qw( scamin scamax etd );
+my @B_NUM  = qw( arrival_radius planned_speed );
+my @B_STR  = qw( tide_station );
+
+# [R] read-only fields: carried into the ocdb for DISPLAY, but NEVER emitted
+# outbound (up-only nav state -- sec 2A/6).  `active` on both marks and routes.
+my %B_READONLY = ( active => 1 );
+
+# _wireBool -- normalize any JSON-decoded boolean to a JSON::PP bool.  CAUTION:
+# the POST decoder (Pub::HTTP::Request::getPostJSON) runs the body through
+# shared_clone (threads::shared), which leaves JSON::PP::Boolean as a blessed
+# scalar-ref whose boolean OVERLOAD no longer fires -- so a naive `$v ? ..` sees
+# a (truthy) ref and reads EVERY bool as true.  We deref scalar-refs (blessed or
+# not) to their real 0/1 payload; plain scalars fall through to ordinary truth.
+sub _wireBool
+{
+	my ($v) = @_;
+	return JSON::PP::false if !defined $v;
+	my $rt = reftype($v);
+	my $t  = (defined($rt) && $rt eq 'SCALAR') ? ($$v ? 1 : 0) : ($v ? 1 : 0);
+	return $t ? JSON::PP::true : JSON::PP::false;
+}
+
+sub _normRangeRings
+{
+	my ($rr) = @_;
+	$rr = {} if ref($rr) ne 'HASH';
+	return {
+		count => int($rr->{count} // 0),
+		space => ($rr->{space} // 0) + 0,
+		units => int($rr->{units} // 0),
+		color => defined($rr->{color}) ? $rr->{color} : '',
+		show  => _wireBool($rr->{show}),
+	};
+}
+
+# _extractWireB($m) -- a wire mark's B superset -> a normalized ocdb `b` blob
+sub _extractWireB
+{
+	my ($m) = @_;
+	my %b;
+	$b{$_} = _wireBool($m->{$_})                for @B_BOOL;
+	$b{$_} = int($m->{$_} // 0)                 for @B_INT;
+	$b{$_} = ($m->{$_} // 0) + 0                for @B_NUM;
+	$b{$_} = defined($m->{$_}) ? $m->{$_} : ''  for @B_STR;
+	$b{range_rings} = _normRangeRings($m->{range_rings});
+	$b{hyperlinks}  = (ref($m->{hyperlinks}) eq 'ARRAY') ? $m->{hyperlinks} : [];
+	return \%b;
+}
+
+# _emitWireB($fields, $b) -- splat a stored `b` blob back onto an outbound
+# fields hash, re-coercing types (the blob may arrive from the ocdb OR, phase c,
+# from the spoke_shadow `data` column -- either way the wire stays well-typed).
+sub _emitWireB
+{
+	my ($fields, $b) = @_;
+	$b = {} if ref($b) ne 'HASH';
+	$fields->{$_} = _wireBool($b->{$_})               for grep { !$B_READONLY{$_} } @B_BOOL;
+	$fields->{$_} = int($b->{$_} // 0)                for grep { !$B_READONLY{$_} } @B_INT;
+	$fields->{$_} = ($b->{$_} // 0) + 0               for grep { !$B_READONLY{$_} } @B_NUM;
+	$fields->{$_} = defined($b->{$_}) ? $b->{$_} : '' for grep { !$B_READONLY{$_} } @B_STR;
+	$fields->{range_rings} = _normRangeRings($b->{range_rings});
+	$fields->{hyperlinks}  = (ref($b->{hyperlinks}) eq 'ARRAY') ? $b->{hyperlinks} : [];
+}
+
+
+# Route/track B superset (sec 6): far smaller than a mark's.  Route carries
+# from/to (m_StartString/m_EndString), visible (routes CAN show/hide), and
+# active [R] (up-only nav state, display-only, NEVER pushed).  Track carries only
+# from/to.  Same opaque-blob discipline as the mark `b`.
+sub _extractRouteB
+{
+	my ($r) = @_;
+	return {
+		from    => defined($r->{from}) ? $r->{from} : '',
+		to      => defined($r->{to})   ? $r->{to}   : '',
+		visible => _wireBool($r->{visible}),
+		active  => _wireBool($r->{active}),   # [R] -- carried for display, never emitted
+	};
+}
+
+sub _extractTrackB
+{
+	my ($t) = @_;
+	return {
+		from => defined($t->{from}) ? $t->{from} : '',
+		to   => defined($t->{to})   ? $t->{to}   : '',
+	};
+}
+
+# _emitRouteB / _emitTrackB -- splat the stored blob back onto an outbound
+# route/track fields hash.  `active` is [R] and deliberately omitted from the
+# route emit (never pushed down); `visible` IS pushable.
+sub _emitRouteB
+{
+	my ($fields, $b) = @_;
+	$b = {} if ref($b) ne 'HASH';
+	$fields->{from}    = defined($b->{from}) ? $b->{from} : '';
+	$fields->{to}      = defined($b->{to})   ? $b->{to}   : '';
+	$fields->{visible} = _wireBool($b->{visible});
+}
+
+sub _emitTrackB
+{
+	my ($fields, $b) = @_;
+	$b = {} if ref($b) ne 'HASH';
+	$fields->{from} = defined($b->{from}) ? $b->{from} : '';
+	$fields->{to}   = defined($b->{to})   ? $b->{to}   : '';
+}
 
 
 #-----------------------------------------------------------------------
@@ -172,6 +302,7 @@ sub _ingestRoutes
 			description => defined($r->{description}) ? $r->{description} : '',
 			origin      => $foreign_r ? 'ocpn' : 'navmate',
 			points      => \@pts,
+			b           => _extractRouteB($r),   # from/to/visible/active[R]
 		};
 	}
 	return { routes_new => $n_new, vertices_materialized => $n_vertices };
@@ -213,6 +344,7 @@ sub _ingestTracks
 			origin      => $foreign ? 'ocpn' : 'navmate',
 			point_count => scalar(@pts),
 			points      => \@pts,
+			b           => _extractTrackB($t),   # from/to
 		};
 	}
 	return { tracks_new => $n_new };
@@ -244,6 +376,8 @@ sub _wireMarkToOcdb
 		# route can reference it.  The winOCPN pane shows only standalone marks
 		# under "My Waypoints" (a vertex is not a browsable waypoint, sec 5).
 		is_standalone => $standalone ? 1 : 0,
+		# the OpenCPN category-B superset, carried opaquely (see @B_* above).
+		b             => _extractWireB($m),
 	};
 }
 
@@ -303,6 +437,10 @@ sub buildMarkCommand
 			icon        => defined($mark->{icon})        ? $mark->{icon}        : '',
 			created_ts  => int($mark->{created_ts} // 0),
 		};
+		# B superset re-emitted ONLY when we hold it (a foreign object round-
+		# tripping); a pure navMate-origin push omits it so the plugin applies
+		# its own OpenCPN defaults rather than us fabricating them.
+		_emitWireB($cmd->{fields}, $mark->{b}) if ref($mark->{b}) eq 'HASH';
 	}
 	return $cmd;
 }
@@ -336,6 +474,8 @@ sub buildRouteCommand
 			description => $route->{description} // '',
 			points      => \@points,
 		};
+		# route B (from/to/visible) re-emitted when held; active[R] omitted.
+		_emitRouteB($cmd->{fields}, $route->{b}) if ref($route->{b}) eq 'HASH';
 	}
 	return $cmd;
 }
@@ -356,8 +496,60 @@ sub buildTrackCommand
 			name   => $track->{name} // '',
 			points => \@points,
 		};
+		# track B (from/to) re-emitted when held.
+		_emitTrackB($cmd->{fields}, $track->{b}) if ref($track->{b}) eq 'HASH';
 	}
 	return $cmd;
+}
+
+
+#-----------------------------------------------------------------------
+# buildUpdateCommand($nav_type, $uuid, $map, \%fields) -- field-level update (sec 8)
+#-----------------------------------------------------------------------
+# The winOCPN inline editor's Save path.  Unlike buildCommandsForItems' full
+# 'add' upsert, this mints an 'update' carrying ONLY the fields the user changed
+# -- the plugin applies it as read-modify-write (GetSingleWaypointExV2 -> overlay
+# changed -> Update), so unedited OpenCPN-only fields keep their LIVE values and
+# nothing the hub didn't touch is clobbered (sec 8).  $uuid is projected to its
+# wire guid via $map (a FOREIGN uuid re-emits its opaque OpenCPN guid).  $fields
+# is in wire shape (description not comment); values are coerced to wire types
+# here, [R] fields are dropped, undef is skipped.  $nav_type: waypoint|route|track.
+
+my %WIRE_FIELD_TYPE = (
+	name => 'str', description => 'str', icon => 'str', tide_station => 'str',
+	from => 'str', to => 'str',
+	lat => 'num', lon => 'num', arrival_radius => 'num', planned_speed => 'num',
+	created_ts => 'int', scamin => 'int', scamax => 'int', etd => 'int',
+	visible => 'bool', name_shown => 'bool', scamin_on => 'bool',
+	range_rings => 'rings',
+);
+
+sub _coerceField
+{
+	my ($key, $val) = @_;
+	my $t = $WIRE_FIELD_TYPE{$key} // '';
+	return _wireBool($val)          if $t eq 'bool';
+	return int($val // 0)           if $t eq 'int';
+	return ($val // 0) + 0          if $t eq 'num';
+	return defined($val) ? $val : '' if $t eq 'str';
+	return _normRangeRings($val)    if $t eq 'rings';
+	return $val;   # unknown / pass-through (e.g. hyperlinks -- APPLY deferred)
+}
+
+sub buildUpdateCommand
+{
+	my ($nav_type, $uuid, $map, $fields) = @_;
+	$fields ||= {};
+	my $wire_type = ($nav_type eq 'waypoint') ? 'mark' : $nav_type;
+	my $guid = projectUuidToGuid($uuid, $map);
+	my %out;
+	for my $k (keys %$fields)
+	{
+		next if $B_READONLY{$k};              # never push [R] (active)
+		next if !defined $fields->{$k};
+		$out{$k} = _coerceField($k, $fields->{$k});
+	}
+	return { op => 'update', type => $wire_type, guid => $guid, fields => \%out };
 }
 
 
@@ -388,7 +580,7 @@ sub _clipWpToMark
 {
 	my ($uuid, $d, $map) = @_;
 	$d //= {};
-	return {
+	my $mark = {
 		guid        => projectUuidToGuid($uuid, $map),
 		name        => defined($d->{name})    ? $d->{name}    : '',
 		lat         => ($d->{lat} // 0) + 0,
@@ -397,6 +589,11 @@ sub _clipWpToMark
 		icon        => _iconForClipWp($d),
 		created_ts  => int($d->{created_ts} // 0),
 	};
+	# A foreign object carries its B superset in the spoke_shadow `data` blob
+	# (phase c); when the snapshot supplies it, shuttle it back through so the
+	# outbound command re-emits full fidelity (buildMarkCommand splats it).
+	$mark->{b} = $d->{b} if ref($d->{b}) eq 'HASH';
+	return $mark;
 }
 
 sub _iconForClipWp
@@ -438,6 +635,7 @@ sub buildCommandsForItems
 			name   => ($it->{data} // {})->{name}    // '',
 			description => ($it->{data} // {})->{comment} // '',
 			points => \@points,
+			b      => ($it->{data} // {})->{b},   # from/to/visible (buildRouteCommand emits)
 		};
 		push @cmds, buildRouteCommand($op, $route, \%members);
 	}
@@ -469,6 +667,7 @@ sub buildCommandsForItems
 				guid   => projectUuidToGuid($it->{uuid}, $map),
 				name   => $d->{name} // '',
 				points => \@pts,
+				b      => $d->{b},   # from/to (buildTrackCommand emits)
 			});
 		}
 	}

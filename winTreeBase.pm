@@ -789,6 +789,10 @@ sub _layoutEditor
     my $row_h = $this->{_ed_row_h};
     my $mx    = $this->{_ed_margin};
     my $cx    = $this->{_ed_ctrl_x};
+    # optional per-field row-span (e.g. a multi-line comment editor); a subclass
+    # sets $this->{_ed_field_rows}{<field>} = N.  Absent/1 = the usual single row,
+    # so panes that do not set it (winE80/winFSH) are unaffected.
+    my $rows  = $this->{_ed_field_rows} || {};
 
     for my $field (@$fields)
     {
@@ -807,7 +811,7 @@ sub _layoutEditor
             $comp->Move([$pos->x, $y]);
             $comp->Show(1);
         }
-        $y += $row_h;
+        $y += $row_h * ($rows->{$field} || 1);
     }
 
     my $bottom_pad = $this->{_ed_bottom_pad} // $row_h;

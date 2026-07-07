@@ -37,6 +37,7 @@ my $shared_img_list;
 my %color_cache;		# 'AABBGGRR' upper-hex                  -> image-list index
 my %sym_cache;			# 0..39 sym index                       -> image-list index
 my %colored_sym_cache;	# 'sym{NN}/{AABBGGRR}'                  -> image-list index
+my %bitmap_cache;		# caller-supplied key (e.g. 'ocpn:anchor') -> image-list index
 my $blank_idx;			# index of a transparent placeholder at slot 0
 
 
@@ -101,7 +102,19 @@ sub _swatchImageIndex
 	return -1 if !$spec || ref($spec) ne 'HASH';
 
 	my $kind = $spec->{kind} // '';
-	if ($kind eq 'color')
+	if ($kind eq 'bitmap')
+	{
+		# A caller-supplied, already-15x15 Wx::Bitmap (e.g. an OpenCPN glyph);
+		# cached by the caller's opaque key so it is added to the list once.
+		my $key = $spec->{key};
+		my $bmp = $spec->{value};
+		return -1 if !defined $key || !$bmp || !$bmp->IsOk();
+		return $bitmap_cache{$key} if exists $bitmap_cache{$key};
+		my $idx = $shared_img_list->Add($bmp);
+		$bitmap_cache{$key} = $idx;
+		return $idx;
+	}
+	elsif ($kind eq 'color')
 	{
 		my $hex = $spec->{value};
 		return -1 if !defined $hex || $hex eq '';

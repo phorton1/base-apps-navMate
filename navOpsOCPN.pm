@@ -111,7 +111,7 @@ sub _snapshotOCPNNode
 		return {
 			type    => 'group',
 			uuid    => undef,
-			data    => { name => 'My Waypoints' },
+			data    => { name => 'Marks' },
 			members => \@members,
 		};
 	}
