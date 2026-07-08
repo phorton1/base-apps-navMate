@@ -82,9 +82,9 @@ sub handle_request
 	}
 	elsif ($uri eq '/debug/enqueue')
 	{
-		# M3 outbound driver: enqueue hub->plugin commands + bump navmate_dt, so
-		# Mode-1 can exercise the commands[] path without the real db_version
-		# counter.  Body: { commands:[<command>...] } or a single command object.
+		# Outbound driver: enqueue hub->plugin commands + bump navmate_dt, so
+		# Mode-1 can exercise the commands[] path without a real user push.
+		# Body: { commands:[<command>...] } or a single command object.
 		my $h = $request->getPostJSON();
 		return navOCPN::jsonResponse($request, { ok => JSON::PP::false, error => 'need JSON body' }) if !$h;
 		my $cmds = (ref($h) eq 'HASH' && ref($h->{commands}) eq 'ARRAY') ? $h->{commands} : $h;

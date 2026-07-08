@@ -14,13 +14,10 @@
 # The ocdb (a plain decoded hash; navOCPN serializes it into a shared scalar):
 #   {
 #     marks  => { <uuid> => { guid,name,lat,lon,description,icon,created_ts,origin } },
-#     routes => { <uuid> => { ... } },     # M2
-#     tracks => { <uuid> => { ... } },     # M2
+#     routes => { <uuid> => { ... } },
+#     tracks => { <uuid> => { ... } },
 #     map    => { fwd=>{<guid>=><uuid>}, rev=>{<uuid>=><guid>}, counter=>N },
 #   }
-#
-# Milestone status: M1 = marks inbound + DB-mark projection.  routes/tracks
-# (M2) and the commands[] outbound path (M3) extend this module in place.
 
 package nmOCPNDirectOps;
 use strict;
@@ -185,7 +182,7 @@ sub blankOcdb
 # rows.  Returns a machine-readable ingest summary the harness asserts on.
 #
 # NOTE: this only ever writes the in-memory ocdb (a spoke projection); it NEVER
-# writes canonical navMate.db -- that is a user PASTE (Phase 2 / navOps).  This
+# writes canonical navMate.db -- that is a user PASTE (navOps).  This
 # is the structural guarantee behind the echo-round-trip invariant (sec 2A).
 
 sub ingestInventory
@@ -390,7 +387,7 @@ sub _wireMarkToOcdb
 # guid; a uuid already in the reconcile rev-map (a foreign object we ingested)
 # re-emits its original opaque guid.
 #
-# icon: M1 emits '' (the sym->icon table is deferred, protocol sec 13); the
+# icon is emitted as '' -- this projector does not map sym -> OpenCPN icon.  The
 # marks floor proves identity + coordinates + strings.  description <- comment.
 # $map may be undef (pure navMate-origin projection, table-free).
 
@@ -417,7 +414,7 @@ sub projectDBMarksToWire
 
 
 #-----------------------------------------------------------------------
-# command builders -- ocdb/DB object -> a sec-2A commands[] entry (M3 outbound)
+# command builders -- ocdb/DB object -> a sec-2A commands[] entry (outbound)
 #-----------------------------------------------------------------------
 # { op, type, guid, fields }.  fields = full mapped set for add, absent for
 # delete.  A ROUTE command FULL-EMBEDS every point's mark (sec 2A inbound rule:

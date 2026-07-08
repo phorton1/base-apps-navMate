@@ -127,9 +127,6 @@ waypoints (
   ts_source         TEXT    NOT NULL DEFAULT '', -- see Timestamp Sources
   source            TEXT    NOT NULL DEFAULT '', -- see Provenance Columns
   collection_uuid   TEXT NOT NULL REFERENCES collections(uuid),
-  db_version        INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0); see Version Columns
-  e80_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
-  kml_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
   position          REAL    NOT NULL DEFAULT 0,  -- display order within collection (schema 10.0)
   modified_ts       INTEGER NOT NULL DEFAULT 0   -- Unix epoch seconds; see Provenance Columns (schema 11.3)
 )
@@ -214,9 +211,6 @@ routes (
   comment           TEXT    NOT NULL DEFAULT '',
   color             TEXT    NOT NULL DEFAULT '',  -- aabbggrr hex; '' -> 'FFFFFFFF' (schema 13.0)
   collection_uuid   TEXT NOT NULL REFERENCES collections(uuid),
-  db_version        INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0); see Version Columns
-  e80_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
-  kml_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
   position          REAL    NOT NULL DEFAULT 0,  -- display order within collection (schema 10.0)
   source            TEXT    NOT NULL DEFAULT '', -- see Provenance Columns (schema 11.3)
   created_ts        INTEGER NOT NULL DEFAULT 0,  -- see Provenance Columns (schema 11.3)
@@ -238,10 +232,7 @@ independently queryable and reusable across multiple routes. Route geometry
 ### tracks
 
 The `uuid` column is the identity UUID (equivalent to `mta_uuid` at the FSH/E80
-boundary). `companion_uuid` is the paired TRK block UUID from the TRACKS protocol or
-FSH file. `companion_uuid` in the DB and KML maps directly to `trk_uuid` at the
-FSH/E80 boundary. Rows imported before schema 11.1 had `companion_uuid = NULL`,
-normalized to `''` in schema 13.0.
+boundary).
 
 ```sql
 tracks (
@@ -254,11 +245,7 @@ tracks (
   ts_source         TEXT    NOT NULL DEFAULT '', -- see Timestamp Sources
   point_count       INTEGER NOT NULL DEFAULT 0,
   collection_uuid   TEXT NOT NULL REFERENCES collections(uuid),
-  db_version        INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0); see Version Columns
-  e80_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
-  kml_version       INTEGER NOT NULL DEFAULT 0,  -- inert reserved column (schema 13.0)
   position          REAL    NOT NULL DEFAULT 0,  -- display order within collection (schema 10.0)
-  companion_uuid    TEXT    NOT NULL DEFAULT '', -- paired TRK block UUID (= trk_uuid at FSH/E80 boundary; schema 11.1)
   source            TEXT    NOT NULL DEFAULT '', -- see Provenance Columns (schema 11.3)
   created_ts        INTEGER NOT NULL DEFAULT 0,  -- see Provenance Columns (schema 11.3)
   modified_ts       INTEGER NOT NULL DEFAULT 0   -- see Provenance Columns (schema 11.3)
@@ -437,9 +424,8 @@ the 31-bit ceiling. Idempotent on an already-compacted DB.
 
 The position allocator additionally renumbers a single container automatically
 when its sibling per-slot gap falls below a precision threshold (`eps = 1e-9`
-in `navDB.pm`). The automatic renumber preserves order, does not bump
-`db_version` on the touched rows, and is indistinguishable from the
-user-invoked Compact except for being triggered on the worst-case insertion
+in `navDB.pm`). The automatic renumber preserves order and is indistinguishable
+from the user-invoked Compact except for being triggered on the worst-case insertion
 sites rather than the whole DB. Each automatic trigger emits a warning-color
 log line `AutoCompact FLOAT positions for container <coll_uuid>` -- this is
 the direct evidence the trigger fired, useful for audit and for tests.
@@ -455,18 +441,6 @@ waypoint-before-route dependency reorder in the DB->E80 push path
 E80-sourced clipboard arrives in dependency-correct order by construction,
 but a DB-sourced clipboard may carry routes ahead of their referenced
 waypoints because the DB tree permits arbitrary interleave.
-
-**Version columns are inert reserved fields (schema 13.0).** `db_version`,
-`e80_version`, and `kml_version` are present on `waypoints`, `routes`, and `tracks`
-(not on `collections` or `route_waypoints`), all `INTEGER NOT NULL DEFAULT 0`. The
-sync-versioning scheme they were intended for was **never built** -- nothing in the
-code reads or compares them. In schema 13.0 the `db_version` auto-increment machinery
-was removed (its only real side effect -- an mtime touch on route-membership edits --
-is now an explicit `modified_ts` UPDATE), and all three are left at `0` as reserved
-slots whose semantics can be defined, and prototyped against real columns, later
-without a further schema change. A future design would compare a bumped `db_version`
-against per-spoke `e80_version` / `kml_version` to detect what changed since the last
-push; that comparison is the part that does not yet exist.
 
 ## Timestamp Sources
 

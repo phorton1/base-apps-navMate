@@ -49,9 +49,9 @@ plugin is a polling HTTP client. The two directions are asymmetric:
 
 - **Outbound (navMate -> OpenCPN).** navMate is the server and cannot push
   synchronously. A push or paste *into* the spoke enqueues a `commands[]` batch that the
-  plugin fetches on its next poll, applies, and acknowledges with `results[]`. A
-  `db_version` generation counter gates steady state, so a poll with nothing new returns
-  no work.
+  plugin fetches on its next poll, applies, and acknowledges with `results[]`. The
+  outbound command path advances `navmate_dt`; the two-DT version gate means a poll with
+  nothing new returns no work.
 
 ## Identity
 
@@ -61,7 +61,7 @@ codec bridges the two:
 - **navMate-origin** objects carry a synthesized GUID that embeds a `navMate` magic and
   reverses back to the uuid table-free.
 - **Foreign (OpenCPN-born)** objects are minted a navMate uuid tagged with the OpenCPN
-  provenance byte, plus a persistent `ocpn_guid_map` row so the object's original opaque
+  provenance byte, plus a persistent `spoke_shadow` row so the object's original opaque
   GUID survives round-trips even after the plugin has forgotten it.
 
 ## The Data Model at the Seam
@@ -74,18 +74,18 @@ codec bridges the two:
   across routes.
 - **Manifestation XOR.** A navMate waypoint that is a route member manifests *once* - as
   the vertex - not also as a standalone mark.
-- **Symbols.** A `sym`-to-`icon` table maps navMate symbols to OpenCPN icon names; a raw
-  `icon_name` shadow preserves a foreign icon that has no navMate symbol equivalent.
+- **Symbols.** A `sym`-to-`icon` table maps navMate symbols to OpenCPN icon names; a
+  foreign object's raw OpenCPN `IconName` is preserved in its `spoke_shadow` data blob for
+  round-trip fidelity.
 
 ## Persistence
 
 The spoke's on-disk state is an additive minor schema bump (see [Data Model](data_model.md)):
 
-- `ocpn_guid_map` - the foreign GUID <-> navMate uuid mapping.
-- an `icon_name` shadow column on waypoints - preserves a foreign icon with no navMate
-  symbol.
-- a `db_version` mutation counter, driven by triggers on the waypoint / route / track
-  tables - the generation gate the outbound direction polls against.
+- `spoke_shadow` - the generic per-spoke identity + extended-data table (namespace `ocpn`):
+  it maps a foreign OpenCPN GUID to its minted navMate uuid, and carries the OpenCPN-only
+  B-field superset (including the raw `IconName`) in a per-object `data` blob so a foreign
+  object round-trips exactly.
 
 Foreign-origin objects and their raw icons persist across sessions, so an object pulled
 in from OpenCPN and later pushed back out re-emits its original GUID rather than a fresh

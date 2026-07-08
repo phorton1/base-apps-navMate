@@ -404,7 +404,7 @@ sub _swatchSpec
 sub refresh
 {
 	my ($this) = @_;
-	display($dbg_wocpn, 0, "winOCPN::refresh");
+	display($dbg_wocpn+1, 0, "winOCPN::refresh");
 	if ($this->{tree}->GetCount() > 0)
 	{
 		$this->_captureExpandedInto();

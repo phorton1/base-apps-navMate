@@ -404,7 +404,7 @@ sub handle_request
 		# C:\src\OpenCPN\oESeries\docs\protocol.md sec 2/2A.  Structured ocdb via
 		# navOCPN + nmOCPNDirectOps.
 		#   GET  /api/ocpn         - poll view { ok, navmate_dt, ocpn_dt, commands:[] }.
-		#                            navmate_dt stays 0 until the db_version gate (M3).
+		#                            navmate_dt advances when a push/paste queues commands.
 		#   GET  /api/ocpn?dump=1  - structured ocdb readback (marks/routes/tracks by uuid,
 		#                            the guid reconcile map, counts) for headless asserts.
 		#   POST /api/ocpn         - a sec-2A inventory { dt, marks/routes/tracks/results };

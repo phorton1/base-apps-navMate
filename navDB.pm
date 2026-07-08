@@ -256,12 +256,10 @@ sub openDB
 	my $rec    = $dbh->get_record("SELECT value FROM key_values WHERE key='schema_version'");
 	my $stored = $rec ? $rec->{value} : '0.0';
 
-	# Schema migrations below 13.0 were removed (0.9.10).  With the old GitHub
-	# release installers pulled and navMate.db / example.db committed at 13.1,
-	# no DB below 13.1 exists in the wild: a fresh install creates the current
-	# schema directly from the table defs (stamped $SCHEMA_VERSION), and any DB
-	# older than 13.0 simply falls through to the "reimport required" version
-	# check below.  Only the 13.0 -> 13.1 step remains.
+	# Schema migrations below 13.0 were removed (0.9.10).  A fresh install creates
+	# the current schema directly from the table defs (stamped $SCHEMA_VERSION); any
+	# DB older than 13.0 falls through to the "reimport required" check below.  The
+	# 13.0 -> 13.1 and 13.1 -> 13.2 steps remain.
 
 	if ($stored eq '13.0')
 	{
@@ -269,6 +267,14 @@ sub openDB
 		_migrateTo131($dbh);
 		$stored = '13.1';
 		warning(0,0,"navDB::openDB migration to 13.1 complete");
+	}
+
+	if ($stored eq '13.1')
+	{
+		warning(0,0,"navDB::openDB migrating schema 13.1 -> 13.2 (drop vestigial db_version counter)");
+		_migrateTo132($dbh);
+		$stored = '13.2';
+		warning(0,0,"navDB::openDB migration to 13.2 complete");
 	}
 
 	# Provenance triggers: auto-populate created_ts and modified_ts.
@@ -570,31 +576,6 @@ END
 SQL
 	}
 
-	# db_version generation counter (protocol.md sec 3/13): every top-level
-	# INSERT/UPDATE/DELETE on a WGRT object bumps the single key_values
-	# 'db_version' row.  These write ONLY to key_values (which has no triggers),
-	# so there is no recursion under SQLite's default PRAGMA recursive_triggers =
-	# OFF -- and the ts-triggers' inner WGRT UPDATEs above do not re-fire these
-	# under OFF either, so db_version advances EXACTLY ONCE per top-level
-	# statement.  Distinct from the per-row db_version COLUMN (a stale per-object
-	# stamp) -- do not conflate.  Feeds the OpenCPN spoke's generation token /
-	# mutation detection; navmate_dt stays enqueue-driven and separate
-	# (navOCPN::enqueueCommands).
-	for my $table (qw(waypoints routes tracks))
-	{
-		for my $op (qw(insert update delete))
-		{
-			my $OP = uc $op;
-			$dbh->do(<<SQL, []);
-CREATE TRIGGER IF NOT EXISTS ${table}_bump_ver_${op} AFTER $OP ON $table
-FOR EACH ROW
-BEGIN
-    UPDATE key_values SET value = value + 1 WHERE key = 'db_version';
-END
-SQL
-		}
-	}
-
 	return 1;
 }
 
@@ -612,10 +593,9 @@ SQL
 #   - schema cleanup: DROP the dead per-object *_version columns, the vestigial
 #       tracks.companion_uuid, and waypoints.icon_name via dropUnusedTableColumns
 #       (see the sub body).
-# The additive key_values rows (ocpn_uuid_counter, db_version, generation,
-# sym_icons) are seeded idempotently by _initKeyValues (which runs earlier in
-# openDB); the db_version bump triggers by _createTriggers; the nav_uuid reverse
-# index by _createIndexes.  Nothing else to do here.
+# The additive key_values rows (ocpn_uuid_counter, generation, sym_icons) are
+# seeded idempotently by _initKeyValues (which runs earlier in openDB); the
+# nav_uuid reverse index by _createIndexes.  Nothing else to do here.
 
 sub _migrateTo131
 {
@@ -626,8 +606,7 @@ sub _migrateTo131
 	# above and rebuilt out of each live table here via dropUnusedTableColumns, so a
 	# migrated DB and a fresh 13.1 install converge on a byte-identical schema:
 	#   - the dead per-object db_version/e80_version/kml_version columns (waypoints/
-	#     routes/tracks) -- never read for logic; the live db_version generation
-	#     signal is a key_values COUNTER, not these columns (de-conflicts the name).
+	#     routes/tracks) -- never read for logic.
 	#   - the vestigial tracks.companion_uuid (matched-on nowhere; mta_uuid is the
 	#     canonical track identity in every spoke).
 	#   - waypoints.icon_name (no longer added; dropped defensively if a DB already
@@ -637,6 +616,26 @@ sub _migrateTo131
 	$dbh->dropUnusedTableColumns('tracks');
 	$dbh->do("UPDATE key_values SET value='13.1' WHERE key='schema_version'", []);
 
+	return 1;
+}
+
+
+#---------------------------------
+# _migrateTo132
+#---------------------------------
+# Schema 13.1 -> 13.2: drop the db_version counter -- the 9 *_bump_ver_* triggers
+# + the key_values row.  The OpenCPN outbound gate is enqueue-driven (navOCPN bumps
+# navmate_dt directly, protocol.md sec 3), so the global counter had no reader.
+
+sub _migrateTo132
+{
+	my ($dbh) = @_;
+	for my $table (qw(waypoints routes tracks))
+	{
+		$dbh->do("DROP TRIGGER IF EXISTS ${table}_bump_ver_$_", []) for qw(insert update delete);
+	}
+	$dbh->do("DELETE FROM key_values WHERE key='db_version'", []);
+	$dbh->do("UPDATE key_values SET value='13.2' WHERE key='schema_version'", []);
 	return 1;
 }
 
@@ -669,13 +668,11 @@ sub _initKeyValues
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('uuid_counter', '0')");
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('fsh_uuid_counter', '0')");
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('ocpn_uuid_counter', '0')");
-	# OpenCPN spoke (schema 13.1): the global mutation counter the *_bump_ver
-	# triggers advance, and a 'generation' token seeded at DB create/reset so the
-	# plugin can detect a hub that lost state (protocol.md sec 13).  time() gives
+	# OpenCPN spoke (schema 13.1): a 'generation' token seeded at DB create/reset so
+	# the plugin can detect a hub that lost state.  time() gives
 	# a fresh generation on every reimport/reset; an in-place migration keeps the
-	# existing row (INSERT OR IGNORE), so the generation only changes on a real
-	# DB recreate.
-	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('db_version', '0')");
+	# existing row (INSERT OR IGNORE), so the generation only changes on a real DB
+	# recreate.
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('generation', ?)", [time()]);
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('wp_mapped_syms', ?)",
 		[my_encode_json(\%WP_DEFAULT_SYMS)]);
@@ -685,10 +682,9 @@ sub _initKeyValues
 	# informational, mirroring wp_mapped_syms.
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('sym_icons', ?)",
 		[my_encode_json(\@SYM_DEFAULT_ICONS)]);
-	# Phase 2.5 rename: wp_default_syms -> wp_mapped_syms.  The row holds
-	# the in-effect mapping (editable later via the Remapping dialog),
-	# not the constant defaults -- those live in %WP_DEFAULT_SYMS.
-	# Idempotent: no-op on fresh DBs; cleans up DBs seeded under the old key.
+	# The wp_mapped_syms row holds the in-effect mapping (editable via the Remapping
+	# dialog), not the constant defaults -- those live in %WP_DEFAULT_SYMS.  Clean up
+	# any DB seeded under the earlier 'wp_default_syms' key (no-op on fresh DBs).
 	$dbh->do("DELETE FROM key_values WHERE key='wp_default_syms'", []);
 }
 
@@ -2003,7 +1999,7 @@ sub _siblingPositionsSql
 
 # Internal: if the per-slot gap is below eps, renumber the container and
 # return 1; else return 0. Renumber is the existing compactContainer; it
-# preserves order and does not bump db_version.
+# preserves order.
 
 sub _precisionRenumberIfNeeded
 {

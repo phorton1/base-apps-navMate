@@ -21,8 +21,8 @@
 #
 # Two DTs (protocol.md sec 3):
 #   ocpn_dt    - the DT the client last sent WITH a real inventory (0 = none).
-#   navmate_dt - navMate's own token.  HARDCODED 0 until the deferred db_version
-#                counter (Phase 2 / M3); there is no outbound push before then.
+#   navmate_dt - navMate's own token.  Bumped by the outbound command path
+#                (enqueueCommands) when a push/paste into the spoke queues a batch.
 #
 # ECHO INVARIANT (sec 2A): ingestInventory writes ONLY this in-memory ocdb, never
 # canonical navMate.db, so navmate_dt never advances on an inbound inventory and
@@ -44,9 +44,9 @@ our $dbg_ocpn = 0;			# 0 = log received inventories; raise to quiet
 
 my $state_lock    :shared;			# the single mutex guarding all state below
 my $ocdb_json     :shared = '';		# serialized ocdb (see nmOCPNDirectOps for shape)
-my $commands_json :shared = '[]';	# pending hub->plugin commands (M3); [] for now
+my $commands_json :shared = '[]';	# pending hub->plugin commands ([] = none queued)
 our $ocpn_dt      :shared = 0;		# client DT last received WITH an inventory
-our $navmate_dt   :shared = 0;		# navMate's token: 0 until the db_version gate (M3)
+our $navmate_dt   :shared = 0;		# navMate's token; enqueueCommands bumps it on a queued batch
 my $last_recv_ts  :shared = 0;
 my $recv_count    :shared = 0;
 my $last_ingest_json :shared = '';	# the last ingest summary (marks_in vs distinct etc.)
@@ -310,7 +310,7 @@ sub receiveInventory
 	$last_recv_ts = time();
 	$recv_count++;
 
-	display($dbg_ocpn, 0, sprintf(
+	display($dbg_ocpn+1, 0, sprintf(
 		"navOCPN: ingested dt=%s (count=%d marks_in=%d total=%d minted=%d)",
 		$dt, $recv_count, $summary->{marks_in}, $summary->{marks_total},
 		$summary->{guids_minted}));
@@ -323,14 +323,13 @@ sub receiveInventory
 
 
 #------------------------------------------------------------
-# enqueueCommands($cmds) - queue hub->plugin commands (M3 outbound)
+# enqueueCommands($cmds) - queue hub->plugin commands (outbound)
 #------------------------------------------------------------
 # Appends one command (hashref) or a batch (arrayref) to the pending queue and
 # bumps navmate_dt -- the version token that makes the plugin's next GET fetch
-# the batch (sec 3, two-DT gate).  In production the bump is trigger-driven by
-# the db_version counter on a user PASTE into the OCPN spoke; the harness calls
-# this directly (POST /debug/enqueue) to drive the outbound path in Mode-1
-# without the real counter.
+# the batch (sec 3, two-DT gate).  A user push/paste into the OCPN spoke calls
+# this; the harness calls it directly (POST /debug/enqueue) to drive the outbound
+# path in Mode-1.
 
 sub enqueueCommands
 {

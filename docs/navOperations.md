@@ -979,7 +979,7 @@ contains any route items or any standalone route_point items, verify that every
 waypoint UUID referenced by those items either already exists at the destination
 or is present in the current clipboard (as a sibling waypoint or as a member of
 a sibling group) and will be processed before the referencing item (waypoints
-and groups are always processed before routes -- SS12.1, SS12.5). Standalone
+and groups are always processed before routes -- SS12.1, SS12.4). Standalone
 route_point items carry a single `wp_uuid` each and are subject to the same
 presence check as route members. If any referenced waypoint UUID is absent from
 both the destination and the clipboard, reject with a message identifying the
@@ -1181,10 +1181,7 @@ in the current operation. This section handles UUID-based conflict resolution.
 confirmed by Step 6):
 
 - UUID not on E80 -> **clean create**; proceed.
-- UUID on E80, `db_version` > `e80_version` -> **refresh**; update without prompting.
-  *(Version increment wiring is deferred; currently treated as a plain conflict.)*
-- UUID on E80, version relationship unclear -> **conflict**; user is warned and decides
-  whether to overwrite.
+- UUID on E80 -> **conflict**; the user is warned and decides whether to overwrite.
 
 **Group-level conflict check.** For group pastes, the UUID check runs first for the group
 shell, then for each member waypoint. A group-level conflict that the user chooses to skip
@@ -1262,7 +1259,7 @@ records are created by the route paste.
 E80 via WPMGR commands.
 
 For E80-source clipboards where some or all UUIDs are already in the DB, see PUSH (SS2.6)
-and SS12.9.
+and SS12.8.
 
 ### 12.2 Paste to Database from Database -- Cut (move)
 
@@ -1286,62 +1283,11 @@ copy operations only.
 preserve the source waypoint UUIDs exactly -- no new waypoint records are created (SS1.6).
 Pre-flight (SS10.1 Step 4) has already confirmed all referenced waypoints exist in the DB.
 
-**Tracks:** PASTE_NEW inserts a fresh-UUID track record at the paste destination with
-`db_version` = 1 and `e80_version` = NULL. Tracks can only be acquired from the E80;
-once in the DB they are ordinary records, and PASTE_NEW copies them like any other type.
+**Tracks:** PASTE_NEW inserts a fresh-UUID track record at the paste destination. Tracks
+can only be acquired from the E80; once in the DB they are ordinary records, and PASTE_NEW
+copies them like any other type.
 
-### 12.4 Version field management
-
-**STATUS (schema 13.0): NOT IMPLEMENTED -- deferred design.** This section is the spec
-for a future sync-versioning feature; the maintenance logic below was never wired, and
-schema 13.0 retired the one incidental `db_version` increment that did exist. The
-version columns are now inert `INTEGER NOT NULL DEFAULT 0` reserved slots (see
-[data_model.md](data_model.md), Version Columns). When this is built, "never synced"
-becomes `0` rather than NULL, matching the no-NULLs schema; the NULL semantics below
-predate 13.0.
-
-Every item in the navMate database carries two version fields: `db_version` (incremented
-each time the DB record is modified) and `e80_version` (the `db_version` value that was
-current at the time the item was last successfully written to the E80). These fields are
-maintained by navOperations on every write path.
-
-**New item created in DB (any NEW_* command):**
-`db_version` is set to 1. `e80_version` is set to NULL, indicating the item has never
-been uploaded to the E80.
-
-**DB record modified (any operation that changes item fields):**
-`db_version` is incremented by 1. `e80_version` is unchanged. If `e80_version` was not
-NULL, the item is now in a db-ahead state (db_version > e80_version), which the
-synchronization color scheme and refresh logic use to detect staleness.
-
-**PASTE_NEW to DB (duplicating from any source):**
-New record, `db_version` = 1, `e80_version` = NULL. The new item has no E80 history
-regardless of source.
-
-**Successful upload to E80 (PASTE or PASTE_NEW to E80, any type):**
-After WPMGR confirms the item was created or updated on the E80, set
-`e80_version` = `db_version` for that item. The item is now in a synchronized state.
-For group uploads, this update applies to the group shell record and to each member
-waypoint record individually.
-
-**Refresh (upload where db_version > e80_version):**
-Pre-flight step 7 (SS10.2) identifies this case. Execution overwrites the E80 item
-without prompting, then sets `e80_version` = `db_version` on success.
-
-**Download from E80 to DB (PASTE or PASTE_NEW from E80 source):**
-- PASTE (UUID-preserving): if the item UUID already exists in DB, update the record and
-  set `db_version` incremented, `e80_version` = current `db_version` (synchronized).
-  If UUID is new to DB, insert with `db_version` = 1, `e80_version` = 1 (synchronized
-  at import).
-- PASTE_NEW (fresh UUIDs): new record, `db_version` = 1, `e80_version` = NULL. The
-  downloaded item is treated as a new DB item with no further E80 relationship.
-
-**Cut from E80 + Paste to DB (download + E80 erase):**
-Same as download above for the DB record. After successful paste, the E80 item is
-deleted; `e80_version` is set to NULL on the DB record to reflect that the item no
-longer exists on the E80.
-
-### 12.5 Paste to E80 -- upload
+### 12.4 Paste to E80 -- upload
 
 Sends WPMGR NEW_ITEM commands in dependency order:
 
@@ -1359,7 +1305,7 @@ Sends WPMGR NEW_ITEM commands in dependency order:
 The progress dialog protection pattern wraps all Paste-to-E80 operations, using the same
 pattern as `_doRefreshE80Data` in `nmFrame.pm`. Do not reinvent this pattern.
 
-### 12.6 Paste Before and After
+### 12.5 Paste Before and After
 
 **DB -- collection ordering:** inserts items at the specified position within the parent
 collection, adjacent to the right-clicked node. Position FLOAT values are assigned to
@@ -1384,7 +1330,7 @@ position is always a UUID-reference operation -- no new waypoint record is creat
 regardless of clipboard source. (PASTE_NEW_BEFORE/AFTER remain available for
 DB-panel object and collection positional destinations.)
 
-### 12.7 Delete -- Database
+### 12.6 Delete -- Database
 
 Execution follows the pre-flight determination from SS8.1.
 
@@ -1402,7 +1348,7 @@ Execution follows the pre-flight determination from SS8.1.
 **Clipboard clearing.** After Delete execution, the clipboard is cleared unconditionally
 regardless of its source or contents. There is no partial clearing.
 
-### 12.8 Delete -- E80
+### 12.7 Delete -- E80
 
 Execution follows pre-flight determination from SS8.2 in the enforced order:
 DELETE_ROUTE -> DELETE_GROUP / DELETE_GROUP_WPS -> DELETE_WAYPOINT -> DELETE_TRACK.
@@ -1420,7 +1366,7 @@ DELETE_ROUTE -> DELETE_GROUP / DELETE_GROUP_WPS -> DELETE_WAYPOINT -> DELETE_TRA
 regardless of its source or contents. There is no partial clearing.
 
 
-### 12.9 Push
+### 12.8 Push
 
 PUSH is a direct in-place update between DB and E80 counterparts sharing the same UUID.
 It does not consume or produce clipboard state. The clipboard is cleared unconditionally
