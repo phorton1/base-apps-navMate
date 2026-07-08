@@ -1999,9 +1999,9 @@ sub _preflightLossyTransform
 		if ($is_db_to_spoke)
 		{
 			push @trunc_names, $name
-				if length($name) > $E80_MAX_NAME;
+				if length(flattenNewlines($name)) > $E80_MAX_NAME;
 			push @trunc_comments, $name
-				if length($d->{comment} // '') > $E80_MAX_COMMENT;
+				if length(flattenNewlines($d->{comment} // '')) > $E80_MAX_COMMENT;
 
 			if ($t eq 'group')
 			{
@@ -2010,9 +2010,9 @@ sub _preflightLossyTransform
 					my $md = $m->{data} // {};
 					my $mn = $md->{name} // '';
 					push @trunc_names, $mn
-						if length($mn) > $E80_MAX_NAME;
+						if length(flattenNewlines($mn)) > $E80_MAX_NAME;
 					push @trunc_comments, $mn
-						if length($md->{comment} // '') > $E80_MAX_COMMENT;
+						if length(flattenNewlines($md->{comment} // '')) > $E80_MAX_COMMENT;
 				}
 			}
 

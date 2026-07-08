@@ -123,42 +123,42 @@ our %WP_DEFAULT_SYMS = (
 # (navDB::symForIcon) folds many icons onto one sym with a catch-all default.
 # Grounded in the E80 sym catalog (Pub::Ray::NET::a_utils $E80_SYM_* 0..35).
 our @SYM_DEFAULT_ICONS = (
-	'square',      #  0 X
-	'circle',      #  1 CIRCLE
-	'square',      #  2 SQUARE
-	'triangle',    #  3 TRIANGLE
-	'diamond',     #  4 DIAMOND
-	'diamond',     #  5 SHADED_DIAMOND
-	'anchor',      #  6 ANCHOR
-	'rock1',       #  7 SKULL (danger)
-	'square',      #  8 SQUARE_X
-	'triangle',    #  9 TRIANGLE_I
-	'triangle',    # 10 DOWN_TRI_T
-	'mob',         # 11 CIRCLE_M (MOB)
-	'buoy1',       # 12 BUOY
-	'litevessel',  # 13 SAILBOAT
-	'wreck1',      # 14 SHIPWRECK
-	'food',        # 15 COCKTAIL
-	'scuba',       # 16 SWIMMER
-	'boundary',    # 17 EXCLAMATION (warning)
-	'empty',       # 18 CLOUD
-	'camping',     # 19 TREE
-	'coral',       # 20 REEF
-	'kelp',        # 21 WEEDS
-	'scuba',       # 22 DIVE_FLAG
-	'scuba',       # 23 BLUE_FLAG
-	'fish',        # 24 BIG_FISH
-	'fish',        # 25 FISH
-	'fishhaven',   # 26 FISH_STAR
-	'fishhaven',   # 27 FISH_TWO_STAR
-	'fishhaven',   # 28 FISH_THREE_STAR
-	'fish',        # 29 TWO_FISH
-	'fish',        # 30 SWORDFISH
-	'fish',        # 31 DOLPHIN
-	'fish',        # 32 SHARK
-	'fishhaven',   # 33 LOBSTER
-	'fishing',     # 34 SPORTFISHEER
-	'fishing',     # 35 TRAWLER
+	'Symbol-X-Large-Red',         #  0 X
+	'Symbol-Circle-Red',          #  1 CIRCLE
+	'Symbol-Square-Red',          #  2 SQUARE
+	'Sea-Height-Red',             #  3 TRIANGLE
+	'Symbol-Diamond-Red',         #  4 DIAMOND
+	'Symbol-Diamond-Orange',      #  5 SHADED_DIAMOND
+	'Symbol-Anchor3',             #  6 ANCHOR
+	'Hazard-Danger',              #  7 SKULL (danger)
+	'square',                     #  8 SQUARE_X
+	'Info-Info',                  #  9 TRIANGLE_I
+	'Sea-DepthB-Red',             # 10 DOWN_TRI_T
+	'mob',                        # 11 CIRCLE_M (MOB)
+	'Marks-Buoy-Safe-Water',      # 12 BUOY
+	'litevessel',                 # 13 SAILBOAT
+	'wreck2',                     # 14 SHIPWRECK
+	'food',                       # 15 COCKTAIL
+	'Activity-Diving-Snorkel',    # 16 SWIMMER
+	'Hazard-Warning',             # 17 EXCLAMATION (warning)
+	'Weather-Tropical-Storm-NH',  # 18 CLOUD
+	'camping',                    # 19 TREE
+	'coral',                      # 20 REEF
+	'kelp',                       # 21 WEEDS
+	'scuba',                      # 22 DIVE_FLAG
+	'scuba',                      # 23 BLUE_FLAG
+	'Info-Fish',                  # 24 BIG_FISH
+	'Info-Fish-Haven',            # 25 FISH
+	'Info-Fish-Pelagic',          # 26 FISH_STAR
+	'Info-Fish-Reef',             # 27 FISH_TWO_STAR
+	'Info-Fish-Reef',             # 28 FISH_THREE_STAR
+	'Info-Fish-Reef',             # 29 TWO_FISH
+	'Info-Fish-Pelagic',          # 30 SWORDFISH
+	'Info-Fish-Whale',            # 31 DOLPHIN
+	'Info-Fish-Shark',            # 32 SHARK
+	'fishhaven',                  # 33 LOBSTER
+	'fishing',                    # 34 SPORTFISHEER
+	'fishing',                    # 35 TRAWLER
 );
 
 # ts_source values (waypoints.ts_source, tracks.ts_source)

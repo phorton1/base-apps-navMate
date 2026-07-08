@@ -306,7 +306,7 @@ sub new
 	EVT_CHECKBOX($this, $this->{ed_visible}, $this->can('_onEdVisibleChanged'));
 	EVT_BUTTON($this,   $this->{ed_ext_toggle}, \&_onExtToggle);
 	# Extended-panel controls all just mark the editor dirty on change.
-	for my $k (qw(ed_scamin ed_scamax ed_arrival ed_pspeed ed_rr_count ed_rr_space ed_rr_color ed_tide ed_etd))
+	for my $k (qw(ed_scamin ed_arrival ed_pspeed ed_rr_count ed_rr_space ed_rr_color ed_tide ed_etd))
 	{
 		EVT_TEXT($this, $this->{$k}, $this->can('_onFieldChanged')) if $this->{$k};
 	}
@@ -674,7 +674,7 @@ sub _ocpnBText
 	{
 		$t .= sprintf("  %-14s = %s\n", 'scamin',
 			($b->{scamin_on} ? ($b->{scamin} // 0) : 'off'));
-		$t .= sprintf("  %-14s = %s\n", 'scamax', $b->{scamax}) if ($b->{scamax} // 0) != 0;
+		$t .= sprintf("  %-14s = %s\n", 'scamax', $b->{scamax} // 0);
 	}
 	$t .= sprintf("  %-14s = %s\n", 'arrival_radius', $b->{arrival_radius})
 		if defined $b->{arrival_radius} && $b->{arrival_radius} != 0;
@@ -856,7 +856,6 @@ sub _loadExtended
 	$scamin = undef if defined $scamin && $scamin == 2147483646;   # sentinel -> blank
 	$this->{ed_scamin_on}->SetValue($b->{scamin_on} ? 1 : 0);
 	$this->{ed_scamin}->SetValue(_numStr($scamin));
-	$this->{ed_scamax}->SetValue(_numStr($b->{scamax}));
 	$this->{ed_arrival}->SetValue(_numStr($b->{arrival_radius}));
 	$this->{ed_pspeed}->SetValue(_numStr($b->{planned_speed}));
 	my $rr = (ref($b->{range_rings}) eq 'HASH') ? $b->{range_rings} : {};
@@ -886,7 +885,7 @@ sub _onSave
 		my %chg;
 		my $name = $this->{ed_name}->GetValue();
 		$chg{name} = $name if $name ne ($orig->{name} // '');
-		my $c = $this->{ed_comment}->GetValue();
+		my $c = normalizeNewlines($this->{ed_comment}->GetValue());
 		$chg{description} = $c if $c ne ($orig->{comment} // '');
 
 		my $lat = parseLatLon($this->{ed_lat}->GetValue());
@@ -953,7 +952,7 @@ sub _buildFullRouteTrackItem
 		my %data = (
 			%$orig,
 			name    => $this->{ed_name}->GetValue(),
-			comment => $this->{ed_comment}->GetValue(),
+			comment => normalizeNewlines($this->{ed_comment}->GetValue()),
 			b => {
 				%$ob,
 				from    => $this->{ed_from}->GetValue(),
@@ -990,9 +989,6 @@ sub _collectExtendedChanges
 	my $sc = _txtNum($this->{ed_scamin}->GetValue());
 	$sc = 2147483646 if !defined $sc;
 	$chg->{scamin} = $sc if $sc != _numOr($ob->{scamin}, 2147483646);
-
-	my $sx = _txtNum($this->{ed_scamax}->GetValue()) // 0;
-	$chg->{scamax} = $sx if $sx != _numOr($ob->{scamax}, 0);
 
 	my $ar = _txtNum($this->{ed_arrival}->GetValue()) // 0;
 	$chg->{arrival_radius} = $ar if abs($ar - _numOr($ob->{arrival_radius}, 0)) > 1e-9;
@@ -1040,18 +1036,17 @@ sub _buildExtendedPanel
 
 	$this->{ed_scamin_on} = Wx::CheckBox->new($ext, -1, 'Use scale-min', [$LX, $rowy->(0)], [-1, $H]);
 	$lbl->('  min scale', 1);  $this->{ed_scamin}  = $txt->(1);
-	$lbl->('  max scale', 2);  $this->{ed_scamax}  = $txt->(2);
-	$lbl->('arrival (nm)', 3); $this->{ed_arrival} = $txt->(3);
-	$lbl->('speed (kt)', 4);   $this->{ed_pspeed}  = $txt->(4);
-	$this->{ed_rr_show} = Wx::CheckBox->new($ext, -1, 'Range rings', [$LX, $rowy->(5)], [-1, $H]);
-	$lbl->('  count', 6);      $this->{ed_rr_count} = $txt->(6, 50);
-	$this->{ed_rr_units} = Wx::Choice->new($ext, -1, [$CX + 60, $rowy->(6)], [56, $H], ['nm', 'km']);
-	$lbl->('  spacing', 7);    $this->{ed_rr_space} = $txt->(7);
-	$lbl->('  color', 8);      $this->{ed_rr_color} = $txt->(8);
-	$lbl->('tide stn', 9);     $this->{ed_tide}    = $txt->(9);
-	$lbl->('etd (epoch)', 10); $this->{ed_etd}     = $txt->(10);
+	$lbl->('arrival (nm)', 2); $this->{ed_arrival} = $txt->(2);
+	$lbl->('speed (kt)', 3);   $this->{ed_pspeed}  = $txt->(3);
+	$this->{ed_rr_show} = Wx::CheckBox->new($ext, -1, 'Range rings', [$LX, $rowy->(4)], [-1, $H]);
+	$lbl->('  count', 5);      $this->{ed_rr_count} = $txt->(5, 50);
+	$this->{ed_rr_units} = Wx::Choice->new($ext, -1, [$CX + 60, $rowy->(5)], [56, $H], ['nm', 'km']);
+	$lbl->('  spacing', 6);    $this->{ed_rr_space} = $txt->(6);
+	$lbl->('  color', 7);      $this->{ed_rr_color} = $txt->(7);
+	$lbl->('tide stn', 8);     $this->{ed_tide}    = $txt->(8);
+	$lbl->('etd (epoch)', 9);  $this->{ed_etd}     = $txt->(9);
 
-	$this->{_ext_full_h} = 4 + 11 * $RH + 8;   # full content height (no internal scroll)
+	$this->{_ext_full_h} = 4 + 10 * $RH + 8;   # full content height (no internal scroll)
 	return;
 }
 
@@ -1421,6 +1416,7 @@ sub _ocpnDescriptor
 		has_wp_type => 0,
 		has_sym     => 1,
 		comment_max => undef,
+		comment_multiline => 1,
 	};
 }
 

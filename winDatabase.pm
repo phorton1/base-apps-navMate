@@ -149,7 +149,7 @@ sub new
 	$this->{ed_lbl_comment} = Wx::StaticText->new($right_panel, -1, 'Comment',
 		[$ED_MARGIN, $ey->(1)], [$ED_LABEL_W, $ED_CTRL_H]);
 	$this->{ed_comment} = Wx::TextCtrl->new($right_panel, -1, '',
-		[$ED_CTRL_X, $ey->(1)], [200, $ED_CTRL_H]);
+		[$ED_CTRL_X, $ey->(1)], [200, 2 * $ED_ROW_H - $ED_ROW_GAP], wxTE_MULTILINE);
 
 	$this->{ed_lbl_lat} = Wx::StaticText->new($right_panel, -1, 'Lat',
 		[$ED_MARGIN, $ey->(2)], [$ED_LABEL_W, $ED_CTRL_H]);
@@ -197,6 +197,10 @@ sub new
 	$this->{ed_depth_unit} = Wx::StaticText->new($right_panel, -1, $depth_unit,
 		[$ED_CTRL_X + 70 + 6, $ey->(6)], [-1, $ED_CTRL_H]);
 
+	# comment is a 2-line multi-line editor (spans 2 layout rows); every other
+	# field is single-row.  The winTreeBase layout walker reads this.
+	$this->{_ed_field_rows} = { comment => 2 };
+
 	# For winDatabase the color row's primary widget is ed_e80_color;
 	# ed_color_swatch and ed_pick_btn ride alongside to the right.
 	$this->{_ed_field_widgets} = {
@@ -223,7 +227,7 @@ sub new
 		my $ctrl_w = $w - $this->{_ed_ctrl_x} - $this->{_ed_margin};
 		$ctrl_w = 80 if $ctrl_w < 80;
 		$this->{ed_name}->SetSize($ctrl_w, $this->{_ed_ctrl_h});
-		$this->{ed_comment}->SetSize($ctrl_w, $this->{_ed_ctrl_h});
+		$this->{ed_comment}->SetSize($ctrl_w, 2 * $this->{_ed_row_h} - $ED_ROW_GAP);
 		winTreeBase::_resizeRightPanel($this);
 	});
 
@@ -1283,13 +1287,16 @@ sub _onSave
 	my $type     = $this->{_edit_type};
 	my $obj_type = $this->{_edit_obj_type} // '';
 
+	# multi-line comment editor returns CRLF on Windows; store canonical LF
+	my $comment  = normalizeNewlines($this->{ed_comment}->GetValue());
+
 	my $dbh = connectDB();
 
 	if ($type eq 'collection')
 	{
 		$dbh->do("UPDATE collections SET name=?, comment=? WHERE uuid=?",
 			[$this->{ed_name}->GetValue(),
-			 $this->{ed_comment}->GetValue(),
+			 $comment,
 			 $uuid]);
 	}
 	elsif ($type eq 'object' && $obj_type eq 'waypoint')
@@ -1318,7 +1325,7 @@ sub _onSave
 		my $w = getWaypoint($dbh, $uuid);
 		updateWaypoint($dbh, $uuid,
 			name       => $this->{ed_name}->GetValue(),
-			comment    => $this->{ed_comment}->GetValue(),
+			comment    => $comment,
 			lat        => $lat,
 			lon        => $lon,
 			wp_type    => $wp_type,
@@ -1334,13 +1341,13 @@ sub _onSave
 		updateRoute($dbh, $uuid,
 			$this->{ed_name}->GetValue(),
 			$this->{_edit_color},
-			$this->{ed_comment}->GetValue());
+			$comment);
 	}
 	elsif ($type eq 'object' && $obj_type eq 'track')
 	{
 		updateTrack($dbh, $uuid,
 			name    => $this->{ed_name}->GetValue(),
-			comment => $this->{ed_comment}->GetValue() // '',
+			comment => $comment,
 			color   => $this->{_edit_color});
 	}
 

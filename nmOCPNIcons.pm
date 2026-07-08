@@ -37,6 +37,12 @@ my $PICKER_CELL_PX = 20;   # displayed picker cell -- must fit the ~23px combo c
                            # (matches the E80 sym picker); the 48px raster is cached
                            # full-res and scaled DOWN for display.
 
+# In-memory Wx::Bitmap cache keyed "<hash>_<px>", so a glyph is decoded from disk
+# ONCE per process and shared by every picker/swatch (winOCPN's editor AND the
+# Symbol Map dialog).  Without it every pickerModel/bitmapMapByName call re-read
+# each cell PNG off disk -- the 1-2s-per-waypoint stall.
+my %_bmp_mem;
+
 
 #-------------------------------------------------------------------------
 # raster cache -- a decoded PNG bitmap per icon byte_hash, under $data_dir
@@ -92,6 +98,9 @@ sub iconBitmap
 	$key =~ s/[^0-9a-fA-F]//g;   # defensive: hash is hex, never a path
 	$key = length($key) ? $key : ('n' . length($b64));   # fallback key if no hash
 
+	my $mem_key = "${key}_${px}";
+	return $_bmp_mem{$mem_key} if exists $_bmp_mem{$mem_key};
+
 	my $cell = _rasterDir() . "/${key}_c${px}.png";
 	if (!-f $cell)
 	{
@@ -110,7 +119,8 @@ sub iconBitmap
 		eval { $img->SaveFile($cell, wxBITMAP_TYPE_PNG); };
 	}
 	my $bmp = eval { Wx::Bitmap->new($cell, wxBITMAP_TYPE_PNG) };
-	return ($bmp && $bmp->IsOk()) ? $bmp : undef;
+	$_bmp_mem{$mem_key} = ($bmp && $bmp->IsOk()) ? $bmp : undef;
+	return $_bmp_mem{$mem_key};
 }
 
 

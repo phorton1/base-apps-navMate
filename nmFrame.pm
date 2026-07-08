@@ -38,6 +38,7 @@ use Pub::Ray::NET::winFILESYS;
 use navOneTimeImport;
 use navKML;
 use winSymMapping;
+use winOCPNSymMap;
 use nmE80DirectOps;
 use nmE80TimedTracks;
 use nmE80About;
@@ -94,6 +95,7 @@ sub new
 	EVT_MENU($this, $COMMAND_COMPACT_DB_POSITIONS, \&onCommand);
 	EVT_MENU($this, $COMMAND_SYM_MAPPING,		\&onCommand);
 	EVT_MENU($this, $COMMAND_FORCE_SYM_RESET,	\&onCommand);
+	EVT_MENU($this, $COMMAND_OCPN_SYM_MAP,		\&onCommand);
 	EVT_MENU($this, $COMMAND_SAVE_OUTLINE,		\&onCommand);
 	EVT_MENU($this, $COMMAND_RESTORE_OUTLINE,	\&onCommand);
 	EVT_MENU($this, $COMMAND_SAVE_SELECTION,	\&onCommand);
@@ -312,13 +314,17 @@ sub createPane
 	return error("No id in createPane()") if !$id;
 	$book ||= $this->{book};
 	display(0, 0, "nmFrame::createPane($id) book=" . _def($book) . "  data=" . _def($data));
-	return winDatabase->new($this, $book, $id, $data, ++$next_db_instance)  if $id == $WIN_DATABASE;
-	return winE80->new($this, $book, $id, $data)       if $id == $WIN_E80;
-	return winMonitor->new($this, $book, $id, $data)   if $id == $WIN_MONITOR;
-	return winFSH->new($this, $book, $id, $data)       if $id == $WIN_FSH;
-	return winOCPN->new($this, $book, $id, $data)      if $id == $WIN_OCPN;
-	return winFILESYS->new($this, $book, $id, $data, $CMD_DOWNLOAD) if $id == $WIN_FILESYS;
-	return $this->SUPER::createPane($id, $book, $data);
+	my $pane;
+	if    ($id == $WIN_DATABASE) { $pane = winDatabase->new($this, $book, $id, $data, ++$next_db_instance); }
+	elsif ($id == $WIN_E80)      { $pane = winE80->new($this, $book, $id, $data); }
+	elsif ($id == $WIN_MONITOR)  { $pane = winMonitor->new($this, $book, $id, $data); }
+	elsif ($id == $WIN_FSH)      { $pane = winFSH->new($this, $book, $id, $data); }
+	elsif ($id == $WIN_OCPN)     { $pane = winOCPN->new($this, $book, $id, $data); }
+	elsif ($id == $WIN_FILESYS)  { $pane = winFILESYS->new($this, $book, $id, $data, $CMD_DOWNLOAD); }
+	else { return $this->SUPER::createPane($id, $book, $data); }
+	# app-wide: the mouse wheel must not silently change combo selections
+	nmResources::disableComboWheel($pane) if $pane;
+	return $pane;
 }
 
 
@@ -492,6 +498,10 @@ sub onCommand
 	elsif ($id == $COMMAND_FORCE_SYM_RESET)
 	{
 		_doForceSymReset($this);
+	}
+	elsif ($id == $COMMAND_OCPN_SYM_MAP)
+	{
+		_doOCPNSymMap($this);
 	}
 	elsif ($id == $COMMAND_SAVE_OUTLINE)
 	{
@@ -834,6 +844,15 @@ sub _doForceSymReset
 	{
 		$_->refresh() for $this->_findDatabasePanes();
 	}
+}
+
+
+sub _doOCPNSymMap
+{
+	my ($this) = @_;
+	# The sym <-> OpenCPN icon map is consumed at push-out and ingest, not in
+	# any open pane's current render, so there is nothing to refresh here.
+	showOCPNSymMapDialog($this);
 }
 
 

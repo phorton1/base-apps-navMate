@@ -328,7 +328,7 @@ sub loadSymMap
 {
 	my ($dbh) = @_;
 	%_mapped_syms = ();
-	_initSymIcons();
+	loadSymIcons($dbh);
 	my $rec = $dbh->get_record("SELECT value FROM key_values WHERE key='wp_mapped_syms'");
 	return if !$rec || !defined $rec->{value};
 	my $h = my_decode_json($rec->{value});
@@ -380,6 +380,7 @@ sub isMapped
 
 my %_icon_for_sym;
 my %_sym_for_icon;
+my $_default_sym;   # reverse catch-all sym for unmapped OpenCPN icons (editable)
 
 sub _initSymIcons
 {
@@ -405,9 +406,49 @@ sub symForIcon
 {
 	my ($icon) = @_;
 	_initSymIcons() if !%_sym_for_icon;
-	return $WP_DEFAULT_SYMS{$WP_TYPE_NAV} if !defined $icon || $icon eq '';
+	my $catch = ocpnDefaultSym();
+	return $catch if !defined $icon || $icon eq '';
 	return $_sym_for_icon{$icon} if exists $_sym_for_icon{$icon};
-	return $WP_DEFAULT_SYMS{$WP_TYPE_NAV};   # catch-all: unrecognized icon
+	return $catch;   # catch-all: unmapped OpenCPN icon -> the configurable default sym
+}
+
+sub ocpnDefaultSym
+{
+	# The reverse catch-all: every OpenCPN icon not named in the 36-entry
+	# forward map (and the empty-icon wire value) ingests to this sym.  Seeded
+	# to the NAV sym; overridden by the key_values 'sym_icons' default_sym field.
+	return defined($_default_sym) ? $_default_sym : $WP_DEFAULT_SYMS{$WP_TYPE_NAV};
+}
+
+# loadSymIcons($dbh) -- rebuild the sym<->icon cache from the @SYM_DEFAULT_ICONS
+# constant overlaid with the overrides persisted in the key_values 'sym_icons'
+# row (edited by winOCPNSymMap), and set the reverse catch-all default_sym.
+# The row is { icons => [...36...], default_sym => N }; the legacy bare-array
+# shape (icons only) is still accepted.  An empty/absent icon slot falls back to
+# the constant.  Called from loadSymMap (at openDB and after a Symbol Map save).
+sub loadSymIcons
+{
+	my ($dbh) = @_;
+	_initSymIcons();
+	$_default_sym = undef;
+	my $rec = $dbh->get_record("SELECT value FROM key_values WHERE key='sym_icons'");
+	return if !$rec || !defined $rec->{value};
+	my $data = my_decode_json($rec->{value});
+	my ($icons, $def);
+	if    (ref($data) eq 'ARRAY') { $icons = $data; }                              # legacy
+	elsif (ref($data) eq 'HASH')  { $icons = $data->{icons}; $def = $data->{default_sym}; }
+	else                          { return; }
+	$_default_sym = $def + 0 if defined $def;
+	return if ref($icons) ne 'ARRAY';
+	%_icon_for_sym = ();
+	%_sym_for_icon = ();
+	for my $sym (0 .. $#SYM_DEFAULT_ICONS)
+	{
+		my $icon = (defined $icons->[$sym] && $icons->[$sym] ne '')
+			? $icons->[$sym] : $SYM_DEFAULT_ICONS[$sym];
+		$_icon_for_sym{$sym} = $icon;
+		$_sym_for_icon{$icon} = $sym if !exists $_sym_for_icon{$icon};
+	}
 }
 
 

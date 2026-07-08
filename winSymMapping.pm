@@ -261,6 +261,7 @@ sub showSymMappingDialog
 		$dlg->EndModal(wxID_OK);
 	});
 
+	nmResources::disableComboWheel($dlg);
 	$dlg->ShowModal();
 	$dlg->Destroy();
 	return $applied;

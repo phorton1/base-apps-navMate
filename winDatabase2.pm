@@ -843,6 +843,7 @@ sub _dbDescriptor
 		has_wp_type => 1,
 		has_sym     => 1,
 		comment_max => undef,
+		comment_multiline => 1,
 	};
 }
 

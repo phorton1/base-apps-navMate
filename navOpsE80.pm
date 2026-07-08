@@ -2041,6 +2041,8 @@ sub _cutE80Track
 sub _truncForE80
 {
     my ($name, $comment) = @_;
+    $name    = flattenNewlines($name);
+    $comment = flattenNewlines($comment);
     if (length($name) > $E80_MAX_NAME)
     {
         warning(0, 0, "_truncForE80: name truncated to $E80_MAX_NAME chars: '$name'");

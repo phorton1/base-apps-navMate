@@ -65,6 +65,7 @@ BEGIN
 		$COMMAND_COMPACT_DB_POSITIONS
 		$COMMAND_SYM_MAPPING
 		$COMMAND_FORCE_SYM_RESET
+		$COMMAND_OCPN_SYM_MAP
 
 		$COMMAND_HELP_USER_MANUAL
 		$COMMAND_ABOUT_NAVMATE
@@ -121,6 +122,7 @@ our $COMMAND_COMPACT_DB_POSITIONS = 10093;
 
 our $COMMAND_SYM_MAPPING		= 10094;
 our $COMMAND_FORCE_SYM_RESET	= 10095;
+our $COMMAND_OCPN_SYM_MAP		= 10096;
 
 our $COMMAND_HELP_USER_MANUAL	= 10101;
 our $COMMAND_ABOUT_NAVMATE		= 10102;
@@ -187,6 +189,7 @@ my $command_data = {
 	$COMMAND_COMPACT_DB_POSITIONS => ['Compact Positions',	'Renumber every container\'s child positions to 1.0, 2.0, 3.0...'],
 	$COMMAND_SYM_MAPPING		=> ['Waypoint Sym Mapping...',	'View and edit the wp_type -> sym mapping; conservative update of mapped waypoints'],
 	$COMMAND_FORCE_SYM_RESET	=> ['Force Reset Syms by Type...', 'Force every waypoint of a chosen wp_type to its mapped sym, overwriting hand-set syms'],
+	$COMMAND_OCPN_SYM_MAP		=> ['Symbol Map...',			'View and edit the sym <-> OpenCPN icon map used when pushing and ingesting OpenCPN marks'],
 	$COMMAND_HELP_USER_MANUAL	=> ['User Manual',			'Open the navMate User Manual on GitHub in your web browser'],
 	$COMMAND_ABOUT_NAVMATE		=> ['About navMate',			'Show the navMate version and a link to the project web site'],
 };
@@ -272,10 +275,9 @@ my $fsh_menu = [
 	$COMMAND_RESTORE_FSH_OUTLINE,
 ];
 
-# Top-level OpenCPN menu -- intentionally empty for now; its items (spoke-level
-# OpenCPN operations) are a later conversation.  The empty array still renders
-# the "OpenCPN" title in the menu bar, between FSH and Utils.
+# Top-level OpenCPN menu, between FSH and Utils.
 my $ocpn_menu = [
+	$COMMAND_OCPN_SYM_MAP,
 ];
 
 my $utils_menu = [
@@ -405,6 +407,35 @@ sub makeSymComboBox
 		$cb->Append(sprintf('%2d - %s', $i, $E80_SYMS[$i]), symBitmap($i) // _blankBitmap());
 	}
 	return $cb;
+}
+
+
+# noComboWheel($ctrl) -- swallow mouse-wheel events on one combo so the wheel
+# never silently changes its selection (only clicks / keys do).  Returns $ctrl.
+sub noComboWheel
+{
+	my ($ctrl) = @_;
+	Wx::Event::EVT_MOUSEWHEEL($ctrl, sub { });
+	return $ctrl;
+}
+
+
+# disableComboWheel($win) -- recursively noComboWheel every Wx::Choice /
+# Wx::ComboBox / Wx::BitmapComboBox under $win.  Call once after a window or
+# dialog's controls are built.  The mouse wheel over a combo silently edited its
+# value while the user only meant to scroll -- dangerous in the scrolling editors.
+sub disableComboWheel
+{
+	my ($win) = @_;
+	return if !$win;
+	for my $child ($win->GetChildren())
+	{
+		noComboWheel($child)
+			if $child->isa('Wx::Choice')
+			|| $child->isa('Wx::ComboBox')
+			|| $child->isa('Wx::BitmapComboBox');
+		disableComboWheel($child);
+	}
 }
 
 

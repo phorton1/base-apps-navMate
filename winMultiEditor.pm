@@ -44,7 +44,8 @@ use n_utils qw(
 	@E80_ROUTE_COLOR_NAMES
 	@E80_ROUTE_COLOR_ABGR
 	abgrToE80Index
-	isExactE80Color);
+	isExactE80Color
+	normalizeNewlines);
 use Pub::Ray::NET::a_utils;
 use nmResources qw(makeSymComboBox);
 use navColorPick;
@@ -67,6 +68,7 @@ my $CHOICE_W     = 180;
 my $SWATCH_W     = 22;
 my $PICK_W       = 60;
 my $COMMENT_W    = 290;
+my $COMMENT_MULTI_H = 60;   # comment editor height when the descriptor is multi-line
 my $SYM_CHOICE_W = 260;
 
 
@@ -86,6 +88,7 @@ sub openForSelection
 		$fetch->(\@items);
 	}
 	my $dlg = winMultiEditor->new($parent, \@items, $descriptor);
+	nmResources::disableComboWheel($dlg);
 	my $rc  = $dlg->ShowModal();
 	my $touched = $dlg->{_committed_uuids} || [];
 	$dlg->Destroy();
@@ -225,7 +228,9 @@ sub new
 	my $color_mode  = $descriptor->{color_row} // 'abgr';
 	my $has_wp_type = $descriptor->{has_wp_type} ? 1 : 0;
 	my $has_sym     = $descriptor->{has_sym}     ? 1 : 0;
-	my $comment_max = $descriptor->{comment_max};
+	my $comment_max       = $descriptor->{comment_max};
+	my $comment_multiline = $descriptor->{comment_multiline} ? 1 : 0;
+	my $comment_row_h     = $comment_multiline ? ($ROW_H + $COMMENT_MULTI_H - 22) : $ROW_H;
 
 	my $show_color   = 1;
 	my $show_comment = (scalar @com_items) > 0;
@@ -266,11 +271,11 @@ sub new
 	my $tag_x = $CTRL_X + $max_sub_w + $TAG_PAD;
 	my $dlg_w = $tag_x + $TAG_W + 14;
 
-	my $n_rows = ($show_color ? 1 : 0)
-	           + ($show_comment ? 1 : 0)
-	           + ($show_wp_type ? 1 : 0)
-	           + ($show_sym ? 1 : 0);
-	my $dlg_h = 50 + ($n_rows * $ROW_H) + 60;
+	my $rows_h = ($show_color   ? $ROW_H : 0)
+	           + ($show_comment ? $comment_row_h : 0)
+	           + ($show_wp_type ? $ROW_H : 0)
+	           + ($show_sym     ? $ROW_H : 0);
+	my $dlg_h = 50 + $rows_h + 60;
 
 	my $this = $class->SUPER::new($parent, -1, 'Multi Edit',
 		wxDefaultPosition, [$dlg_w, $dlg_h],
@@ -307,8 +312,8 @@ sub new
 	if ($show_comment)
 	{
 		_buildCommentRow($this, $y, scalar(@com_items),
-			$comment_shared, $comment_max, $tag_x);
-		$y += $ROW_H;
+			$comment_shared, $comment_max, $comment_multiline, $tag_x);
+		$y += $comment_row_h;
 	}
 	if ($show_wp_type)
 	{
@@ -423,14 +428,16 @@ sub _buildColorRowPalette
 
 sub _buildCommentRow
 {
-	my ($this, $y, $n_comment, $comment_shared, $comment_max, $tag_x) = @_;
+	my ($this, $y, $n_comment, $comment_shared, $comment_max, $comment_multiline, $tag_x) = @_;
 	Wx::StaticText->new($this, -1, 'Comment', [$LBL_X, $y + 4], [$LBL_W, 20]);
 
 	my $placeholder = defined($comment_shared)
 		? $comment_shared
 		: "(multi $n_comment)";
+	my @style  = $comment_multiline ? (wxTE_MULTILINE) : ();
+	my $ctrl_h = $comment_multiline ? $COMMENT_MULTI_H : 22;
 	$this->{txt_comment} = Wx::TextCtrl->new($this, -1, $placeholder,
-		[$CTRL_X, $y], [$COMMENT_W, 22]);
+		[$CTRL_X, $y], [$COMMENT_W, $ctrl_h], @style);
 	$this->{txt_comment}->SetMaxLength($comment_max) if $comment_max;
 
 	$this->{tag_comment} = Wx::StaticText->new($this, -1,
@@ -592,7 +599,7 @@ sub _onOK
 	my $comment_dirty = 0;
 	if ($this->{txt_comment} && $this->{_comment_dirty})
 	{
-		my $txt = $this->{txt_comment}->GetValue();
+		my $txt = normalizeNewlines($this->{txt_comment}->GetValue());
 		if (!defined $this->{_comment_orig_shared})
 		{
 			# multi case: untouched placeholder == no change

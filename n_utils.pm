@@ -44,6 +44,8 @@ BEGIN
 		@E80_ROUTE_COLOR_NAMES
 		abgrToE80Index
 		isExactE80Color
+		flattenNewlines
+		normalizeNewlines
 	);
 }
 
@@ -78,6 +80,41 @@ sub implementationError
 	{
 		error("IMPLEMENTATION ERROR: $msg", 2);
 	}
+}
+
+
+#---------------------------------
+# flattenNewlines
+#---------------------------------
+# Collapse embedded newline runs (CR, LF, CRLF, or repeats) to a single
+# space.  Used at the E80 / FSH spoke boundaries, whose name/comment fields
+# are single-line device/binary records -- a raw newline there is corruption,
+# not just fidelity loss.  Undef becomes ''.
+
+sub flattenNewlines
+{
+	my ($s) = @_;
+	return '' if !defined $s;
+	$s =~ s/[\r\n]+/ /g;
+	return $s;
+}
+
+
+#---------------------------------
+# normalizeNewlines
+#---------------------------------
+# Canonicalize wx TextCtrl line endings to plain LF for storage / wire.  A
+# Windows multi-line Wx::TextCtrl returns CRLF from GetValue(); the canonical
+# navMate.db and the OpenCPN wire use LF.  Preserves line structure (unlike
+# flattenNewlines).  Undef becomes ''.
+
+sub normalizeNewlines
+{
+	my ($s) = @_;
+	return '' if !defined $s;
+	$s =~ s/\r\n/\n/g;
+	$s =~ s/\r/\n/g;
+	return $s;
 }
 
 
