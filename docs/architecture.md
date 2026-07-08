@@ -7,6 +7,7 @@
 **[Implementation](implementation.md)** --
 **[navOperations](navOperations.md)** --
 **[Spoke Contract](navOps_spoke_contract.md)** --
+**[OpenCPN](opencpn.md)** --
 **[KML Specification](kml_specification.md)** --
 **[GE Notes](ge_notes.md)** --
 **[Testing](testing.md)** --
@@ -113,6 +114,9 @@ The relationship to E80, OpenCPN, Garmin, and any future device is the same in k
 a bidirectional boundary adapter, with navMate's own data model and UI unconstrained
 by any device's limitations.
 
+The OpenCPN boundary adapter - a polling-peer spoke reaching OpenCPN through the
+companion oESeries plugin - is documented in [OpenCPN](opencpn.md).
+
 ## UI Architecture - Three Simultaneous Layers
 
 navMate runs three UI surfaces simultaneously, each suited to different tasks:
@@ -204,6 +208,12 @@ navMate is designed to travel a defined arc:
 The Windows installer capability uses the same Perl packaging infrastructure
 established across Patrick's other deployable applications.
 
+navMate ships, is documented, and is tested on Windows only. That is a distribution
+choice, not a code limitation: the source is portable Perl/wxPerl and runs on other
+platforms under a stock Perl + wxPerl (it has been brought up on a Raspberry Pi).
+Ports and forks are welcome; the shipped and documented surface stays deliberately
+Windows-focused.
+
 ## Code Organization
 
 navMate source modules use a four-tier lexical prefix convention. Prefixes sort
@@ -229,6 +239,14 @@ point and sits above all layers.
 
 `_res/site/` holds the Leaflet applet HTML/JS, served by `navServer.pm`'s embedded HTTP
 server. Not a Perl module.
+
+**User-facing name vs internal tokens.** The plotter is branded **ESeries** (no hyphen)
+in all user-facing UI and generated text -- the same firmware runs the E80 and E120, so
+no single model number fits. Internal code tokens stay `E80`/`e80`: the spoke join key,
+module and file names (`winE80.pm`), resource ids (`$WIN_E80`), and log op-names are
+unchanged. Sentinel/label text is derived from the panel key (`$panel eq 'e80' ?
+'ESeries' : uc($panel)`). Docs and the user manual introduce it once as "E-Series
+(E80/E120)", then use "ESeries".
 
 See [Implementation](implementation.md) for the full module inventory organized by
 layer and functional boundary.

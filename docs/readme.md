@@ -9,6 +9,7 @@
 **[Implementation](implementation.md)** --
 **[navOperations](navOperations.md)** --
 **[Spoke Contract](navOps_spoke_contract.md)** --
+**[OpenCPN](opencpn.md)** --
 **[KML Specification](kml_specification.md)** --
 **[GE Notes](ge_notes.md)** --
 **[Testing](testing.md)** --
@@ -64,6 +65,11 @@ base, data model, and UI are the product. Everything else is a boundary adapter.
   Copy / Cut / Paste operations across both panels: selection rules, clipboard
   vocabulary, pre-flight validation, paste compatibility matrix, operation
   semantics, and HTTP test machinery.
+
+- **[OpenCPN](opencpn.md)** -
+  The OpenCPN spoke: the polling-peer transport through the companion oESeries
+  plugin, identity and the data model at the seam, schema persistence, and the
+  fidelity boundary of the plugin channel.
 
 - **[KML Specification](kml_specification.md)** -
   KML file structure, style naming and templates, ExtendedData tags, object-to-KML
