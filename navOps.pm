@@ -1977,7 +1977,7 @@ sub _hasLossyIssues
 sub _preflightLossyTransform
 {
 	my ($items, $direction) = @_;
-	my (@trunc_names, @trunc_comments, @color_mismatch, @depth_degraded, @ts_dropped);
+	my (@trunc_names, @trunc_comments, @color_mismatch, @depth_degraded, @ts_dropped, @non_ascii);
 
 	# FSH spoke shares the E80 name/comment field-length limits
 	# (Z16/Z32) and the same 0-5 color palette index.  db_to_fsh and
@@ -1999,9 +1999,11 @@ sub _preflightLossyTransform
 		if ($is_db_to_spoke)
 		{
 			push @trunc_names, $name
-				if length(flattenNewlines($name)) > $E80_MAX_NAME;
+				if length(foldToAscii(flattenNewlines($name))) > $E80_MAX_NAME;
 			push @trunc_comments, $name
-				if length(flattenNewlines($d->{comment} // '')) > $E80_MAX_COMMENT;
+				if length(foldToAscii(flattenNewlines($d->{comment} // ''))) > $E80_MAX_COMMENT;
+			push @non_ascii, $name
+				if hasNonAscii($name) || hasNonAscii($d->{comment} // '');
 
 			if ($t eq 'group')
 			{
@@ -2010,9 +2012,11 @@ sub _preflightLossyTransform
 					my $md = $m->{data} // {};
 					my $mn = $md->{name} // '';
 					push @trunc_names, $mn
-						if length(flattenNewlines($mn)) > $E80_MAX_NAME;
+						if length(foldToAscii(flattenNewlines($mn))) > $E80_MAX_NAME;
 					push @trunc_comments, $mn
-						if length(flattenNewlines($md->{comment} // '')) > $E80_MAX_COMMENT;
+						if length(foldToAscii(flattenNewlines($md->{comment} // ''))) > $E80_MAX_COMMENT;
+					push @non_ascii, $mn
+						if hasNonAscii($mn) || hasNonAscii($md->{comment} // '');
 				}
 			}
 
@@ -2063,6 +2067,7 @@ sub _preflightLossyTransform
 		color_mismatch     => \@color_mismatch,
 		depth_degraded     => \@depth_degraded,
 		ts_dropped         => \@ts_dropped,
+		non_ascii          => \@non_ascii,
 	};
 }
 

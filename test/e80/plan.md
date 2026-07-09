@@ -90,6 +90,7 @@ Two-section structure per master_runbook's Test Organization Convention: positiv
 | e80.26  | UUID conflict clean-create path |
 | e80.27  | UUID conflict dialog path -- `NOT_RUN (db_versioning)` -- infrastructure absent |
 | e80.28a | Upload IsolatedWP1 to E80 if absent (setup for descendant-paste guards) |
+| e80.36  | Non-ASCII fold: paste [AccentedWP] DB->E80; name + comment transliterate to plain ASCII ("Cafe Nandu"), no byte > 0x7F on the E80 record; the `non_ascii` lossyTransformWarning fires (auto-accepted under suppress=1). |
 
 ### Guard Tests
 
@@ -113,6 +114,7 @@ Renamed from previous numbers; old-number cross-reference kept inline for log/co
 | e80.G14 | D6 spoke content-vs-destination: Group at E80 my_waypoints blocked | e80.33 |
 | e80.G15 | D6 spoke content-vs-destination: Route at E80 groups header blocked | e80.34 |
 | e80.G16 | D6 spoke content-vs-destination: Group at E80 named-group node blocked | e80.35 |
+| e80.G17 | Non-ASCII lossy-warn SENTINEL (the fold PROCEEDS -- not a rejection): pasting [AccentedWP] to E80 fires the `non_ascii` warning line ("... simplified to plain ASCII ..."); a plain-ASCII paste does NOT. Parallels the mod003 lossy-warn sentinels (assert PRESENT/ABSENT, not a refusal). | (new) |
 
 ## Intra-module sequencing
 

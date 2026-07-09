@@ -652,6 +652,27 @@ $distinct = (@($dst.points | ForEach-Object { $_.ts }) | Sort-Object -Unique).Co
 
 ---
 
+### Test fsh.41 -- Non-ASCII fold DB->FSH
+
+Paste [AccentedWP] (the accented "Cafe Nandu", uuid `6c4ea8a2560780cc`) to FSH. The strict-ASCII seam transliterates its accented name + comment to plain ASCII (`foldToAscii` in `_truncForFSH`), and the `non_ascii` lossyTransformWarning fires (auto-accepted under suppress=1). The FSH twin of e80.36.
+
+```powershell
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.41" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=6c4ea8a2560780cc&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
+Start-Sleep 3
+$fsh = curl.exe -s "http://localhost:9883/api/fsh" | ConvertFrom-Json
+$wp = ($fsh.waypoints.PSObject.Properties | Where-Object { $_.Value.name -like 'Cafe*' }).Value
+$nonAscii = ("$($wp.name)$($wp.comment)") -match '[^\x00-\x7F]'
+$warned   = (curl.exe -s "http://localhost:9883/api/log?since=mark") -match 'simplified to plain ASCII'
+Write-Host "fsh.41: name='$($wp.name)'  folded_to_ascii=$(-not $nonAscii)  non_ascii_warned=$warned"
+```
+
+**Pass:** the FSH record's name is plain ASCII `Cafe Nandu`, no byte > 0x7F in name or comment, AND the `non_ascii` lossyTransformWarning fired. **Fail:** any byte > 0x7F on the FSH record, or the warning absent.
+
+---
+
 ## Guard Tests
 
 ### Test G1 -- Delete FSH Group+WPS blocked (members in route) [was fsh.12]
@@ -897,6 +918,34 @@ curl.exe -s "http://localhost:9883/api/force_timed_tracks?cmd=set&val=1" | Out-N
 ```
 
 **Pass:** the `lossyTransformWarning:` lines INCLUDE `1 track(s) carry timestamps that will be DROPPED (stock-track write mode).` and do NOT include any `... quantized to 0.1 ft ...` line.  (Truncation line co-fires; ignored.)  The write preference is restored to `1` afterward.
+
+---
+
+### Test fsh.G13 -- Non-ASCII lossy-warn sentinel
+
+The FSH twin of e80.G17. The non-ASCII fold PROCEEDS (not a rejection); assert the `non_ascii` warning line PRESENT for an accented paste, ABSENT for a plain-ASCII paste. fsh.41 covered the fold correctness; this is the mod003-style present/absent sentinel. The warning fires in the lossy PREFLIGHT, before any paste effect.
+
+```powershell
+# phase a -- accented paste fires the non_ascii warning
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G13a+accented" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=6c4ea8a2560780cc&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
+Start-Sleep 3
+$a = @((curl.exe -s "http://localhost:9883/api/log?since=mark" | ConvertFrom-Json).lines |
+    Where-Object { $_.text -match 'simplified to plain ASCII' }).Count
+# phase b -- plain-ASCII paste does NOT fire it ([IsolatedWP2] Mexico~99 is ASCII; any collision is irrelevant to the non_ascii assertion)
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+fsh.G13b+ascii" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=864e53b65f033436&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=fsh&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
+Start-Sleep 3
+$b = @((curl.exe -s "http://localhost:9883/api/log?since=mark" | ConvertFrom-Json).lines |
+    Where-Object { $_.text -match 'simplified to plain ASCII' }).Count
+Write-Host "fsh.G13: accented_warned=$($a -gt 0)  ascii_warned=$($b -gt 0)   (pass = True then False)"
+```
+
+**Pass:** phase a INCLUDES the `non_ascii` warning line (`... simplified to plain ASCII ...`); phase b does NOT. Confirms `_preflightLossyTransform` raises the `non_ascii` issue for `db_to_fsh` only when non-ASCII is present.
 
 ---
 

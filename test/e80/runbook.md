@@ -579,6 +579,25 @@ if (-not $present)
 
 **Pass:** [IsolatedWP1] is on E80 after this step, whether the upload was needed or the WP was already present from a prior step. **Fail:** WP still absent (upload attempted but did not land).
 
+### Test e80.36 -- Non-ASCII fold DB->E80
+
+Paste [AccentedWP] (the accented "Cafe Nandu", uuid `6c4ea8a2560780cc`) to E80. The strict-ASCII seam transliterates its accented name + comment to plain ASCII (`foldToAscii` in `_truncForE80`), and the `non_ascii` lossyTransformWarning fires (auto-accepted under suppress=1). Paste preserves the uuid, so the E80 record is at the same uuid.
+
+```powershell
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.36" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=6c4ea8a2560780cc&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
+Start-Sleep 5
+$db = curl.exe -s "http://localhost:9883/api/db" | ConvertFrom-Json
+$wp = ($db.waypoints.PSObject.Properties | Where-Object { $_.Name -eq '6c4ea8a2560780cc' }).Value
+$nonAscii = ("$($wp.name)$($wp.comment)") -match '[^\x00-\x7F]'
+$warned   = (curl.exe -s "http://localhost:9883/api/log?since=mark") -match 'simplified to plain ASCII'
+Write-Host "e80.36: name='$($wp.name)'  folded_to_ascii=$(-not $nonAscii)  non_ascii_warned=$warned"
+```
+
+**Pass:** the E80 record's name is plain ASCII `Cafe Nandu`, no byte > 0x7F in name or comment, AND the `non_ascii` lossyTransformWarning (`... simplified to plain ASCII ...`) fired. **Fail:** any byte > 0x7F on the E80 record, or the warning absent.
+
 ---
 
 ## Guard Tests
@@ -881,6 +900,32 @@ Start-Sleep 3
 ```
 
 **Pass:** `WARNING: IMPLEMENTATION ERROR: Cannot paste group clipboard item at e80 'group' destination`; E80 unchanged.
+
+---
+
+### Test e80.G17 -- Non-ASCII lossy-warn sentinel
+
+The non-ASCII fold PROCEEDS (it is not a rejection), so this asserts the `non_ascii` warning line PRESENT for an accented paste and ABSENT for a plain-ASCII paste -- the mod003-style lossy sentinel, not a refusal. (e80.36 already covered the fold correctness.) The warning fires in the lossy PREFLIGHT, before any collision/paste effect, so a re-paste of [AccentedWP] is fine.
+
+```powershell
+# phase a -- accented paste fires the non_ascii warning
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G17a+accented" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=6c4ea8a2560780cc&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
+Start-Sleep 4
+$a = (curl.exe -s "http://localhost:9883/api/log?since=mark") -match 'simplified to plain ASCII'
+# phase b -- plain-ASCII paste does NOT fire it ([IsolatedWP2] Mexico~99 is ASCII; a name collision, if any, is irrelevant -- non_ascii cannot fire for ASCII input)
+curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+e80.G17b+ascii" | Out-Null
+curl.exe -s "http://localhost:9883/api/test?panel=database&select=864e53b65f033436&cmd=10200" | Out-Null
+Start-Sleep 1
+curl.exe -s "http://localhost:9883/api/test?panel=e80&select=my_waypoints&right_click=my_waypoints&cmd=10210" | Out-Null
+Start-Sleep 4
+$b = (curl.exe -s "http://localhost:9883/api/log?since=mark") -match 'simplified to plain ASCII'
+Write-Host "e80.G17: accented_warned=$a  ascii_warned=$b   (pass = True then False)"
+```
+
+**Pass:** phase a INCLUDES the `non_ascii` warning line (`... simplified to plain ASCII ...`); phase b does NOT. Confirms `_preflightLossyTransform` raises the new `non_ascii` issue only when non-ASCII is present.
 
 ---
 

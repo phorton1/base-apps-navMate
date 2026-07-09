@@ -25,6 +25,7 @@ UUIDs re-derived 2026-06-29 from the git-baseline `navMate.db` (schema 13) after
 | [IsolatedWP1] | 9e4e10cc5e03093e | BarillasMarina -- in Part 4 - Pacific Central/Places (bc4e6a005d03cbce); not in any route. (Groupedness is irrelevant to its roles -- it is only ever a COPY source, move/delete subject, or anchor. The old "isolated/ungrouped" framing no longer applies: the DB has zero ungrouped WPs.) |
 | [IsolatedWP2] | 864e53b65f033436 | Mexico~99 -- same parent group (Part 4/Places, bc4e6a005d03cbce); not in any route |
 | [IsolatedWP3] | f54e595460034e6e | PuestaDelSol -- same parent group (Part 4/Places, bc4e6a005d03cbce); not in any route; consumed by db module's delete-WP test |
+| [AccentedWP] | 6c4ea8a2560780cc | The accented "Cafe Nandu" waypoint (name AND comment carry non-ASCII -- e-acute, n-tilde, u-acute). Pasted from the OCPN seed into Navigation/Waypoints/Bocas and committed to baseline 2026-07-09. The non-ASCII FOLD source: on DB->E80/FSH the strict-ASCII seam transliterates it to plain "Cafe Nandu" and fires the `non_ascii` lossyTransformWarning; OCPN/GPX/KML carry the accents through unchanged (hub stores real UTF-8 via `Pub::Database utf8=>1`). |
 
 ### WP referenced in a route
 

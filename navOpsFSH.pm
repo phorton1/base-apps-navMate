@@ -173,8 +173,8 @@ sub _truncForFSH
 	# Truncate-with-warning matches the E80 spoke's policy.
 {
 	my ($name, $comment) = @_;
-	$name    = flattenNewlines($name);
-	$comment = flattenNewlines($comment);
+	$name    = foldToAscii(flattenNewlines($name));
+	$comment = foldToAscii(flattenNewlines($comment));
 	if (length($name) > $FSH_MAX_NAME)
 	{
 		warning(0, 0, "_truncForFSH: name truncated to $FSH_MAX_NAME chars: '$name'");

@@ -9,6 +9,7 @@ use threads;
 use threads::shared;
 use Time::HiRes qw(time);
 use POSIX qw(strftime);
+use Unicode::Normalize qw(NFD);
 use Pub::Utils;
 use if is_win, 'Cava::Packager';
 use n_defs;
@@ -46,6 +47,8 @@ BEGIN
 		isExactE80Color
 		flattenNewlines
 		normalizeNewlines
+		foldToAscii
+		hasNonAscii
 	);
 }
 
@@ -97,6 +100,45 @@ sub flattenNewlines
 	return '' if !defined $s;
 	$s =~ s/[\r\n]+/ /g;
 	return $s;
+}
+
+
+#---------------------------------
+# foldToAscii
+#---------------------------------
+# Transliterate a Unicode string to plain 7-bit ASCII for the strict-ASCII
+# device/file spokes (E80, FSH), whose name/comment fields cannot hold any byte
+# > 0x7F.  Accented Latin folds to its base letter (e-acute -> e, n-tilde -> n,
+# u-umlaut -> u); anything with no Latin decomposition (Cyrillic, CJK, emoji)
+# has no ASCII lookalike and becomes '_'.  Lossy -- callers surface it via
+# lossyTransformWarning (non_ascii) before applying.  Undef becomes ''.  NB the
+# input must be a decoded CHAR string (which navMate.db reads now are, via
+# Pub::Database utf8 => 1); a raw UTF-8 byte string would mis-decompose.
+#   1. NFD decompose   (accented letter -> base + combining accent)
+#   2. drop the combining marks
+#   3. backstop: any remaining char > 0x7F -> '_'
+
+sub foldToAscii
+{
+	my ($s) = @_;
+	return '' if !defined $s;
+	$s = NFD($s);
+	$s =~ s/\p{NonspacingMark}//g;
+	$s =~ s/[^\x00-\x7F]/_/g;
+	return $s;
+}
+
+
+#---------------------------------
+# hasNonAscii
+#---------------------------------
+# True if $s contains any character > 0x7F -- i.e. foldToAscii would change it.
+# Used by the lossy-transform preflight to decide whether to warn.
+
+sub hasNonAscii
+{
+	my ($s) = @_;
+	return defined($s) && $s =~ /[^\x00-\x7F]/ ? 1 : 0;
 }
 
 

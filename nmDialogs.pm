@@ -60,8 +60,10 @@ sub lossyTransformWarning
 	my $cm = scalar @{$issues->{color_mismatch}     // []};
 	my $dd = scalar @{$issues->{depth_degraded}     // []};
 	my $td = scalar @{$issues->{ts_dropped}         // []};
+	my $na = scalar @{$issues->{non_ascii}          // []};
 	push @lines, "$tn item(s) will have names truncated to 15 characters." if $tn;
 	push @lines, "$tc item(s) will have comments truncated to 31 characters." if $tc;
+	push @lines, "$na item(s) contain non-ASCII text that will be simplified to plain ASCII (e.g. accents dropped)." if $na;
 	push @lines, "$cm item(s) have colors that cannot round-trip to the destination and will be approximated." if $cm;
 	push @lines, "$td track(s) carry timestamps that will be DROPPED (stock-track write mode)." if $td;
 	push @lines, "$dd track(s) have centimetre depths that will be quantized to 0.1 ft (written as timed tracks)." if $dd;

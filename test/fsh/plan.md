@@ -91,6 +91,7 @@ Two-section structure per master_runbook's Test Organization Convention: positiv
 | fsh.31  | UUID conflict clean-create path (parallels e80.26) |
 | fsh.32a | Ensure [FSH_IsolatedWP1] on FSH (precondition for the descendant-paste guards) |
 | fsh.40  | **Timed-track DB->FSH->DB round-trip** (mod003; headless, no hardware).  COPY `[TIMED_CAT32]` to the FSH tracks header under `force_timed=1` (FSH encode); COPY the FSH track back and PASTE_NEW to DB (FSH->DB decode); `/api/track_points` on the new DB row shows all 500 per-point `ts` preserved, endpoints exact and IN ORDER.  The FSH-spoke twin of tracks.15 and the load-bearing FSH->DB decode regression -- the seam that previously stored the unix ts into `depth_cm`. |
+| fsh.41  | Non-ASCII fold: paste [AccentedWP] DB->FSH; name + comment transliterate to plain ASCII ("Cafe Nandu"), no byte > 0x7F on the FSH record; the `non_ascii` lossyTransformWarning fires (auto-accepted under suppress=1).  The FSH twin of e80.36. |
 
 ### Guard Tests
 
@@ -110,6 +111,7 @@ Renamed from previous numbers; old-number cross-reference kept inline for log/co
 | fsh.G10 | D6 spoke content-vs-destination: Group at FSH named-group node blocked (parallels e80.G16) | fsh.36 |
 | fsh.G11 | Intra-batch post-truncation WP collision on FSH destination -- two `BajaCalifornia~N` DB WPs PASTE'd to FSH my_waypoints; `_collectNameConflicts` rejects via post-truncation lc-key comparison.  Parallels e80.G3. | fsh.37 |
 | fsh.G12 | **Timed-track lossy-warn matrix on `db_to_fsh`** (preference-conditional).  Two phases over `[TIMED_CAT32]`: `force_timed=1` -> `depth_degraded` present, `ts_dropped` absent; `force_timed=0` -> `ts_dropped` present, `depth_degraded` absent.  The FSH twin of tracks.G4 -- proves the shared `_preflightLossyTransform` codepath fires identically for `db_to_fsh`.  Cat32's long name co-fires `truncated_names` (ignored).  Restore `force_timed=1` after. | -- |
+| fsh.G13 | Non-ASCII lossy-warn SENTINEL (the fold PROCEEDS -- not a rejection): pasting [AccentedWP] to FSH fires the `non_ascii` warning line ("... simplified to plain ASCII ..."); a plain-ASCII paste does NOT.  The FSH twin of e80.G17; parallels the mod003 lossy-warn sentinels. | -- |
 
 ## Intra-module sequencing
 
