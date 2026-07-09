@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **Connecting an E-Series** --
-**[Using Your E-Series](using_eseries.md)**
+**[Using Your E-Series](using_eseries.md)** --
+**[OpenCPN](opencpn.md)**
 
 Everything so far works with navMate on its own. This chapter, and the next, are for owners of
 a Raymarine **E-Series** plotter (E80 / E120) who want navMate and the plotter to talk to each

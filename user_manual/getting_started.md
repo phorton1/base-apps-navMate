@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **[Connecting an E-Series](connecting_eseries.md)** --
-**[Using Your E-Series](using_eseries.md)**
+**[Using Your E-Series](using_eseries.md)** --
+**[OpenCPN](opencpn.md)**
 
 This chapter gets navMate onto your computer and takes you on a first look around. You do
 **not** need a chartplotter connected for any of this -- navMate is fully useful on its own.
@@ -78,7 +79,8 @@ there are also a variety of ways for you to bring your own data into navMate:
 
 - if you have a **ARCHIVE.FSH** from an existing E-Series plotter, use **FSH - Open File**
   to open it in an *FSH Window*.
-- If you use **Google Earth**, export a `.kml` file and choose **Database -> Import KML**.
+- If you use **Google Earth**, export a `.kml` file and choose **Database -> Import KML**. (See
+  [Import & Export](import_export.md) for what comes in cleanly.)
 - If you have a **GPS file** (`.gpx/.gdb`) from another device or app, right-click a folder in the
   database tree and choose **Import GPS file**.
 

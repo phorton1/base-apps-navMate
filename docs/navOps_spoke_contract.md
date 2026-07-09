@@ -111,11 +111,21 @@ in `navOps.pm`.
 ### Field-length limits and uniqueness
 
 Each spoke declares (or imports) its field-length limits and enforces them
-at the boundary using a `_truncFor<Spoke>` helper that truncates with
-`warning(...)`. Both E80 and FSH happen to use the same limits today
+at the boundary using a `_truncFor<Spoke>` helper. Both E80 and FSH happen to use the same limits today
 (name <= 15, comment <= 31; FSH's are declared locally in `fshUtils.pm`
 as `$FSH_MAX_NAME` / `$FSH_MAX_COMMENT`, numerically equal to
 `$E80_MAX_NAME` / `$E80_MAX_COMMENT` from `NET/a_defs.pm`).
+
+The E80 and FSH name/comment fields are single-line **strict 7-bit ASCII**
+records, while the hub stores canonical Unicode (see data_model.md). So
+`_truncFor<Spoke>` applies three transforms, in order: **flatten newlines ->
+transliterate non-ASCII to ASCII -> truncate** (`flattenNewlines`, then
+`foldToAscii`, then `substr` -- the first two live in `n_utils.pm`).
+`foldToAscii` decomposes accented Latin to its base letter (e-acute -> e,
+n-tilde -> n) and replaces anything with no Latin base (Cyrillic, CJK, emoji)
+with `_`; transliteration precedes truncation because folding can change length.
+OpenCPN, GPX, and KML are Unicode-capable and carry the accented text through
+unchanged -- only the strict-ASCII device/file spokes fold.
 
 Spokes also enforce per-type name uniqueness within the spoke's namespace.
 navMate's primary gate is the preflight in `navOps::_doPaste` /
@@ -133,10 +143,15 @@ Phase 3A:
 
 | Direction | What it checks |
 |---|---|
-| `db_to_e80` | name > 15, comment > 31, route color not in E80 palette |
+| `db_to_e80` | name > 15, comment > 31, non-ASCII in name/comment, route color not in E80 palette |
 | `e80_to_db` | route/track color mismatch against existing DB record |
-| `db_to_fsh` | same as `db_to_e80` (FSH inherits identical limits + palette) |
+| `db_to_fsh` | same as `db_to_e80` (FSH inherits identical limits + palette + the ASCII fold) |
 | `fsh_to_db` | same as `e80_to_db` (FSH color is also a palette index) |
+
+Each issue class raises a line in `nmDialogs::lossyTransformWarning` (name/comment
+truncation, color approximation, timestamp drop / depth quantization, and the
+`non_ascii` "simplified to plain ASCII" transliteration). Under `suppress=1` the
+warning is logged and the operation proceeds; interactively the user confirms.
 
 New spokes that introduce different constraints (e.g. winOpenCPN with no
 character-length limits but with strict GPX schema) would add additional

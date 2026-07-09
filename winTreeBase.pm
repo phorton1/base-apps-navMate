@@ -1190,7 +1190,7 @@ sub _applyWpVisibility
     {
         return if !$wp;
         $this->_setVisible($uuid, 1);
-        addRenderFeatures([_buildWpFeature($this, $uuid, $wp)]);
+        addRenderFeatures([$this->_buildWpFeature($uuid, $wp)]);
     }
     else
     {
@@ -1207,7 +1207,7 @@ sub _applyRouteVisibility
     if ($new_visible)
     {
         return if !$r;
-        my $feature = _buildRouteFeature($this, $uuid, $r);
+        my $feature = $this->_buildRouteFeature($uuid, $r);
         return if !$feature;
         $this->_setVisible($uuid, 1);
         addRenderFeatures([$feature]);
@@ -1227,7 +1227,7 @@ sub _applyTrackVisibility
     if ($new_visible)
     {
         return if !$track;
-        my $feature = _buildTrackFeature($this, $uuid, $track);
+        my $feature = $this->_buildTrackFeature($uuid, $track);
         return if !$feature;
         $this->_setVisible($uuid, 1);
         addRenderFeatures([$feature]);
@@ -1354,7 +1354,7 @@ sub _repushRoutesByUUID
     {
         next if !$this->_getVisible($r_uuid);
         my $r = $all_routes->{$r_uuid} or next;
-        my $f = _buildRouteFeature($this, $r_uuid, $r);
+        my $f = $this->_buildRouteFeature($r_uuid, $r);
         push @features, $f if $f;
     }
     addRenderFeatures(\@features) if @features;
@@ -1380,16 +1380,16 @@ sub _syncLeafletAfterRebuild
     {
         if (my $wp = $all_wpts->{$uuid})
         {
-            push @features, _buildWpFeature($this, $uuid, $wp);
+            push @features, $this->_buildWpFeature($uuid, $wp);
         }
         elsif (my $r = $all_routes->{$uuid})
         {
-            my $f = _buildRouteFeature($this, $uuid, $r);
+            my $f = $this->_buildRouteFeature($uuid, $r);
             push @features, $f if $f;
         }
         elsif (my $t = $all_tracks->{$uuid})
         {
-            my $f = _buildTrackFeature($this, $uuid, $t);
+            my $f = $this->_buildTrackFeature($uuid, $t);
             push @features, $f if $f;
         }
         else

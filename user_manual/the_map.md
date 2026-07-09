@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **[Connecting an E-Series](connecting_eseries.md)** --
-**[Using Your E-Series](using_eseries.md)**
+**[Using Your E-Series](using_eseries.md)** --
+**[OpenCPN](opencpn.md)**
 
 navMate shows your navigation data on a **map** -- an interactive, satellite-imagery
 view that opens in your web browser right alongside the application windows.

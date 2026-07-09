@@ -382,21 +382,31 @@ sub _buildAndRestore
 	$tree->DeleteAllItems();
 	$this->{detail}->SetValue('');
 
-	my @prev_visible = getAllFSHVisibleUUIDs();
-	if (@prev_visible)
-	{
-		removeRenderFeatures('fsh', \@prev_visible);
-		clearAllFSHVisible();
-	}
-
 	my $db = $navFSH::fsh_db;
 	if (!$db)
 	{
+		# File unloaded: the old objects are gone for good, and we early-return
+		# below before _syncLeafletAfterRebuild -- so DO clear map visibility +
+		# features here (nothing left for the reconcile pass to run against).
+		my @prev_visible = getAllFSHVisibleUUIDs();
+		if (@prev_visible)
+		{
+			removeRenderFeatures('fsh', \@prev_visible);
+			clearAllFSHVisible();
+		}
 		my $root = $tree->AddRoot('FSH');
 		$tree->AppendItem($root, '(no FSH file loaded)');
 		$this->{_loaded} = 0;
 		return;
 	}
+
+	# Do NOT clear visibility on a normal rebuild.  _syncLeafletAfterRebuild
+	# reconciles (re-pushes surviving visible items, prunes ones now absent from
+	# the file) and FSH uuids are stable within a loaded file, so the store keyed
+	# by uuid survives.  Clearing here wiped the user's map selections on every
+	# pane edit/refresh (the winOCPN bug); winE80 has never cleared.  Loading a
+	# DIFFERENT file self-heals -- the old file's uuids aren't in the new db, so
+	# they prune as stale.
 
 	my $root = $tree->AddRoot('FSH');
 	my $top  = $tree->AppendItem($root, _topNodeLabel(), -1, -1,

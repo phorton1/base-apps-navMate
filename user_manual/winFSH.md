@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **FSH Files** --
 **[Connecting an E-Series](connecting_eseries.md)** --
-**[Using Your E-Series](using_eseries.md)**
+**[Using Your E-Series](using_eseries.md)** --
+**[OpenCPN](opencpn.md)**
 
 If you have used a Raymarine plotter with a Navionics or compatible chart card, your waypoints,
 routes, and tracks are stored on that card in an **FSH archive** -- a single file (`.fsh`) that

@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **[Connecting an E-Series](connecting_eseries.md)** --
-**[Using Your E-Series](using_eseries.md)**
+**[Using Your E-Series](using_eseries.md)** --
+**[OpenCPN](opencpn.md)**
 
 The **database window** is where navMate really earns its keep. It shows your entire
 navigation knowledge base as a tree of folders that you build and arrange however makes
@@ -72,7 +73,9 @@ changes, **Database -> Commit** saves a snapshot (you are asked for a short note
 A few conveniences worth knowing:
 
 - You can open **more than one database window** at a time (**View -> Database**) -- handy for
-  copying between two parts of a large hierarchy.
+  copying between two parts of a large hierarchy. You can also dock windows side by side or drag one
+  out to float it, so a source and destination are visible at once; see [Copy, Cut &
+  Paste](copy_cut_paste.md).
 - **Save / Restore Outline** remembers which folders you had expanded.
 - **Save / Restore Selection** remembers a named set of selected items, so you can recall, say,
   "my Bahamas trip" without re-finding everything.

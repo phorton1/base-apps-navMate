@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **[Connecting an E-Series](connecting_eseries.md)** --
-**[Using Your E-Series](using_eseries.md)**
+**[Using Your E-Series](using_eseries.md)** --
+**[OpenCPN](opencpn.md)**
 
 navMate lets you reorganize your data with the same **copy, cut, and paste** you use
 everywhere else. Right-click almost anything in a tree and you get a menu of the operations
@@ -59,5 +60,21 @@ tracks show up in their own window right next to your database. Copying from one
 pasting into the other is exactly how you send data to the plotter and bring it back -- there
 is no separate "export to plotter" command to learn. That cross-device workflow has its own
 chapter, [Using Your E-Series](using_eseries.md).
+
+## Working with two windows at once
+
+Cut, copy, and paste really shine when you can see **both ends at once** -- your database on one
+side, and a plotter, an FSH file, or OpenCPN on the other. navMate lets you arrange its windows to
+make that easy:
+
+- Open the windows you need from the **View** menu (and **FSH -> Open File** for an FSH file).
+- **Dock** them side by side, or **drag a window out** by its title bar so it floats on its own --
+  put the source and the destination right next to each other.
+- You can even open **two database windows** (choose **View -> Database** again) to copy between two
+  parts of a large hierarchy at once.
+
+With the source and the destination both in view, moving data across is just copy here, paste there.
+
+**TODO:** ![copy_cut_paste-windows.jpg](images/copy_cut_paste-windows.jpg)
 
 **Next:** [Multi-Editor](winMultiEditor.md)

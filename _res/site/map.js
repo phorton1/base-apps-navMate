@@ -260,9 +260,10 @@ const OverlayControl = L.Control.extend({
         const hr = document.createElement('hr');
         hr.style.margin = '4px 0';
         div.appendChild(hr);
-        div.appendChild(makeRow('src_db',  'DATABASE', true));
-        div.appendChild(makeRow('src_e80', 'ESeries',  true));
-        div.appendChild(makeRow('src_fsh', 'FSH',      true));
+        div.appendChild(makeRow('src_db',   'DATABASE', true));
+        div.appendChild(makeRow('src_e80',  'ESeries',  true));
+        div.appendChild(makeRow('src_fsh',  'FSH',      true));
+        div.appendChild(makeRow('src_ocpn', 'OpenCPN',  true));
 
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.disableScrollPropagation(div);
@@ -273,7 +274,7 @@ new OverlayControl().addTo(map);
 
 
 const TS_FIELDS = new Set(['created_ts', 'ts_start', 'ts_end']);
-const SKIP_FIELDS = new Set(['obj_type', 'name', 'rp_names', 'data_source', 'depth_cm', 'ts', 'rp_uuids']);
+const SKIP_FIELDS = new Set(['obj_type', 'name', 'rp_names', 'data_source', 'depth_cm', 'ts', 'rp_uuids', 'b']);
 const TYPE_ABBREV = { waypoint: 'WP', route: 'Route', track: 'TRK' };
 
 function escHtml(s) {
@@ -286,10 +287,50 @@ function fmtVal(k, v) {
     return String(v);
 }
 
+function ocpnBRow(k, v) {
+    return '<tr><td class="nm-info-key">' + escHtml(k) + '</td>'
+         + '<td class="nm-info-val">' + escHtml(v) + '</td></tr>';
+}
+
+function ocpnBRows(b) {
+    // JS port of winOCPN::_ocpnBText -- the read-only OpenCPN category-B
+    // superset, only the keys actually present.  Returns info-table rows.
+    let r = '';
+    const yn = v => v ? 'yes' : 'no';
+    if (b.from != null && b.from !== '') r += ocpnBRow('from', b.from);
+    if (b.to   != null && b.to   !== '') r += ocpnBRow('to',   b.to);
+    if ('visible'    in b) r += ocpnBRow('visible(OCPN)', yn(b.visible));
+    if ('name_shown' in b) r += ocpnBRow('name_shown',    yn(b.name_shown));
+    if ('active'     in b) r += ocpnBRow('active[R]',      yn(b.active));
+    if ('scamin_on'  in b) {
+        r += ocpnBRow('scamin', b.scamin_on ? (b.scamin != null ? b.scamin : 0) : 'off');
+        r += ocpnBRow('scamax', b.scamax != null ? b.scamax : 0);
+    }
+    if (b.arrival_radius) r += ocpnBRow('arrival_radius', b.arrival_radius);
+    if (b.planned_speed)  r += ocpnBRow('planned_speed',  b.planned_speed);
+    if (b.tide_station != null && b.tide_station !== '') r += ocpnBRow('tide_station', b.tide_station);
+    if (b.etd) r += ocpnBRow('etd',
+        new Date(b.etd * 1000).toISOString().replace('T',' ').replace('.000Z',' UTC'));
+    const rr = b.range_rings;
+    if (rr && (rr.count || 0) > 0) {
+        r += ocpnBRow('range_rings',
+            rr.count + ' @ ' + rr.space + ' ' + (rr.units ? 'km' : 'nm') + (rr.color ? ', ' + rr.color : ''));
+    }
+    const hl = b.hyperlinks;
+    if (Array.isArray(hl) && hl.length) {
+        r += ocpnBRow('hyperlinks', hl.length + ' link(s)');
+        for (const h of hl) {
+            if (!h || typeof h !== 'object') continue;
+            r += ocpnBRow('', ((h.desc || '') + ' ' + (h.link || '')).trim());
+        }
+    }
+    return r;
+}
+
 function showInfo(props, context) {
     const div = document.getElementById('nm-info');
     if (!div) return;
-    const srcLabels = { db: '--- DATABASE ---', e80: '--- ESeries ---', fsh: '--- FSH ---' };
+    const srcLabels = { db: '--- DATABASE ---', e80: '--- ESeries ---', fsh: '--- FSH ---', ocpn: '--- OpenCPN ---' };
     const src = srcLabels[props.data_source] || '--- DATABASE ---';
     const abbrev = TYPE_ABBREV[props.obj_type] || props.obj_type || '';
     let html = '<div class="nm-info-source">' + src + '</div>'
@@ -305,9 +346,17 @@ function showInfo(props, context) {
         html += '<tr><td class="nm-info-key">' + escHtml(k) + '</td>'
               + '<td class="nm-info-val">' + escHtml(fmtVal(k, v)) + '</td></tr>';
     }
+    if (props.data_source === 'ocpn' && props.b && typeof props.b === 'object') {
+        html += '<tr><td colspan="2" class="nm-info-subhead">-- OpenCPN fields --</td></tr>';
+        html += ocpnBRows(props.b);
+    }
     html += '</table>';
     div.innerHTML = html;
     div.style.display = 'block';
+    // Persistent panel (see the track paradigm): make it wheel-scrollable only
+    // when the content actually overflows the capped height; otherwise stay
+    // transparent (pointer-events none) so the wheel zooms the map underneath.
+    div.style.pointerEvents = (div.scrollHeight > div.clientHeight) ? 'auto' : 'none';
 }
 
 function hideInfo() {
@@ -461,6 +510,37 @@ async function coloredSymIcon(sym, abgr) {
     return icon;
 }
 
+// ---- OpenCPN mark glyphs (24x24) ----
+// OpenCPN marks carry an `icon` NAME on the wire.  /ocpn_icon/<name>.png serves
+// the real raster the plugin shipped (nmOCPNIcons cache) when it has one; a
+// names-only / unshipped icon 404s.  We resolve through an Image() so a 404
+// leaves the caller's provisional (derived-sym) icon in place with no broken-
+// image flash.  Cached by name -> Promise<L.icon|null>; the L.icon reuses the
+// same URL so the browser HTTP-caches the bytes.
+
+const OCPN_SYM_W = 24, OCPN_SYM_H = 24;
+const _ocpnIconCache = new Map();
+
+function ocpnIcon(name) {
+    if (_ocpnIconCache.has(name)) return _ocpnIconCache.get(name);
+    const url = '/ocpn_icon/' + encodeURIComponent(name) + '.png';
+    const p = new Promise(function(resolve) {
+        const img = new Image();
+        img.onload  = function() {
+            resolve(L.icon({
+                iconUrl:     url,
+                iconSize:    [OCPN_SYM_W, OCPN_SYM_H],
+                iconAnchor:  [OCPN_SYM_W >> 1, OCPN_SYM_H >> 1],
+                popupAnchor: [0, -(OCPN_SYM_H >> 1) - 1],
+            }));
+        };
+        img.onerror = function() { resolve(null); };
+        img.src = url;
+    });
+    _ocpnIconCache.set(name, p);
+    return p;
+}
+
 // ---- Render all features from a GeoJSON FeatureCollection ----
 
 // Composite "source:uuid" keys from the previous render.  Autozoom fires
@@ -489,9 +569,10 @@ function isWPs()       { const cb = document.getElementById('wps');       return
 function isWpNames()   { const cb = document.getElementById('wpnames');   return cb ? cb.checked : false; }
 function isRpNames()   { const cb = document.getElementById('rpnames');   return cb ? cb.checked : false; }
 function isSoundings() { const cb = document.getElementById('soundings'); return cb ? cb.checked : true;  }
-function isDbVisible()  { const cb = document.getElementById('src_db');  return cb ? cb.checked : true; }
-function isE80Visible() { const cb = document.getElementById('src_e80'); return cb ? cb.checked : true; }
-function isFshVisible() { const cb = document.getElementById('src_fsh'); return cb ? cb.checked : true; }
+function isDbVisible()   { const cb = document.getElementById('src_db');   return cb ? cb.checked : true; }
+function isE80Visible()  { const cb = document.getElementById('src_e80');  return cb ? cb.checked : true; }
+function isFshVisible()  { const cb = document.getElementById('src_fsh');  return cb ? cb.checked : true; }
+function isOcpnVisible() { const cb = document.getElementById('src_ocpn'); return cb ? cb.checked : true; }
 
 async function renderAll(geojson)
     // Re-renders the full visible feature set from a /geojson snapshot.
@@ -541,9 +622,10 @@ async function renderAll(geojson)
         const isNew = !prevRenderedUuids.has(key);
         if (props.uuid) currentKeys.add(key);
 
-        if (dsrc === 'db'  && !isDbVisible())  continue;
-        if (dsrc === 'e80' && !isE80Visible()) continue;
-        if (dsrc === 'fsh' && !isFshVisible()) continue;
+        if (dsrc === 'db'   && !isDbVisible())   continue;
+        if (dsrc === 'e80'  && !isE80Visible())  continue;
+        if (dsrc === 'fsh'  && !isFshVisible())  continue;
+        if (dsrc === 'ocpn' && !isOcpnVisible()) continue;
 
         if (geom.type === 'Point') {
             const [lon, lat] = geom.coordinates;
@@ -576,7 +658,22 @@ async function renderAll(geojson)
                 });
             } else if (isWPs()) {
                 const symN = (props.sym != null && props.sym >= 0 && props.sym <= 39) ? props.sym : null;
-                if (symN == null) {
+                if (dsrc === 'ocpn') {
+                    // OpenCPN mark: show its real OpenCPN glyph when the plugin
+                    // shipped a raster; else fall back to the derived sym art
+                    // (or a colored circle when there's no sym).  The provisional
+                    // icon shows immediately and the raster upgrades it on load,
+                    // so a names-only / unshipped icon just keeps the fallback.
+                    const provisional = (symN != null) ? nativeSymIcon(symN)
+                                                       : makeColoredWpIcon(props.color);
+                    m = L.marker([lat, lon], { icon: provisional });
+                    if (props.icon) {
+                        const _m = m;
+                        ocpnIcon(props.icon).then(function(ic) {
+                            if (ic) { try { _m.setIcon(ic); } catch (_) {} }
+                        });
+                    }
+                } else if (symN == null) {
                     m = L.marker([lat, lon], { icon: makeColoredWpIcon(props.color) });
                 } else if (dsrc === 'e80' || dsrc === 'fsh') {
                     m = L.marker([lat, lon], { icon: nativeSymIcon(symN) });
@@ -612,16 +709,26 @@ async function renderAll(geojson)
                 });
                 m.on('mouseout', () => {
                     if (isNavWp) m.getElement()?.classList.remove('nm-wp-hover');
-                    hideInfo();
+                    // Panel persists with the last-hovered object (track paradigm).
                 });
                 m.addTo(renderLayer);
             }
             if (isNew) newLatLngs.push([lat, lon]);
-            if (isNavWp && isWpNames() && props.name) {
+            // OpenCPN marks have no wp_type to distinguish label-vs-icon; their
+            // per-mark "Show name" (b.name_shown) drives the name label instead,
+            // so an OCPN name shows on save (round-trip through the plugin) even
+            // when the global "WP names" toggle is off.  The global toggle still
+            // works as an all-panes override.
+            const showName = isWpNames() || (dsrc === 'ocpn' && props.b && props.b.name_shown);
+            if (isNavWp && showName && props.name) {
+                // OCPN marks are grey (FF888888), so their name label would be an
+                // unreadable grey-on-map; render OCPN labels yellow instead (the
+                // black-outline text-shadow comes from .nm-wp-name).
+                const nameColor = (dsrc === 'ocpn') ? '#ffdd00' : abgrToCSS(props.color);
                 L.marker([lat, lon], {
                     icon: L.divIcon({
                         className:  'nm-wp-name',
-                        html:       '<span style="color:' + abgrToCSS(props.color) + '">' + escHtml(props.name) + '</span>',
+                        html:       '<span style="color:' + nameColor + '">' + escHtml(props.name) + '</span>',
                         iconSize:   [0, 0],
                         iconAnchor: [-8, 5],
                     })
@@ -696,7 +803,7 @@ async function renderAll(geojson)
                 }
             } else {
                 line.on('mouseover', () => { line.setStyle({ color: '#ffffff' }); showInfo(props, coords.length + ' route points'); });
-                line.on('mouseout',  () => { line.setStyle({ color: color }); hideInfo(); });
+                line.on('mouseout',  () => { line.setStyle({ color: color }); });
                 if (props.obj_type === 'route' && dsrc === 'db') {
                     line.on('contextmenu', function(e) {
                         L.DomEvent.stopPropagation(e);
@@ -727,7 +834,7 @@ async function renderAll(geojson)
                     })
                     .on('mouseout', function() {
                         this.setStyle({ color: color, fillColor: color });
-                        hideInfo();
+                        // Panel persists with the last-hovered object (track paradigm).
                     })
                     .addTo(renderLayer);
                     if (isRpNames()) {

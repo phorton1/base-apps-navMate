@@ -143,6 +143,45 @@ sub bitmapMapByName
 }
 
 
+# rasterPathForName($name, $hash) -- the on-disk full-res raster (48px PNG) for
+# an icon NAME, or undef for an unknown / names-only entry.  navServer's
+# /ocpn_icon endpoint streams this to the Leaflet client so an OpenCPN mark
+# renders with its real glyph.  Writes <byte_hash>.png on first request (the
+# SAME content-hash cache iconBitmap uses, so it dedupes and never rebuilds);
+# never decodes a PNG through Wx, so it is safe to call off the HTTP thread.
+sub rasterPathForName
+{
+	my ($name, $hash) = @_;
+	return undef if !defined $name || $name eq '';
+	my $lib = navOCPN::loadIconLibrary($hash);
+	my $icons = (ref($lib) eq 'HASH' && ref($lib->{icons}) eq 'ARRAY') ? $lib->{icons} : [];
+	my $entry;
+	for my $e (@$icons)
+	{
+		next if ref($e) ne 'HASH';
+		if (($e->{name} // '') eq $name) { $entry = $e; last; }
+	}
+	return undef if !$entry;
+	my $fmt = $entry->{fmt} // 'none';
+	my $b64 = $entry->{data_b64} // '';
+	return undef if $fmt ne 'png' || $b64 eq '';
+
+	my $key = $entry->{byte_hash} // '';
+	$key =~ s/[^0-9a-fA-F]//g;   # defensive: hash is hex, never a path
+	$key = length($key) ? $key : ('n' . length($b64));
+
+	my $src = _rasterDir() . "/$key.png";
+	if (!-f $src)
+	{
+		my $png = eval { decode_base64($b64) };
+		return undef if !defined $png || $png eq '';
+		open(my $fh, '>', $src) or do { warning(0,0,"nmOCPNIcons: cannot write $src: $!"); return undef; };
+		binmode($fh); print $fh $png; close($fh);
+	}
+	return $src;
+}
+
+
 #-------------------------------------------------------------------------
 # picker model -- the ordered [ {name, description, builtin, bitmap}, ... ]
 #-------------------------------------------------------------------------

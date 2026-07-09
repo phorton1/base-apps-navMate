@@ -52,6 +52,13 @@ navMate may carry metadata, organizational structure, and historical depth that 
 no equivalent on any connected device. The schema is not constrained to what the E80
 wire protocol can represent.
 
+Text columns hold canonical **Unicode (UTF-8)**. navMate opens its SQLite store with
+`sqlite_unicode` (Pub::Database `utf8 => 1`), so `name` / `comment` and the other TEXT
+fields round-trip as decoded character strings -- the hub is the Unicode-canonical layer.
+Unicode-capable spokes (OpenCPN, GPX, KML) carry the text through unchanged; the strict
+7-bit ASCII device/file spokes (E80, FSH) transliterate it to ASCII at their boundary as
+a lossy transform (see navOps_spoke_contract.md).
+
 ## Object Identity - UUIDs
 
 All objects are identified by UUID. navMate is UUID-primary: name lookup is a

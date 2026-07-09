@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **[Connecting an E-Series](connecting_eseries.md)** --
-**[Using Your E-Series](using_eseries.md)**
+**[Using Your E-Series](using_eseries.md)** --
+**[OpenCPN](opencpn.md)**
 
 Welcome aboard. **navMate** is the home for your navigation knowledge -- the waypoints,
 groups, routes, and tracks you accumulate over a lifetime of boating, across every boat
@@ -36,7 +37,9 @@ navMate works completely on its own; you do not need a chartplotter connected to
 When you *do* have a Raymarine E-Series (E80 / E120) plotter, navMate connects to it and
 becomes the place you plan trips before you leave the dock and file away everything new when
 you return. It also reads and writes the file formats you already use: Google Earth (KML),
-other GPS devices and apps (GPX), and Raymarine / Navionics chart-card archives (FSH).
+other GPS devices and apps (GPX), and Raymarine / Navionics chart-card archives (FSH). And if you
+navigate with **OpenCPN** on your computer, navMate can fill it from your collection and bring its
+marks and tracks back.
 
 ## Contents
 
@@ -53,5 +56,6 @@ other GPS devices and apps (GPX), and Raymarine / Navionics chart-card archives 
 - **[Connecting an E-Series](connecting_eseries.md)** -- wire up and network your E80 / E120.
 - **[Using Your E-Series](using_eseries.md)** -- send a trip out, bring your tracks back, and
   manage the plotter itself.
+- **[OpenCPN](opencpn.md)** -- fill OpenCPN from your archive and file its marks and tracks back.
 
 **Next:** [Getting Started](getting_started.md)

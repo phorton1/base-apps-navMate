@@ -429,12 +429,13 @@ sub _buildAndRestore
 	$tree->DeleteAllItems();
 	$this->{detail}->SetValue('');
 
-	my @prev_visible = getAllOCPNVisibleUUIDs();
-	if (@prev_visible)
-	{
-		removeRenderFeatures('ocpn', \@prev_visible);
-		clearAllOCPNVisible();
-	}
+	# Do NOT clear map visibility on a rebuild.  OpenCPN nav-uuids are stable
+	# (reconcileGuidToUuid never mints twice), so the navVisibility store keyed
+	# by uuid survives the tree rebuild; _walkRestoreStateImages re-reads it and
+	# _syncLeafletAfterRebuild reconciles -- re-pushing surviving visible items
+	# (picking up the edit) and dropping only genuinely-deleted ones.  Clearing
+	# here wiped the user's map selections on every plugin-echo refresh (e.g.
+	# right after editing a mark).  winE80 has never cleared; we now match it.
 
 	my $db   = $this->{_db} || { waypoints => {}, routes => {}, tracks => {} };
 	my $root = $tree->AddRoot('OCPN');
@@ -1266,6 +1267,49 @@ sub _allTracks
 }
 
 
+#---------------------------------
+# OpenCPN feature builders -- override the base so the wire carries the
+# OpenCPN-only data (icon name, comment, guid, origin, and the read-only
+# category-B superset, sec 6) that the base builder drops.  The Leaflet info
+# panel shows the full object from these, and marks render with their real
+# OpenCPN glyph (icon) instead of a derived sym.  The base's _syncLeaflet /
+# _apply*Visibility now dispatch the builders as methods, so these fire.
+#---------------------------------
+
+sub _ocpnExtraProps
+{
+	# The OpenCPN-only properties shared by marks / routes / tracks: identity
+	# (guid/origin), free text (comment), and the category-B blob.  Emitted
+	# only when present so the wire stays lean.
+	my ($rec) = @_;
+	my %p;
+	$p{guid}    = $rec->{guid}    if defined $rec->{guid}    && $rec->{guid}    ne '';
+	$p{origin}  = $rec->{origin}  if defined $rec->{origin}  && $rec->{origin}  ne '';
+	$p{comment} = $rec->{comment} if defined $rec->{comment} && $rec->{comment} ne '';
+	$p{b}       = $rec->{b}       if ref($rec->{b}) eq 'HASH' && %{$rec->{b}};
+	return %p;
+}
+
+sub _buildWpFeature
+{
+	my ($this, $uuid, $wp) = @_;
+	my $f = $this->SUPER::_buildWpFeature($uuid, $wp);
+	my $p = $f->{properties};
+	$p->{icon} = $wp->{icon} if defined $wp->{icon} && $wp->{icon} ne '';
+	%$p = (%$p, _ocpnExtraProps($wp));
+	return $f;
+}
+
+sub _buildRouteFeature
+{
+	my ($this, $uuid, $r) = @_;
+	my $f = $this->SUPER::_buildRouteFeature($uuid, $r) or return undef;
+	my $p = $f->{properties};
+	%$p = (%$p, _ocpnExtraProps($r));
+	return $f;
+}
+
+
 # Override _buildTrackFeature: OpenCPN track points are already plain decoded
 # {lat,lon,ts} (protocol sec 11) -- NOT the FSH/E80 mod003 raw-encoded form the
 # base's non-'db' branch would run through decodeTrackPoint.  So build the map
@@ -1294,6 +1338,7 @@ sub _buildTrackFeature
 			depth_cm    => [ map { undef } @$pts ],
 			ts          => \@ts,
 			track_kind  => $timed ? 'timed' : 'stock',
+			_ocpnExtraProps($track),
 		},
 		geometry   => { type => 'LineString',
 			coordinates => [map { [($_->{lon}//0)+0, ($_->{lat}//0)+0] } @$pts] },

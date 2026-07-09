@@ -43,6 +43,7 @@ use nmDialogs qw($suppress_confirm $suppress_outcome $suppress_error_dialog);
 use navDB;
 use navFSH;
 use navOCPN;
+use nmOCPNIcons;
 use nmE80DirectOps;
 use nmE80TimedTracks;
 use base qw(Pub::Ray::NET::h_server);
@@ -315,10 +316,16 @@ sub handle_request
 		my @feature_jsons;
 		{ lock($map_version); @feature_jsons = values %features_by_key; }
 		my @features = map { decode_json($_) } @feature_jsons;
-		return json_response($request,{
+		# Encode as pure-ASCII JSON (\uXXXX) via JSON::PP -- NOT json_response,
+		# whose my_encode_json HTML-entity-encodes non-ASCII (Cafe' -> Caf&#233;,
+		# shown literally on the map/info panel) and stringifies booleans (so a
+		# false B-field like name_shown reads truthy in JS).  ascii mode is
+		# charset-independent, and fetch().json() decodes \uXXXX to real chars.
+		my $body = JSON::PP->new->ascii->encode({
 			type     => 'FeatureCollection',
 			features => \@features,
 		});
+		return Pub::HTTP::Response->new($request, $body, 200, 'application/json');
 	}
 	elsif ($uri eq '/clear')
 	{
@@ -575,6 +582,31 @@ sub handle_request
 		}
 		my $bytes = '';
 		if (open(my $fh, '<:raw', $cache_path))
+		{
+			local $/;
+			$bytes = <$fh>;
+			close $fh;
+		}
+		return Pub::HTTP::Response->new($request, $bytes, 200, 'image/png');
+	}
+
+	if ($uri =~ m{^/ocpn_icon/(.+)\.png$})
+	{
+		# OpenCPN mark glyph for the Leaflet client.  The path segment is the
+		# URL-encoded icon NAME (the wire `icon` string); resolve it to the real
+		# 48x48 raster the plugin shipped (nmOCPNIcons cache) and stream it.  A
+		# names-only / unknown icon 404s, and the client falls back to the
+		# derived sym art -- so this is best-effort fidelity, never required.
+		my $name = $1;
+		$name =~ tr/+/ /;
+		$name =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/ge;
+		my $path = nmOCPNIcons::rasterPathForName($name);
+		if (!$path || !-f $path)
+		{
+			return Pub::HTTP::Response->new($request, 'icon not found', 404, 'text/plain');
+		}
+		my $bytes = '';
+		if (open(my $fh, '<:raw', $path))
 		{
 			local $/;
 			$bytes = <$fh>;

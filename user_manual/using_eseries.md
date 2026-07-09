@@ -9,7 +9,8 @@
 **[Import & Export](import_export.md)** --
 **[FSH Files](winFSH.md)** --
 **[Connecting an E-Series](connecting_eseries.md)** --
-**Using Your E-Series**
+**Using Your E-Series** --
+**[OpenCPN](opencpn.md)**
 
 
 **Important Note:** *navMate has been tested with **v5.52** of the Raymarine firmware, and
@@ -124,4 +125,4 @@ leave it.
 ![timed_track_dlg.jpg](images/timed_track_dlg.jpg)
 
 
-**Next:** [Home](readme.md)
+**Next:** [OpenCPN](opencpn.md)

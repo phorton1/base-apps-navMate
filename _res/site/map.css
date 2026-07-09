@@ -124,7 +124,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
     font-size: 11px;
     max-width: 320px;
     min-width: 190px;
-    max-height: calc(100vh - 30px);
+    max-height: 50vh;
     overflow-y: auto;
     border-radius: 3px;
     pointer-events: none;
@@ -158,6 +158,14 @@ html, body { margin: 0; padding: 0; height: 100%; }
 .nm-info-table { border-collapse: collapse; width: 100%; }
 .nm-info-key   { color: #999; padding-right: 8px; vertical-align: top; white-space: nowrap; }
 .nm-info-val   { color: #ddd; word-break: break-all; }
+
+/* OpenCPN category-B sub-section header inside the info table */
+.nm-info-subhead {
+    color: #adf;
+    font-weight: bold;
+    padding-top: 6px;
+    letter-spacing: 1px;
+}
 
 .leaflet-control-attribution {
     background: transparent !important;
