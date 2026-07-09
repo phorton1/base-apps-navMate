@@ -638,6 +638,7 @@ sub _db_params
 		engine       => $engine_sqlite,
 		database     => _dbPath(),
 		database_def => $db_def,
+		utf8         => 1,   # sqlite_unicode: decode-on-read / encode-on-write UTF-8 (hub holds real Unicode text for the Wx GUI)
 	};
 }
 
