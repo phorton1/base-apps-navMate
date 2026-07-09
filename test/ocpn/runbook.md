@@ -80,6 +80,7 @@ function Wait-OcpnInventory {
 git -C C:/dat/Rhapsody checkout -- navMate.db
 curl.exe -s "$Nav/api/test?op=refresh"        | Out-Null
 curl.exe -s "$Nav/api/test?op=suppress&val=1" | Out-Null
+Ensure-Panes database,ocpn                    # open the panes this module drives (add e80,fsh before ocpn.16/17); do NOT rely on the .ini layout
 curl.exe -s "$Nav/api/test?op=clear_ocpn"     | Out-Null
 curl.exe -s "$Nav/api/command?cmd=mark+ocpn+module+reset" | Out-Null
 

@@ -53,9 +53,22 @@ BEGIN
 my $DUMMY = '__dummy__';
 
 
+# Map a test 'panel' name to its window id (database is the default/fallback).
+sub _panelId
+{
+	my ($pname) = @_;
+	$pname //= '';
+	return
+		$pname eq 'fsh'  ? $WIN_FSH  :
+		$pname eq 'e80'  ? $WIN_E80  :
+		$pname eq 'ocpn' ? $WIN_OCPN :
+		                   $WIN_DATABASE;
+}
+
+
 sub dispatchTestCommand
 {
-	my ($main_win, $cmd_json) = @_;
+	my ($frame, $cmd_json) = @_;
 	my $cmd = eval { decode_json($cmd_json) };
 	if ($@) { warning(0,0,"navTest: bad JSON: $@"); return; }
 
@@ -73,7 +86,7 @@ sub dispatchTestCommand
 			$pname eq 'e80'  ? $WIN_E80 :
 			$pname eq 'ocpn' ? $WIN_OCPN :
 			                   $WIN_DATABASE;
-		my $pane  = $main_win->findPane($pid);
+		my $pane  = $frame->findPane($pid);
 		if (!$pane) { warning(0,0,"navTest: refresh - panel '$pname' not open"); return; }
 		$pane->refresh();
 		display(0,0,"navTest: refresh done panel=$pname");
@@ -81,20 +94,20 @@ sub dispatchTestCommand
 	}
 	if ($op eq 'clear_e80')
 	{
-		navOps::doClearE80DB($main_win);
+		navOps::doClearE80DB($frame);
 		return;
 	}
 	if ($op eq 'clear_ocpn')
 	{
 		navOCPN::resetState();
-		my $ocpn = $main_win->findPane($WIN_OCPN);
+		my $ocpn = $frame->findPane($WIN_OCPN);
 		$ocpn->refresh() if $ocpn;
 		display(0,0,"navTest: clear_ocpn done");
 		return;
 	}
 	if ($op eq 'create_branch')
 	{
-		_doCreateBranch($main_win, $cmd);
+		_doCreateBranch($frame, $cmd);
 		return;
 	}
 	if ($op eq 'load_fsh')
@@ -107,11 +120,11 @@ sub dispatchTestCommand
 		}
 		if (navFSH::loadFSH($path))
 		{
-			my $fsh = $main_win->findPane($WIN_FSH);
+			my $fsh = $frame->findPane($WIN_FSH);
 			if ($fsh)
 				{ $fsh->refresh(); }
 			else
-				{ $main_win->createPane($WIN_FSH); }
+				{ $frame->createPane($WIN_FSH); }
 			display(0,0,"navTest: load_fsh done path=$path");
 		}
 		else
@@ -123,12 +136,50 @@ sub dispatchTestCommand
 	if ($op eq 'new_fsh')
 	{
 		navFSH::newFSH();
-		my $fsh = $main_win->findPane($WIN_FSH);
+		my $fsh = $frame->findPane($WIN_FSH);
 		if ($fsh)
 			{ $fsh->refresh(); }
 		else
-			{ $main_win->createPane($WIN_FSH); }
+			{ $frame->createPane($WIN_FSH); }
 		display(0,0,"navTest: new_fsh done");
+		return;
+	}
+
+	# Pane management (test harness): open / close / activate the hub + spoke
+	# panes so a test baseline can guarantee the windows it needs are present,
+	# independent of the saved .ini perspective.  (Querying WHICH panes are open
+	# is op=pane_state -- handled SYNCHRONOUSLY in navServer.pm, which reads the
+	# base frame's :shared registry and returns the answer in the HTTP response.)
+	if ($op eq 'open_pane')
+	{
+		my $pname = $cmd->{panel} // 'database';
+		my $pid   = _panelId($pname);
+		if ($frame->findPane($pid))
+			{ display(0,0,"navTest: open_pane '$pname' already open"); }
+		else
+			{ $frame->createPane($pid); display(0,0,"navTest: open_pane '$pname' opened"); }
+		return;
+	}
+	if ($op eq 'close_pane')
+	{
+		my $pname = $cmd->{panel} // 'database';
+		my $pane  = $frame->findPane(_panelId($pname));
+		if (!$pane) { display(0,0,"navTest: close_pane '$pname' not open"); return; }
+		my $book = $pane->GetParent();
+		$book->closeBookPage($pane);
+		display(0,0,"navTest: close_pane '$pname' closed");
+		return;
+	}
+	if ($op eq 'activate_pane')
+	{
+		my $pname = $cmd->{panel} // 'database';
+		my $pane  = $frame->findPane(_panelId($pname));
+		if (!$pane) { warning(0,0,"navTest: activate_pane - panel '$pname' not open"); return; }
+		$frame->setCurrentPane($pane);
+		my $book = $pane->GetParent();
+		my $idx  = $book->GetPageIndex($pane);
+		$book->SetSelection($idx) if defined($idx) && $idx >= 0;
+		display(0,0,"navTest: activate_pane '$pname' done");
 		return;
 	}
 
@@ -147,7 +198,7 @@ sub dispatchTestCommand
 		$panel_name eq 'e80'  ? $WIN_E80 :
 		$panel_name eq 'ocpn' ? $WIN_OCPN :
 		                        $WIN_DATABASE;
-	my $panel      = $main_win->findPane($panel_id);
+	my $panel      = $frame->findPane($panel_id);
 	if (!$panel)
 	{
 		warning(0,0,"navTest: panel '$panel_name' not open");
@@ -332,7 +383,7 @@ sub _walkCollapse
 
 sub _doCreateBranch
 {
-	my ($main_win, $cmd) = @_;
+	my ($frame, $cmd) = @_;
 	my $parent_uuid = $cmd->{parent_uuid};
 	my $name        = $cmd->{name} // '';
 	if ($name eq '')
@@ -357,7 +408,7 @@ sub _doCreateBranch
 	display(0,0,"navTest: create_branch '$name' uuid=$uuid parent=" . ($parent_uuid // 'ROOT'));
 
 	# Refresh DB panes so the new branch is visible for follow-up ops.
-	my $db_pane = $main_win->findPane($WIN_DATABASE);
+	my $db_pane = $frame->findPane($WIN_DATABASE);
 	$db_pane->refresh() if $db_pane;
 }
 

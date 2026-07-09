@@ -37,7 +37,8 @@ use Pub::Utils qw(display warning error is_win $resource_dir);
 use Pub::HTTP::Response qw(json_response);
 use Pub::Ray::NET::h_server;
 use navPrefs qw(getPref setPref $PREF_HTTP_PORT $PREF_MAP_BROWSER $PREF_FORCE_TIMED_TRACKS);
-use nmResources qw(ensureLeafletNative ensureLeafletMask leafletNativePath leafletMaskPath);
+use nmResources qw(ensureLeafletNative ensureLeafletMask leafletNativePath leafletMaskPath
+	$WIN_DATABASE $WIN_E80 $WIN_FSH $WIN_OCPN);
 use nmDialogs qw($suppress_confirm $suppress_outcome $suppress_error_dialog);
 use navDB;
 use navFSH;
@@ -479,6 +480,36 @@ sub handle_request
 				$suppress_outcome = $params->{outcome} // 'accept';
 			}
 			return json_response($request, { ok => 1, suppress_confirm => $suppress_confirm });
+		}
+		# op=pane_state is a synchronous QUERY (like suppress): it reads the base
+		# frame's :shared open-pane registry directly on the HTTP thread and returns
+		# the answer in the RESPONSE, so a test never has to scrape the log.  Shapes:
+		#   (no panel)   -> { open:{"id:inst"=>label,...}, panels:[names...] }
+		#   panel=<name> -> { panel, open:0|1, instances:[...] }
+		if (($params->{op} // '') eq 'pane_state')
+		{
+			my $open = Pub::WX::Frame::getOpenPanes();
+			my %id2name = (
+				$WIN_DATABASE => 'database', $WIN_E80 => 'e80',
+				$WIN_FSH      => 'fsh',      $WIN_OCPN => 'ocpn' );
+			my (%raw, %panels);
+			for my $key (keys %$open)
+			{
+				my ($id, $inst) = split(/:/, $key);
+				$raw{$key} = $open->{$key};
+				my $name = $id2name{$id + 0};
+				push @{$panels{$name}}, $inst + 0 if $name;
+			}
+			my $filter = $params->{panel} // '';
+			if ($filter ne '')
+			{
+				my $insts = $panels{$filter} // [];
+				return json_response($request, { ok => 1, panel => $filter,
+					open => (@$insts ? 1 : 0),
+					instances => [ sort { $a <=> $b } @$insts ] });
+			}
+			return json_response($request, { ok => 1,
+				open => \%raw, panels => [ sort keys %panels ] });
 		}
 		{ lock($test_pending); $test_pending = encode_json($params); }
 		return json_response($request, { ok => 1, queued => 1 });

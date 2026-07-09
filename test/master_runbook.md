@@ -204,6 +204,54 @@ A clean cold start of navMate has no dirty FSH, so out-of-order suppress would h
 
 ---
 
+## Window / Pane Management
+
+A test operation targets a pane BY NAME (`panel=database|e80|fsh|ocpn`), and `/api/test?panel=..` can only resolve a pane that is OPEN. Do NOT rely on the saved `.ini` window layout -- it is not guaranteed (a headless / fresh-profile launch may restore nothing, and a prior test may have closed a pane). **Each module's BASELINE must open the panes it needs**, up front, via the ops below.
+
+| Op | Kind | Effect |
+|----|------|--------|
+| `GET /api/test?op=open_pane&panel=X`     | queued | Open pane X if not already open (idempotent). |
+| `GET /api/test?op=close_pane&panel=X`    | queued | Close pane X. |
+| `GET /api/test?op=activate_pane&panel=X` | queued | Bring pane X to the front / make it the current pane (matters only for `current_pane`-sensitive ops and multi-instance database). |
+| `GET /api/test?op=pane_state`            | **synchronous** | Returns the answer IN THE RESPONSE BODY (not the log): `{open:{"id:instance":label,...}, panels:[names...]}`. With `&panel=X` -> `{open:0\|1, instances:[...]}`. |
+
+open/close/activate are QUEUED (single-slot -- wait between each, like every other `/api/test` op). `pane_state` is a synchronous QUERY handled on the HTTP thread (it reads `Pub::WX::Frame`'s `:shared` open-pane registry), so read its result straight from the response -- never scrape the log for window state.
+
+Registry keys are `"windowId:instance"`: singletons are instance `0`; the multi-instance database pane is `1..N` (so `database` can report `10011:1`, `10011:2`). `panels` collapses instances to the friendly panel name -- use it for a simple "is this panel open at all" check; use `open` (or `&panel=X` -> `instances`) when a specific instance matters.
+
+**Per-module pane needs** (open these at baseline; a guide -- open what the module actually drives):
+
+| Module | Panes to open |
+|--------|---------------|
+| db     | database |
+| e80    | database, e80 |
+| tracks | database, e80 |
+| fsh    | database, fsh |
+| ocpn   | database, ocpn  (+ e80, fsh for the cross-spoke tests) |
+| hub    | database, e80, fsh, ocpn |
+| reflash | database, e80  (standalone; not in the recurring cycle) |
+
+Helper (drop near the top of a module's runbook, after `$Nav` is set):
+
+```powershell
+# Ensure the named panes are open (idempotent), then confirm via the synchronous query.
+function Ensure-Panes
+{
+    param([string[]] $panels)
+    foreach ($p in $panels)
+    {
+        curl.exe -s "http://localhost:9883/api/test?op=open_pane&panel=$p" | Out-Null
+        Start-Sleep -Milliseconds 800   # queued op -- let the idle loop pick it up
+    }
+    $st = curl.exe -s "http://localhost:9883/api/test?op=pane_state" | ConvertFrom-Json
+    Write-Host "panes open: $($st.panels -join ', ')"
+    return $st
+}
+# e.g. at an ocpn baseline:  Ensure-Panes database,ocpn
+```
+
+---
+
 ## Helpers (PowerShell)
 
 Drop these near the top of any module's runbook script.

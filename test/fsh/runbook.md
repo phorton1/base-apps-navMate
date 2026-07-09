@@ -16,6 +16,7 @@ Order matters: `op=suppress&val=1` MUST precede `op=load_fsh`. The in-memory FSH
 git -C C:/dat/Rhapsody checkout -- navMate.db
 curl.exe -s "http://localhost:9883/api/test?op=refresh" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?op=suppress&val=1" | Out-Null
+Ensure-Panes database,fsh   # open the panes this module drives (master_runbook Window/Pane Mgmt); do NOT rely on the .ini layout
 curl.exe -s "http://localhost:9883/api/command?cmd=mark+fsh+module+reset" | Out-Null
 curl.exe -s "http://localhost:9883/api/test?op=clear_e80" | Out-Null
 Start-Sleep 5
