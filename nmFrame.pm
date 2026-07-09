@@ -9,12 +9,14 @@ use warnings;
 use threads;
 use threads::shared;
 use Time::HiRes qw(time sleep);
+use Sys::Hostname;
+use Socket qw(inet_ntoa);
 use Wx qw(:everything);
 use Wx::Event qw(
 	EVT_IDLE
 	EVT_MENU
 	EVT_UPDATE_UI);
-use Pub::Utils qw(display warning error _def);
+use Pub::Utils qw(display warning error _def is_win);
 use Pub::WX::AppConfig;
 use Pub::WX::Frame;
 use Pub::WX::Dialogs;
@@ -23,6 +25,7 @@ use navVisibility qw(saveViewState);
 use navSelection;
 use nmResources;
 use nmDialogs;
+use navPrefs qw(getPref $PREF_HTTP_PORT);
 use navServer;
 use navTest;
 use navOps;
@@ -574,14 +577,87 @@ sub _navMateVersion
 }
 
 
+sub _adapterName
+	# Reduce an 'ipconfig /all' adapter header to the short connection name
+	# Windows itself assigns -- "Ethernet adapter Ethernet:" -> "Ethernet",
+	# "Wireless LAN adapter Wi-Fi:" -> "Wi-Fi", "Ethernet adapter vEthernet
+	# (WSL):" -> "vEthernet (WSL)".  We keep the OS's own name rather than
+	# guessing a type, so virtual adapters are named honestly (not mislabeled
+	# "Ethernet").  The word "adapter" is English -- fine, since the whole
+	# ipconfig path is English-anchored (see _serverAddresses).
+{
+	my ($header) = @_;
+	$header =~ s/\s*:\s*$//;
+	$header =~ s/^.*\badapter\s+//i;
+	$header = substr($header, 0, 28) if length($header) > 28;
+	return $header;
+}
+
+
+sub _serverAddresses
+	# The (label, "ip:port") rows the About box offers for the OpenCPN plugin.
+	# navMate's HTTP server binds INADDR_ANY, so EVERY IPv4 the host holds will
+	# answer; we enumerate them all and let the user pick the one on the OpenCPN
+	# box's network (the manual explains which -- the dialog can't know where the
+	# client sits).  Always leads with loopback, which is correct (and, being a
+	# literal IPv4, dodges the "localhost -> ::1" trap) when OpenCPN runs on this
+	# machine.  Labels come from parsing 'ipconfig /all'; if that yields nothing
+	# (non-English Windows, or the Linux port), we fall back to an unlabeled
+	# gethostbyname() enumeration.  IPv4 only -- the server is IO::Socket::INET,
+	# so ::1 / IPv6 never answer.  169.254.x (APIPA) is dropped as noise.
+{
+	my $port = getPref($PREF_HTTP_PORT);
+	my @rows = (['Local', "127.0.0.1:$port"]);
+
+	if (is_win())
+	{
+		my $text = `ipconfig /all 2>nul`;
+		my $header;
+		for my $line (split(/\r?\n/, $text))
+		{
+			if ($line =~ /^\S.*:\s*$/)		# non-indented block header
+			{
+				$header = $line;
+			}
+			elsif ($line =~ /IPv4 Address.*:\s*(\d+\.\d+\.\d+\.\d+)/)
+			{
+				my $ip = $1;
+				next if $ip =~ /^(127\.|169\.254\.)/;
+				push @rows, [_adapterName($header // 'Network'), "$ip:$port"];
+			}
+		}
+	}
+
+	if (@rows == 1)		# nothing parsed -- unlabeled fallback lookup
+	{
+		my (undef, undef, undef, undef, @packed) = gethostbyname(hostname());
+		for my $p (@packed)
+		{
+			my $ip = inet_ntoa($p);
+			next if $ip =~ /^(127\.|169\.254\.)/;
+			push @rows, ['Network', "$ip:$port"];
+		}
+	}
+
+	return @rows;
+}
+
+
 sub _doAboutNavMate
 	# A small modal About box: the app name, version (Cava-stamped or "dev"), a
-	# one-line description, and a clickable link to the project on GitHub.
+	# one-line description, a link to the project on GitHub, and -- for OpenCPN
+	# plugin users -- the navMate server address(es) to paste into the plugin.
+	# The address list is variable-length, so the dialog height is computed.
 {
 	my ($this) = @_;
 
+	my @addrs    = _serverAddresses();
+	my $row_y0   = 214;
+	my $row_dy   = 22;
+	my $rows_end = $row_y0 + @addrs * $row_dy;
+
 	my $dlg = Wx::Dialog->new($this, -1, 'About navMate',
-		wxDefaultPosition, [420, 230], wxDEFAULT_DIALOG_STYLE);
+		wxDefaultPosition, [470, $rows_end + 84], wxDEFAULT_DIALOG_STYLE);
 
 	my $title_font = Wx::Font->new(14, wxFONTFAMILY_DEFAULT,
 		wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
@@ -591,13 +667,24 @@ sub _doAboutNavMate
 	Wx::StaticText->new($dlg, -1, 'Version: '._navMateVersion(), [20, 52]);
 	Wx::StaticText->new($dlg, -1,
 		'A navigation-knowledge hub for Raymarine E-Series chartplotters.',
-		[20, 80], [380, 36]);
+		[20, 80], [420, 36]);
 
 	Wx::HyperlinkCtrl->new($dlg, -1, $REPO_URL, $REPO_URL, [20, 124]);
-
 	Wx::StaticText->new($dlg, -1, 'Copyright (c) 2026 Patrick Horton', [20, 150]);
 
-	my $ok = Wx::Button->new($dlg, wxID_OK, 'OK', [320, 162], [80, 28]);
+	Wx::StaticText->new($dlg, -1,
+		'navMate server (enter into the OpenCPN plugin):', [20, 186]);
+
+	my $y = $row_y0;
+	for my $row (@addrs)
+	{
+		Wx::StaticText->new($dlg, -1, $row->[0], [40,  $y], [190, -1]);
+		Wx::StaticText->new($dlg, -1, $row->[1], [240, $y]);
+		$y += $row_dy;
+	}
+
+	my $ok = Wx::Button->new($dlg, wxID_OK, 'OK',
+		[370, $rows_end + 16], [80, 28]);
 	$ok->SetDefault();
 
 	$dlg->ShowModal();
