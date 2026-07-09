@@ -99,7 +99,8 @@ Renamed from previous numbers; guard ordering follows the original execution seq
 | db.G16 | NEW_WAYPOINT at non-collection target blocked (predicate; API bypass) | db.32 |
 | db.G17 | NEW_ROUTE at non-collection target blocked (predicate; API bypass) | db.33 |
 | db.G18 | PASTE_BEFORE at route_point with non-WP clipboard blocked (predicate) | db.34 |
-| db.G19 | COPY route_point, PASTE at collection blocked (D2: route_point at non-route) | db.36 |
+
+**REMOVED:** the former `db.G19` (COPY route_point, PASTE at collection blocked; was db.36) was deleted 2026-07-09. It is no longer a guard: the `route_point_at_non_route` predicate was intentionally widened to accept a **database collection** as a valid route_point destination, where the executor materializes the point as a real waypoint (`_pasteItemsToCollection` -> `_pasteOneWaypointToDB`) -- the supported path to import an OpenCPN pure route vertex. Pasting a route_point whose referenced waypoint already exists correctly no-ops (`no_change`, no auto-duplicate). db.G19 was the last guard, so no renumbering was needed.
 
 **REMOVED:** the former `db.G3` (DELETE BRANCH blocked -- member WP in external route; was db.21) was deleted 2026-06-29. After the DB restructure no delete-unsafe branch exists ([UnsafeBranch] has no candidate -- every route is colocated with the groups holding its member WPs), so the guard has no fixture. Subsequent guards were renumbered down by one (old db.G4..G20 -> db.G3..G19). To restore the guard, construct the unsafe shape at setup (see [UnsafeBranch] in `../uuid_index.md`).
 

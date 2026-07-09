@@ -168,7 +168,7 @@ The fixture was copied 2026-05-17 from `FSH/test/working_oldE80.fsh`. Inventory:
 | [OCPN_NM_MARK] | 9e4e10cc-6e61-4764-8d61-5e03093e7465 | 9e4e10cc5e03093e (= [IsolatedWP1]) | navMate-ORIGIN (BarillasMarina). GUID = navUuidToOcpnGuid([IsolatedWP1]); reverses table-free. Ingest reconciles to the existing DB record -- NO mint. |
 | [OCPN_HAZARD] | 3f2a9c10-7b4e-4d21-9e88-1a2b3c4d5e6f | dynamic (`0x4f`, minted at ingest) | Foreign (OcpnHazard). icon `Hazard-Danger` -> sym 7. MULTI-LINE comment. Cross-spoke chain probe (ocpn.16/17). |
 | [OCPN_DEEPREEF] | 5c8e21b0-3a9f-4e11-b077-9d4c1e2f3a4b | dynamic (`0x4f`) | Foreign (DeepReefFar). icon `Info-Fish-Reef` (syms 27/28/29 -> reverse folds to 27). >255-char comment (no-truncate-on-ocpn probe). |
-| [OCPN_CAFE] | 7a1d44e2-9b3c-4f56-8a12-2b3c4d5e6f70 | dynamic (`0x4f`) | Foreign (Cafe Nandu). NON-ASCII name+comment (XML entities in the fixture, incl. astral U+1F6A2) -- R3 codepoint probe. icon `Marks-Beacon-Red` (NOT in the 36-map) -> catch-all default sym 2. |
+| [OCPN_CAFE] | 7a1d44e2-9b3c-4f56-8a12-2b3c4d5e6f70 | dynamic (`0x4f`) | Foreign (Cafe Nandu). NON-ASCII foreign-accented name+comment (XML entities in the fixture) -- R3 codepoint probe. icon `Marks-Beacon-Red` (NOT in the 36-map) -> catch-all default sym 2. |
 | [OCPN_SHARED_PT] | 9d4c8f21-6a5b-4c3d-8e2f-1a0b9c8d7e6f | dynamic (`0x4f`) | Foreign (SharedAnchor). Appears BOTH as a standalone `<wpt>` and as `[OCPN_ROUTE]`'s first `<rtept>` with the SAME GUID -- the shared-point reconcile (one uuid). |
 
 ### Route + route points

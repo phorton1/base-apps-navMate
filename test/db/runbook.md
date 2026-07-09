@@ -782,19 +782,3 @@ Start-Sleep 3
 
 ---
 
-### Test G19 -- COPY route_point, PASTE at collection blocked (D2: route_point at non-route) [was db.36]
-
-D2 negative: a route_point clipboard item is meaningful only at a route or route_point destination. Anywhere else (collection, branch, object) the predicate rejects with `route_point_at_non_route` IMPL ERROR.
-
-```powershell
-curl.exe -s "http://localhost:9883/api/command?cmd=mark+Test+db.G19" | Out-Null
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=rp:f34efdd6070022e8:454e11a80b002884&cmd=10200" | Out-Null
-Start-Sleep 1
-curl.exe -s "http://localhost:9883/api/test?panel=database&select=$DST&right_click=$DST&cmd=10210" | Out-Null
-Start-Sleep 3
-```
-
-**Pass:** `WARNING: IMPLEMENTATION ERROR: route_point items can only be pasted at a route or route_point destination`; DB unchanged.
-
----
-

@@ -513,7 +513,7 @@ Uses `[DB_TRACK_LONG_NONPALETTE] = 824e8a104b04c37c` ("2006-01-11-SanDiego2DanaP
 
 Under `suppress=1`, the lossy-warn dialog is auto-accepted.  This test verifies:
 - The dialog fires with both `N item(s) will have names truncated to 15 characters` and `M item(s) have colors that cannot round-trip to the destination and will be approximated` lines.
-- On accept (auto), `_truncForE80` truncates the name to "2006-01-11-Sand" at the wire seam.
+- On accept (auto), `_truncForE80` truncates the name to "2006-01-11-SanD" at the wire seam.
 - `abgrToE80Index(ffffff00)` snaps to the nearest palette index (likely 1=yellow).
 - The track lands on E80 with the truncated name and the snapped color.
 
@@ -532,7 +532,7 @@ curl.exe -s "http://localhost:9883/api/log?since=mark" | ConvertFrom-Json |
     ForEach-Object { $_.text }
 ```
 
-**Pass:** the `lossyTransformWarning:` lines INCLUDE one with `1 item(s) will have names truncated to 15 characters` and one with `1 item(s) have colors that cannot round-trip to the destination and will be approximated`; lossy-warn dialog auto-accepts under suppress=1; track lands on E80 with name "2006-01-11-Sand" (15 chars); E80 track color is a palette index 0..5; PASTE STARTED/FINISHED.  If either the name or the color line is missing, that's a regression in `_preflightLossyTransform`.
+**Pass:** the `lossyTransformWarning:` lines INCLUDE one with `1 item(s) will have names truncated to 15 characters` and one with `1 item(s) have colors that cannot round-trip to the destination and will be approximated`; lossy-warn dialog auto-accepts under suppress=1; track lands on E80 with name "2006-01-11-SanD" (15 chars -- the truncation of "2006-01-11-SanDiego2DanaPoint", so the 15th char is the capital 'D' of "Diego"); E80 track color is a palette index 0..5; PASTE STARTED/FINISHED.  If either the name or the color line is missing, that's a regression in `_preflightLossyTransform`.
 
 **Expected third line (mod003):** `[DB_TRACK_LONG_NONPALETTE]` (`2006-01-11-SanDiego2DanaPoint`) is itself a TIMED track (`ts_start=1136955600`, `ts_source=kml_timespan`), so with the baseline `force_timed=1` pin it ALSO co-fires `1 track(s) have centimetre depths that will be quantized to 0.1 ft (written as timed tracks).`  This is expected -- the fixture is timed, so a timed-lossy line is unavoidable (depth_degraded under force_timed=1, or ts_dropped under force_timed=0).  Assert the name + color lines are present; ignore the co-firing timed line.
 
