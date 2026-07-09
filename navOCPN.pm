@@ -651,7 +651,8 @@ sub shapedDb
 			origin        => $m->{origin}       // 'ocpn',
 			is_standalone => defined($m->{is_standalone}) ? $m->{is_standalone} : 1,
 			# the OpenCPN category-B superset, carried opaquely (winOCPN shows it
-			# read-only, phase b; navOps persists it to spoke_shadow.data, phase c).
+			# read-only; navOps persists it to spoke_shadow.data on paste and
+			# restores it on an outbound push).
 			b             => (ref($m->{b}) eq 'HASH') ? $m->{b} : {},
 		};
 	}

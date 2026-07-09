@@ -208,18 +208,16 @@ sub showOCPNSymMapDialog
 			return;
 		}
 
-		my $dbh = connectDB();
-		if (!$dbh)
-		{
-			error("winOCPNSymMap: connectDB failed");
-			return;
-		}
-		$dbh->do("UPDATE key_values SET value=? WHERE key='sym_icons'",
-			[my_encode_json({ icons => \@icons, default_sym => $default_sym })]);
-		loadSymMap($dbh);
-		disconnectDB($dbh);
+		# Persist the WHOLE map to the $data_dir override file, or DROP the file if
+		# it now equals the code defaults (reset semantics); the helper reloads.
+		my $is_default = ($default_sym == $WP_DEFAULT_SYMS{$WP_TYPE_NAV}) ? 1 : 0;
+		for (0 .. $#SYM_DEFAULT_ICONS)
+			{ $is_default = 0 if $icons[$_] ne $SYM_DEFAULT_ICONS[$_]; }
+		if ($is_default) { navDB::resetSymIcons(); }
+		else             { navDB::saveSymIcons(\@icons, $default_sym); }
 
-		display(0, 0, "winOCPNSymMap: saved sym <-> OpenCPN icon map ($changed change(s))");
+		display(0, 0, "winOCPNSymMap: saved sym <-> OpenCPN icon map ($changed change(s))"
+			. ($is_default ? " [defaults -- override file removed]" : ""));
 		$applied = 1;
 		$dlg->EndModal(wxID_OK);
 	});

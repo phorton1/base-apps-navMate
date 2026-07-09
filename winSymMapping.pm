@@ -232,9 +232,6 @@ sub showSymMappingDialog
 					"UPDATE waypoints SET sym=? WHERE wp_type=? AND sym=?",
 					[$new, $wt, $old]);
 			}
-			$dbh->do(
-				"UPDATE key_values SET value=? WHERE key='wp_mapped_syms'",
-				[my_encode_json(\%new_map)]);
 			$dbh->commit();
 		};
 		$err = $@;
@@ -251,9 +248,15 @@ sub showSymMappingDialog
 			return;
 		}
 
-		# Refresh in-memory cache from the freshly-written row
-		loadSymMap($dbh);
 		disconnectDB($dbh);
+
+		# Persist the WHOLE wp_type<->sym map to the $data_dir override file, or drop
+		# the file if it now equals the code defaults; the helper reloads the cache.
+		my $is_default = 1;
+		for my $wt (keys %WP_DEFAULT_SYMS)
+			{ $is_default = 0 if ($new_map{$wt} // -1) != $WP_DEFAULT_SYMS{$wt}; }
+		if ($is_default) { navDB::resetWpMappedSyms(); }
+		else             { navDB::saveWpMappedSyms(\%new_map); }
 
 		display(0, 0, "winSymMapping: applied " . scalar(@changed) . " mapping change(s); " .
 			"$total_mapped waypoint(s) updated, $total_off_map preserved");

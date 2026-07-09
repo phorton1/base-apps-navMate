@@ -146,10 +146,13 @@ sub _insertFreshWaypoint
 		collection_uuid => $coll_uuid,
 		position        => $position,
 	);
-	# OpenCPN inbound: shadow the foreign GUID + raw icon so a later push back
-	# re-emits the exact original object (protocol sec 4/7).
-	navDB::persistOCPNIdentity($dbh, $new_uuid, $wp->{guid}, $wp->{icon})
-		if $source eq 'ocpn';
+	# NO persistOCPNIdentity here.  This is the FRESH-mint path (PASTE_NEW): a newly
+	# minted 0x4e uuid is a NEW navMate object with NO foreign identity -- it reverses
+	# table-free via the codec and must NOT carry a spoke_shadow row.  Writing one
+	# would HIJACK the foreign GUID from the identity-preserving paste that owns it
+	# (the shadow PK is the GUID; a second write moves nav_uuid off the original) --
+	# ocpn.9.  Foreign identity is persisted ONLY on the uuid-preserving paste
+	# (_pasteOneWaypointToDB, below).
 	return $new_uuid;
 }
 
@@ -194,16 +197,17 @@ sub _pasteOneWaypointToDB
 			collection_uuid => $coll_uuid,
 			position        => $position,
 		);
-		navDB::persistOCPNIdentity($dbh, $uuid, $wp->{guid}, $wp->{icon})
+		navDB::persistOCPNIdentity($dbh, $uuid, $wp->{guid}, $wp->{icon}, $wp->{b})
 			if $source eq 'ocpn';
 		return 'created';
 	}
 
-	if (($source eq 'e80' || $source eq 'fsh'))
+	if ($source eq 'e80' || $source eq 'fsh' || $source eq 'ocpn')
 	{
-		# MODIFY: spoke pushes sym, DB owns wp_type unless it was in
-		# sync with the mapping.  Mapped + reverse-resolvable -> follow
-		# sym to a new wp_type.  Off-map or unresolved -> keep wp_type.
+		# MODIFY (spoke -> an existing DB record: PUSH-to-DB / sync-into-existing):
+		# spoke pushes sym, DB owns wp_type unless it was in sync with the mapping.
+		# Mapped + reverse-resolvable -> follow sym to a new wp_type.  Off-map or
+		# unresolved -> keep wp_type.
 		my $wp_type_final = $existing->{wp_type};
 		if (isMapped($existing->{wp_type}, $existing->{sym}))
 		{
@@ -223,6 +227,12 @@ sub _pasteOneWaypointToDB
 			ts_source  => $ts_src,
 			source     => $wp->{source},
 		);
+		# OpenCPN: persist/refresh the extended-data (raw icon + B superset) for
+		# BOTH origins so a synced object round-trips (option-b).  This is the ONLY
+		# persist trigger for a navMate-origin object, since PASTE is gated at an
+		# existing uuid -- PUSH-to-DB is how its B superset reaches the hub.
+		navDB::persistOCPNIdentity($dbh, $uuid, $wp->{guid}, $wp->{icon}, $wp->{b})
+			if $source eq 'ocpn';
 		return 'replaced';
 	}
 
@@ -764,7 +774,7 @@ sub _pasteItemsToCollection
 					? e80ColorIndexToAbgr($track->{color})
 					: $track->{color};
 				my $track_uuid = insertTrack($dbh,
-					(($source eq 'e80' || $source eq 'fsh') && !$fresh ? (uuid => $item->{uuid}) : ()),
+					(!$fresh && ($source eq 'e80' || $source eq 'fsh' || $source eq 'ocpn') ? (uuid => $item->{uuid}) : ()),
 					name            => $track->{name} // '',
 					color           => $track_color,
 					ts_start        => $ts_start,
@@ -778,6 +788,12 @@ sub _pasteItemsToCollection
 				{
 					insertTrackPoints($dbh, $track_uuid, \@db_pts);
 				}
+				# Foreign OpenCPN track: preserve its identity (0x4f uuid above + a
+				# spoke_shadow row keyed by GUID) so it round-trips back out, exactly
+				# like a foreign mark (docs/opencpn.md Identity).  Tracks carry no icon;
+				# their B superset is {from,to}.  PASTE_NEW ($fresh) stays identity-free.
+				navDB::persistOCPNIdentity($dbh, $track_uuid, $track->{guid}, undef, $track->{b})
+					if $source eq 'ocpn' && !$fresh;
 				if ($cut_flag)
 				{
 					$source eq 'e80'
@@ -1509,6 +1525,12 @@ sub _pushFromE80
 				ts_source  => $rec->{ts_source} // 'e80',
 				source     => $rec->{source},
 			);
+			# OpenCPN push-to-DB (sync into an existing record): persist/refresh the
+			# extended-data (raw icon + B superset) keyed by nav_uuid -- the option-b
+			# persist trigger for a navMate-origin object (PASTE is gated at its uuid).
+			# Guarded by an ocpn guid, so an e80/fsh push (no guid) is a no-op.
+			navDB::persistOCPNIdentity($dbh, $uuid, $wp->{guid}, $wp->{icon}, $wp->{b})
+				if defined $wp->{guid} && $wp->{guid} ne '';
 		}
 		elsif ($t eq 'route')
 		{

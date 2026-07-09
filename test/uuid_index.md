@@ -153,6 +153,45 @@ The fixture was copied 2026-05-17 from `FSH/test/working_oldE80.fsh`. Inventory:
 
 ---
 
+## Static -- OCPN-side (`source=ocpn:_fixtures/ocpn/seed.gpx`)
+
+`seed.gpx` is imported into a clean OpenCPN (empty `navobj.db`); OpenCPN honors `opencpn:guid` on import, so the GUIDs below are stable indefinitely (fixture frozen by policy). These are the OpenCPN-side ids (128-bit GUIDs). The navMate-side uuid depends on the object class:
+
+- **navMate-origin** (`[OCPN_NM_MARK]`): the GUID reverses table-free via the `navIdentity` codec to a KNOWN DB uuid -- both ids are formula-related (like the FSH dashed-upper form), so only one is a fact.
+- **foreign** (all others): the GUID is the stable anchor; the navMate uuid is MINTED at ingest (`0x4f` + counter) and linked only in `ocpn_guid_map`. It is setup-derived -- resolve at runtime via `/api/ocpn?dump=1` (or the `ocpn_guid_map` row), NOT a constant. Entries are anchored on the GUID for this reason.
+
+### Marks
+
+| [Name] | GUID (OpenCPN-side) | navMate uuid | Notes |
+|--------|---------------------|--------------|-------|
+| [OCPN_NM_MARK] | 9e4e10cc-6e61-4764-8d61-5e03093e7465 | 9e4e10cc5e03093e (= [IsolatedWP1]) | navMate-ORIGIN (BarillasMarina). GUID = navUuidToOcpnGuid([IsolatedWP1]); reverses table-free. Ingest reconciles to the existing DB record -- NO mint. |
+| [OCPN_HAZARD] | 3f2a9c10-7b4e-4d21-9e88-1a2b3c4d5e6f | dynamic (`0x4f`, minted at ingest) | Foreign (OcpnHazard). icon `Hazard-Danger` -> sym 7. MULTI-LINE comment. Cross-spoke chain probe (ocpn.16/17). |
+| [OCPN_DEEPREEF] | 5c8e21b0-3a9f-4e11-b077-9d4c1e2f3a4b | dynamic (`0x4f`) | Foreign (DeepReefFar). icon `Info-Fish-Reef` (syms 27/28/29 -> reverse folds to 27). >255-char comment (no-truncate-on-ocpn probe). |
+| [OCPN_CAFE] | 7a1d44e2-9b3c-4f56-8a12-2b3c4d5e6f70 | dynamic (`0x4f`) | Foreign (Cafe Nandu). NON-ASCII name+comment (XML entities in the fixture, incl. astral U+1F6A2) -- R3 codepoint probe. icon `Marks-Beacon-Red` (NOT in the 36-map) -> catch-all default sym 2. |
+| [OCPN_SHARED_PT] | 9d4c8f21-6a5b-4c3d-8e2f-1a0b9c8d7e6f | dynamic (`0x4f`) | Foreign (SharedAnchor). Appears BOTH as a standalone `<wpt>` and as `[OCPN_ROUTE]`'s first `<rtept>` with the SAME GUID -- the shared-point reconcile (one uuid). |
+
+### Route + route points
+
+| [Name] | GUID (OpenCPN-side) | navMate uuid | Notes |
+|--------|---------------------|--------------|-------|
+| [OCPN_ROUTE] | b2c3d4e5-1f2a-4b3c-8d4e-5f6a7b8c9d0e | dynamic (`0x4f`) | Foreign (OcpnTestRoute). Full-embed, 3 points: [OCPN_SHARED_PT] (shared), [OCPN_RTE_MID], [OCPN_RTE_END]. |
+| [OCPN_RTE_MID] | c3d4e5f6-2a3b-4c5d-8e6f-7a8b9c0d1e2f | dynamic (`0x4f`) | Route-owned pure vertex (RteMid). |
+| [OCPN_RTE_END] | d4e5f6a7-3b4c-4d5e-8f70-8b9c0d1e2f30 | dynamic (`0x4f`) | RteEnd. |
+
+### Track
+
+| [Name] | GUID (OpenCPN-side) | navMate uuid | Notes |
+|--------|---------------------|--------------|-------|
+| [OCPN_TRACK] | e5f6a7b8-4c5d-4e6f-8071-9c0d1e2f3041 | dynamic (`0x4f`) | Foreign (OcpnTestTrack). 4 timestamped points; gpxx DisplayColor Magenta. |
+
+### OCPN identity conversion
+
+- navMate-origin: `navIdentity::navUuidToOcpnGuid($uuid)` / `ocpnGuidToNavUuid($guid)` -- reversible, MAGIC-embedded, zero storage. GUID = `$uuid[0:8]-6e61-4764-8d61-$uuid[8:16]7465`.
+- foreign: minted `0x4f` uuid via `makeOCPNUUID(counter)`, linked in `ocpn_guid_map` (GUID PK -> nav_uuid). Resolve a foreign object's DB-side uuid at runtime from `/api/ocpn?dump=1` or `SELECT nav_uuid FROM ocpn_guid_map WHERE ocpn_guid=?`.
+- Select keys: OCPN pane nodes key on the **navMate nav uuid** -- `_getNodeKey` returns `$node->{uuid}` (the minted `0x4f` uuid for foreign objects, the codec uuid for navMate-origin), NOT the OpenCPN GUID. Resolve it at runtime from `/api/ocpn?dump=1` (foreign uuids are re-minted each ingest cycle). DB-side assertions use the same nav uuid (lowercase-no-dash). Route-point / header / my_waypoints keys follow the DB-panel shapes (`rp:<route_uuid>:<wp_uuid>`, `header:routes`, `my_waypoints`).
+
+---
+
 ## Setup-derived (`source=setup:...`)
 
 These entries have no static UUID. The module's baseline setup creates them; the UUID is assigned at runtime and recorded in the module's working log for use by subsequent tests within the same module.
@@ -177,7 +216,6 @@ Setup-derived UUIDs are derived from `/api/db` after the setup step completes an
 | [Name] | source | Notes |
 |--------|--------|-------|
 | [FSH_TIMED_TRACK] | DEFERRED: bench card-pull | A real timed FSH file -- a `.fsh` pulled off a mod003 E80's CF card, carrying timed points written by the FIRMWARE (not by navMate's encoder). Would test FSH->DB decode in isolation. Not required by the current suite: `fsh.40` produces an equivalent timed FSH track in-memory by PASTEing `[TIMED_CAT32]` to the FSH tracks header, and the mod003 wire format is byte-identical-length to stock, so the same decode code is exercised. Drop the file into `_fixtures/` and register its FSH-native uuid here when a card-pull is available. |
-
 ---
 
 ## Lookups (not registered, for cross-reference)

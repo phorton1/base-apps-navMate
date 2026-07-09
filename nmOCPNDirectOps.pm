@@ -38,9 +38,9 @@ our $dbg = 0;
 # carry it OPAQUELY as a self-contained `b` blob on the ocdb mark -- never merged
 # into navMate's own model, so it cannot bleed across (e.g. OpenCPN `visible`
 # stays SEPARATE from navMate's navVisibility).  It rides the ingest into the
-# ocdb, surfaces read-only in the winOCPN editor (phase b), persists to the
-# spoke_shadow `data` blob at the canonical seam (phase c), and re-emits verbatim
-# on an outbound round-trip so a foreign mark keeps full fidelity.
+# ocdb, surfaces read-only in the winOCPN editor, persists to the spoke_shadow
+# `data` blob on paste, and is restored + re-emitted verbatim on an outbound
+# round-trip so a foreign mark keeps full fidelity.
 #
 # Typed so a JSON round-trip through the ocdb (and the eventual nlohmann parse on
 # the plugin side) stays well-formed: bools as JSON bools, ints/nums numeric,
@@ -98,8 +98,8 @@ sub _extractWireB
 }
 
 # _emitWireB($fields, $b) -- splat a stored `b` blob back onto an outbound
-# fields hash, re-coercing types (the blob may arrive from the ocdb OR, phase c,
-# from the spoke_shadow `data` column -- either way the wire stays well-typed).
+# fields hash, re-coercing types (the blob may arrive from the ocdb OR from the
+# spoke_shadow `data` column -- either way the wire stays well-typed).
 sub _emitWireB
 {
 	my ($fields, $b) = @_;
@@ -577,6 +577,20 @@ sub _clipWpToMark
 {
 	my ($uuid, $d, $map) = @_;
 	$d //= {};
+	# A foreign object pasted into navMate.db carries no icon_name/b in its DB
+	# waypoint row (navMate has no columns for them); restore both from the
+	# spoke_shadow `data` blob (loaded onto the guid map by loadOCPNGuidMap) so
+	# the outbound push re-emits the exact original glyph + B superset.  A clip
+	# that already supplies them (an ocdb-sourced snapshot) wins.
+	if ($map && ref($map->{shadow}) eq 'HASH' && ref($map->{shadow}{$uuid}) eq 'HASH')
+	{
+		my $sh = $map->{shadow}{$uuid};
+		$d = { %$d };
+		$d->{icon_name} = $sh->{icon_name}
+			if defined($sh->{icon_name}) && !(defined($d->{icon_name}) && $d->{icon_name} ne '');
+		$d->{b} = $sh->{b}
+			if ref($sh->{b}) eq 'HASH' && ref($d->{b}) ne 'HASH';
+	}
 	my $mark = {
 		guid        => projectUuidToGuid($uuid, $map),
 		name        => defined($d->{name})    ? $d->{name}    : '',
@@ -586,9 +600,7 @@ sub _clipWpToMark
 		icon        => _iconForClipWp($d),
 		created_ts  => int($d->{created_ts} // 0),
 	};
-	# A foreign object carries its B superset in the spoke_shadow `data` blob
-	# (phase c); when the snapshot supplies it, shuttle it back through so the
-	# outbound command re-emits full fidelity (buildMarkCommand splats it).
+	# Re-emit the foreign category-B superset verbatim (buildMarkCommand splats it).
 	$mark->{b} = $d->{b} if ref($d->{b}) eq 'HASH';
 	return $mark;
 }

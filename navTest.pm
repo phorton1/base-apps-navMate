@@ -7,12 +7,14 @@
 # via the /api/test HTTP endpoint.
 #
 # API (all params are query params on GET /api/test):
-#   panel=database|e80|fsh    which tree window to target
+#   panel=database|e80|fsh|ocpn  which tree window to target
 #   select=key1,key2,...      node keys to select (UUIDs or "header:groups" etc.)
 #   right_click=key           which node is the right-click target (defaults to first in select)
 #   cmd=10200                 numeric CTX_CMD_* constant to fire
 #   op=refresh                reload navMate.db from disk
 #   op=clear_e80              delete all E80 routes, groups, waypoints, and tracks
+#   op=clear_ocpn             zero the OpenCPN spoke (ocdb, guid-map, pending dt) via
+#                              navOCPN::resetState; refreshes winOCPN. The clear_e80 analog.
 #   op=create_branch&parent_uuid=X&name=Y    create a branch without the name-input dialog
 #                              (parent_uuid omitted -> root-level branch).
 #                              Use /api/nmdb after to look up the new branch's uuid by name.
@@ -33,11 +35,12 @@ use warnings;
 use JSON::PP qw(decode_json);
 use Pub::Utils qw(display warning error);
 use navFSH qw();
+use navOCPN qw();
 use navOps qw(onContextMenuCommand);
 use navDB qw(connectDB disconnectDB insertCollection computePushDownPositions);
 use n_defs qw($NODE_TYPE_BRANCH);
 use nmDialogs qw($suppress_confirm);
-use nmResources qw($WIN_DATABASE $WIN_E80 $WIN_FSH);
+use nmResources qw($WIN_DATABASE $WIN_E80 $WIN_FSH $WIN_OCPN);
 
 
 BEGIN
@@ -66,9 +69,10 @@ sub dispatchTestCommand
 	{
 		my $pname = $cmd->{panel} // 'database';
 		my $pid   =
-			$pname eq 'fsh' ? $WIN_FSH :
-			$pname eq 'e80' ? $WIN_E80 :
-			                  $WIN_DATABASE;
+			$pname eq 'fsh'  ? $WIN_FSH :
+			$pname eq 'e80'  ? $WIN_E80 :
+			$pname eq 'ocpn' ? $WIN_OCPN :
+			                   $WIN_DATABASE;
 		my $pane  = $main_win->findPane($pid);
 		if (!$pane) { warning(0,0,"navTest: refresh - panel '$pname' not open"); return; }
 		$pane->refresh();
@@ -78,6 +82,14 @@ sub dispatchTestCommand
 	if ($op eq 'clear_e80')
 	{
 		navOps::doClearE80DB($main_win);
+		return;
+	}
+	if ($op eq 'clear_ocpn')
+	{
+		navOCPN::resetState();
+		my $ocpn = $main_win->findPane($WIN_OCPN);
+		$ocpn->refresh() if $ocpn;
+		display(0,0,"navTest: clear_ocpn done");
 		return;
 	}
 	if ($op eq 'create_branch')
@@ -131,9 +143,10 @@ sub dispatchTestCommand
 	# Resolve panel
 	my $panel_name = $cmd->{panel} // 'database';
 	my $panel_id   =
-		$panel_name eq 'fsh' ? $WIN_FSH :
-		$panel_name eq 'e80' ? $WIN_E80 :
-		                       $WIN_DATABASE;
+		$panel_name eq 'fsh'  ? $WIN_FSH :
+		$panel_name eq 'e80'  ? $WIN_E80 :
+		$panel_name eq 'ocpn' ? $WIN_OCPN :
+		                        $WIN_DATABASE;
 	my $panel      = $main_win->findPane($panel_id);
 	if (!$panel)
 	{

@@ -89,11 +89,14 @@ never `insert_record` (which force-0s it). Idempotent by PK.
   ExtendedData already columns.
 
 ### 1e. `sym <-> icon` 36-entry table (protocol sec 7)
-- Recommended form: a key_values JSON row `key='sym_icons'`, loaded in `loadSymMap`
-  (navDB.pm:499) beside `wp_mapped_syms` -- consistent, editable later. (Alt: a
-  `sym_icons(sym PK, icon_name)` table.)
+- SUPERSEDED (2026-07-08): NOT stored in the DB. The map lives in code
+  (`@SYM_DEFAULT_ICONS`, n_defs); a user edit persists the WHOLE map to a `$data_dir`
+  JSON file (`sym_icons.json`), reset deletes it, an absent file = code defaults. Same
+  for its sibling `wp_mapped_syms.json`. The earlier key_values-row form self-seeded on
+  every openDB and shipped a stale row in `example.db` -- see the `ocpn_sym_icon_map`
+  memory. `navDB` has save/reset/load-file helpers; `winOCPNSymMap`/`winSymMapping` write
+  the file instead of `UPDATE key_values`.
 - Reverse `icon->sym` with a catch-all default sym for unrecognized names.
-- DEPENDENCY: owed artifact, needed for OUTBOUND icon push (Phase 2, Step 7); seed now.
 
 ### Migration mechanics
 - Add a `13.0 -> 13.1` block in `openDB`: `CREATE TABLE IF NOT EXISTS ocpn_guid_map` (+

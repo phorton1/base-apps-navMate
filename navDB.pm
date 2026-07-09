@@ -9,6 +9,8 @@ use threads;
 use threads::shared;
 use Pub::Utils;
 use Pub::Database;
+use JSON::PP ();   # spoke_shadow.data: JSON::PP preserves the B-block booleans
+                   # (Pub's my_encode_json would render them "1"; navOCPN sec-7 note)
 use n_defs;
 use n_utils;
 use navIdentity;
@@ -300,7 +302,7 @@ sub openDB
 		warning(0,0,"schema_version advisory: DB has $stored, code expects $SCHEMA_VERSION");
 	}
 
-	loadSymMap($dbh);
+	loadSymMap();
 
 	display(0,0,"navDB::openDB ok (schema $stored)");
 	$db_ready = 1;
@@ -326,12 +328,20 @@ my %_mapped_syms;
 
 sub loadSymMap
 {
-	my ($dbh) = @_;
-	%_mapped_syms = ();
-	loadSymIcons($dbh);
-	my $rec = $dbh->get_record("SELECT value FROM key_values WHERE key='wp_mapped_syms'");
-	return if !$rec || !defined $rec->{value};
-	my $h = my_decode_json($rec->{value});
+	# Reload both user-editable maps from their $data_dir override files (else the
+	# code constants).  No longer DB-backed: the maps moved OUT of key_values so the
+	# code defaults stay authoritative and nothing ships / gets checked in.
+	loadSymIcons();
+	loadWpMappedSyms();
+}
+
+sub loadWpMappedSyms
+{
+	# Start from the code defaults so an absent (or partial) override still yields a
+	# COMPLETE map -- symForWpType/wpTypeForSym must never go empty, or the
+	# icon->sym->wp_type chain breaks -- then overlay the $data_dir file if present.
+	%_mapped_syms = map { ($_ + 0) => ($WP_DEFAULT_SYMS{$_} + 0) } keys %WP_DEFAULT_SYMS;
+	my $h = _readJsonFile(_wpMappedFile());
 	return if ref($h) ne 'HASH';
 	for my $k (keys %$h)
 	{
@@ -420,22 +430,20 @@ sub ocpnDefaultSym
 	return defined($_default_sym) ? $_default_sym : $WP_DEFAULT_SYMS{$WP_TYPE_NAV};
 }
 
-# loadSymIcons($dbh) -- rebuild the sym<->icon cache from the @SYM_DEFAULT_ICONS
-# constant overlaid with the overrides persisted in the key_values 'sym_icons'
-# row (edited by winOCPNSymMap), and set the reverse catch-all default_sym.
-# The row is { icons => [...36...], default_sym => N }; the legacy bare-array
-# shape (icons only) is still accepted.  An empty/absent icon slot falls back to
-# the constant.  Called from loadSymMap (at openDB and after a Symbol Map save).
+# loadSymIcons() -- rebuild the sym<->icon cache from the @SYM_DEFAULT_ICONS
+# constant overlaid with the user overrides in $data_dir/sym_icons.json (written
+# by winOCPNSymMap), and set the reverse catch-all default_sym.  The file is
+# { icons => [...36...], default_sym => N } (a legacy bare-array is still
+# accepted); an empty/absent slot falls back to the constant, and an ABSENT file
+# means pure code defaults.  Called from loadSymMap (at openDB and after a save).
 sub loadSymIcons
 {
-	my ($dbh) = @_;
 	_initSymIcons();
 	$_default_sym = undef;
-	my $rec = $dbh->get_record("SELECT value FROM key_values WHERE key='sym_icons'");
-	return if !$rec || !defined $rec->{value};
-	my $data = my_decode_json($rec->{value});
+	my $data = _readJsonFile(_symIconsFile());
+	return if !defined $data;
 	my ($icons, $def);
-	if    (ref($data) eq 'ARRAY') { $icons = $data; }                              # legacy
+	if    (ref($data) eq 'ARRAY') { $icons = $data; }                              # legacy bare-array
 	elsif (ref($data) eq 'HASH')  { $icons = $data->{icons}; $def = $data->{default_sym}; }
 	else                          { return; }
 	$_default_sym = $def + 0 if defined $def;
@@ -453,44 +461,138 @@ sub loadSymIcons
 
 
 #---------------------------------
-# OpenCPN foreign-GUID persistence  (protocol sec 4, schema 13.1)
+# $data_dir JSON override files for the two user-editable maps
 #---------------------------------
-# When a FOREIGN (OpenCPN-born) object is pasted into navMate.db, its opaque
-# 128-bit GUID can't be reversed from the minted 0x4f uuid algorithmically, so
-# it is PERSISTED here (bidirectional) -- both to key the record and to re-emit
-# the original GUID on a later outbound push.  navMate-origin GUIDs reverse
-# table-free via the navIdentity codec and are NEVER stored (skipped below).
-# All idempotent.  (The raw-IconName shadow was removed with schema 13.1's
-# icon_name drop; the $icon arg is retained but unused pending the spoke rework.)
+# The sym<->icon and wp_type<->sym maps live in CODE (@SYM_DEFAULT_ICONS /
+# %WP_DEFAULT_SYMS).  A user edit is persisted as the WHOLE map to a JSON file in
+# $data_dir; reset-to-defaults DELETES the file; an absent file = code defaults.
+# Deliberately NOT in the database (key_values): keeps the code defaults
+# authoritative, avoids self-seeding on every openDB, and can't ship in example.db
+# or get committed into a test DB.
+
+sub _symIconsFile { return "$Pub::Utils::data_dir/sym_icons.json"; }
+sub _wpMappedFile { return "$Pub::Utils::data_dir/wp_mapped_syms.json"; }
+
+sub _readJsonFile
+{
+	my ($path) = @_;
+	return undef if !defined $path || !-e $path;
+	open(my $fh, '<', $path) or do { warning(0,0,"navDB: cannot read $path: $!"); return undef; };
+	local $/;
+	my $raw = <$fh>;
+	close($fh);
+	return undef if !defined $raw || $raw eq '';
+	my $data = eval { JSON::PP->new->decode($raw) };
+	if ($@) { warning(0,0,"navDB: bad JSON in $path: $@"); return undef; }
+	return $data;
+}
+
+sub _writeJsonFile
+{
+	my ($path, $data) = @_;
+	open(my $fh, '>', $path) or do { error("navDB: cannot write $path: $!"); return 0; };
+	print $fh JSON::PP->new->canonical->pretty->encode($data);
+	close($fh);
+	return 1;
+}
+
+sub saveSymIcons
+{
+	# Persist the WHOLE sym->icon map + catch-all default_sym, then reload.
+	my ($icons_ref, $default_sym) = @_;
+	_writeJsonFile(_symIconsFile(), { icons => $icons_ref, default_sym => ($default_sym + 0) });
+	loadSymIcons();
+}
+
+sub resetSymIcons
+{
+	# Reset-to-defaults: drop the override file so the code map takes over.
+	unlink(_symIconsFile()) if -e _symIconsFile();
+	loadSymIcons();
+}
+
+sub saveWpMappedSyms
+{
+	# Persist the WHOLE wp_type->sym map, then reload.
+	my ($map_ref) = @_;
+	_writeJsonFile(_wpMappedFile(), { map { ($_ + 0) => ($map_ref->{$_} + 0) } keys %$map_ref });
+	loadWpMappedSyms();
+}
+
+sub resetWpMappedSyms
+{
+	unlink(_wpMappedFile()) if -e _wpMappedFile();
+	loadWpMappedSyms();
+}
+
+
+#---------------------------------
+# OpenCPN identity + extended-data persistence  (protocol sec 4/7, schema 13.1)
+#---------------------------------
+# spoke_shadow is the generic per-object extended-data store, keyed by nav_uuid
+# (native_id = the object's OpenCPN GUID, foreign or navMate-synthesized).  It
+# holds what navMate's own model has no home for:
+#   - the GUID <-> nav_uuid link, so a later outbound push re-emits the object's
+#     original GUID -- essential for FOREIGN objects, whose opaque GUID can't be
+#     reversed from the minted 0x4f uuid; redundant-but-harmless for navMate-origin,
+#     whose synthesized GUID the codec derives anyway.
+#   - the OpenCPN category-B superset ($b: range_rings, scamin/scamax, arrival,
+#     hyperlinks, visible, ...) PLUS the raw IconName, in the `data` blob as
+#     {icon_name, b} -- so a push re-emits the EXACT object (the many-to-one sym
+#     fold can't rebuild the icon; navMate has no B columns).
+# Stored for BOTH origins (option-b, 2026-07-08) so B-superset persistence is
+# origin-agnostic.  Written ONLY on the explicit hub-write verbs (PASTE new /
+# PUSH-to-DB into an existing record), never on ingest.  data is JSON::PP-encoded
+# so the B booleans survive.  Idempotent by PK: a re-write refreshes nav_uuid +
+# data but keeps first_seen.
 
 sub persistOCPNIdentity
 {
-	my ($dbh, $uuid, $guid, $icon) = @_;
+	my ($dbh, $uuid, $guid, $icon, $b) = @_;
 	return if !$dbh || !$uuid;
-	if (defined $guid && $guid ne '' && !navIdentity::ocpnGuidToNavUuid($guid))
+	return if !defined $guid || $guid eq '';   # need the GUID as the row key (native_id)
+	my $data = JSON::PP->new->canonical->encode({
+		icon_name => (defined $icon ? $icon : ''),
+		b         => (ref($b) eq 'HASH' ? $b : {}),
+	});
+	# Portable upsert (this SQLite predates ON CONFLICT..DO UPDATE): create the row
+	# on first sight, else refresh the shadowed nav_uuid + data on a re-paste --
+	# preserving the original first_seen either way (never insert_record, which
+	# would force-0 first_seen).
+	my $exists = $dbh->get_record(
+		"SELECT 1 AS x FROM spoke_shadow WHERE namespace='ocpn' AND native_id=?", [$guid]);
+	if ($exists)
 	{
-		# foreign guid -> a first_seen-stamped map row (raw insert, never
-		# insert_record, so first_seen is not force-0'd).  Idempotent by PK.
-		$dbh->do("INSERT OR IGNORE INTO spoke_shadow (namespace, native_id, nav_uuid, first_seen) VALUES ('ocpn',?,?,?)",
-			[$guid, $uuid, time()]);
+		$dbh->do("UPDATE spoke_shadow SET nav_uuid=?, data=? WHERE namespace='ocpn' AND native_id=?",
+			[$uuid, $data, $guid]);
+	}
+	else
+	{
+		$dbh->do("INSERT INTO spoke_shadow (namespace, native_id, nav_uuid, data, first_seen) VALUES ('ocpn',?,?,?,?)",
+			[$guid, $uuid, $data, time()]);
 	}
 }
 
 sub loadOCPNGuidMap
 {
-	# Build the { fwd=>{guid=>uuid}, rev=>{uuid=>guid} } reconcile map from the
-	# persisted spoke_shadow (namespace='ocpn' rows), for OUTBOUND projection of a
-	# foreign object whose original guid can't be synthesized (nmOCPNDirectOps::projectUuidToGuid).
+	# Build the { fwd=>{guid=>uuid}, rev=>{uuid=>guid}, shadow=>{uuid=>{icon_name,b}} }
+	# reconcile map from the persisted spoke_shadow (namespace='ocpn' rows), for
+	# OUTBOUND projection of a foreign object: fwd/rev re-emit its original opaque
+	# guid (nmOCPNDirectOps::projectUuidToGuid), and shadow restores the raw
+	# IconName + category-B superset so the push re-emits full fidelity.
 	my ($dbh) = @_;
-	my (%fwd, %rev);
-	return { fwd => \%fwd, rev => \%rev, counter => 0 } if !$dbh;
-	my $rows = $dbh->get_records("SELECT native_id, nav_uuid FROM spoke_shadow WHERE namespace='ocpn'");
+	my (%fwd, %rev, %shadow);
+	return { fwd => \%fwd, rev => \%rev, shadow => \%shadow, counter => 0 } if !$dbh;
+	my $rows = $dbh->get_records("SELECT native_id, nav_uuid, data FROM spoke_shadow WHERE namespace='ocpn'");
 	for my $r (@{$rows // []})
 	{
 		$fwd{$r->{native_id}} = $r->{nav_uuid};
 		$rev{$r->{nav_uuid}}  = $r->{native_id};
+		my $d = (defined $r->{data} && $r->{data} ne '')
+			? eval { JSON::PP->new->decode($r->{data}) } : undef;
+		$shadow{$r->{nav_uuid}} = $d if ref($d) eq 'HASH';
 	}
-	return { fwd => \%fwd, rev => \%rev, counter => 0 };
+	return { fwd => \%fwd, rev => \%rev, shadow => \%shadow, counter => 0 };
 }
 
 
@@ -715,18 +817,8 @@ sub _initKeyValues
 	# existing row (INSERT OR IGNORE), so the generation only changes on a real DB
 	# recreate.
 	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('generation', ?)", [time()]);
-	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('wp_mapped_syms', ?)",
-		[my_encode_json(\%WP_DEFAULT_SYMS)]);
-	# OpenCPN spoke sym->icon table (schema 13.1, protocol sec 7): seeded from
-	# the @SYM_DEFAULT_ICONS constant for the record / future editability.  The
-	# in-effect map is the constant (navDB::iconForSym/symForIcon); this row is
-	# informational, mirroring wp_mapped_syms.
-	$dbh->do("INSERT OR IGNORE INTO key_values (key, value) VALUES ('sym_icons', ?)",
-		[my_encode_json(\@SYM_DEFAULT_ICONS)]);
-	# The wp_mapped_syms row holds the in-effect mapping (editable via the Remapping
-	# dialog), not the constant defaults -- those live in %WP_DEFAULT_SYMS.  Clean up
-	# any DB seeded under the earlier 'wp_default_syms' key (no-op on fresh DBs).
-	$dbh->do("DELETE FROM key_values WHERE key='wp_default_syms'", []);
+	# The sym<->icon and wp_type<->sym maps are NOT DB-stored: code defaults
+	# (@SYM_DEFAULT_ICONS / %WP_DEFAULT_SYMS) + optional $data_dir JSON overrides.
 }
 
 
