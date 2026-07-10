@@ -12,65 +12,18 @@
 **[Using Your E-Series](using_eseries.md)** --
 **OpenCPN**
 
-[OpenCPN](https://opencpn.org) is a free, open-source chart plotter that runs on your computer --
-a full navigation program with charts, AIS, and a live GPS feed. navMate works happily alongside
-it: **fill OpenCPN with waypoints and routes from your navMate collection** before a trip, and
-**file OpenCPN's own marks and tracks back into navMate** when you are done. If you do not use
-OpenCPN, you can skip this chapter.
 
-Like the E-Series, OpenCPN is a **spoke**: navMate stays the permanent home of record, and OpenCPN
-is one more place your data can visit. navMate does not try to replace OpenCPN's live navigation --
-it brings the lifelong, organized knowledge base that OpenCPN, like any plotter, does not keep.
+This chapter focuses on how you move data through navMate's own **OpenCPN window** and **OpenCPN menu**.
 
-## What you need: the oESeries plugin
+[OpenCPN](https://opencpn.org) is a free, open-source chart plotter that runs on your computer.
+navMate treats it as a **spoke**, exactly like the E-Series: **fill OpenCPN with waypoints and
+routes from your navMate collection** before a trip, and **file OpenCPN's own marks and tracks back
+into navMate** afterward, with navMate always the permanent home of record.
+To use OpenCPN within navMate you must install the **oESeries** plugin into your instance of OpenCPN.
 
-navMate talks to OpenCPN through a small companion **plugin** called **oESeries**. It is free and
-open-source, and it installs into OpenCPN the same way any OpenCPN plugin does. You install it once.
+Please see **[Getting Started](https://github.com/phorton1/src-OpenCPN-oESeries/blob/master/docs/getting_started.md)**
+for complete instructions on how to do that.
 
-Get the plugin, and its installation instructions, from its own page:
-**[the oESeries plugin](https://github.com/phorton1/src-OpenCPN-oESeries/blob/master/docs/readme.md)**.
-
-**TODO:** ![opencpn_plugin_install.jpg](images/opencpn_plugin_install.jpg)
-
-## Pointing the plugin at navMate
-
-The plugin finds navMate over your computer's own network connection, using an **address** you give
-it. navMate shows you exactly what to enter: open **Help -> About navMate** and read the **navMate
-server** address there.
-
-**TODO:** ![about_navmate.jpg](images/about_navmate.jpg)
-
-navMate lists one line for each way it can be reached:
-
-- **Local** -- use this when OpenCPN is running on the **same computer** as navMate. This is the
-  simplest case, and by far the most common. The address is always `127.0.0.1` followed by a port
-  number (for example `127.0.0.1:9873`).
-- **Wi-Fi / Ethernet** -- use one of these when OpenCPN is on a **different computer** on your boat's
-  network (say a second laptop, or a Raspberry Pi). Pick the line for the network the two computers
-  share.
-
-Type the address into the plugin's settings **exactly as shown** -- all the numbers, including the
-`:` and the number after it.
-
-**TODO:** ![opencpn_plugin_config.jpg](images/opencpn_plugin_config.jpg)
-
-> Enter the address as the actual numbers navMate shows you (for example `127.0.0.1:9873`), not the
-> word "localhost" -- navMate answers on the numeric address.
-
-## If OpenCPN is on a different computer: Windows Firewall
-
-If OpenCPN and navMate are on the **same computer**, there is nothing to set up here -- skip this
-section.
-
-If OpenCPN is on a **different computer** and it cannot reach navMate, Windows Firewall on the
-navMate computer is the usual reason -- it guards against unexpected connections from the network.
-navMate's installer already opens the door for a Raymarine-style boat network (the `10.x` address
-range), so if your network uses those addresses it simply works. If your network uses a different
-range (such as `192.168.x`), allow **navMate** through **Windows Defender Firewall** for your local
-(Private) network and try again. It is a one-time permission, and easily undone.
-
-(A remote OpenCPN computer connects to the *navMate computer*, not to your E-Series -- it only needs
-to reach navMate across whatever network the two computers share.)
 
 ## The OpenCPN window
 
@@ -78,7 +31,7 @@ Open it with **View -> OpenCPN**. Like the ESeries window, it shows a live view 
 in OpenCPN -- its marks, routes, and tracks -- right next to your database window, so you can see
 both at once.
 
-**TODO:** ![winOCPN.jpg](images/winOCPN.jpg)
+![winOCPN.jpg](images/winOCPN.jpg)
 
 The OpenCPN window is a **view onto OpenCPN**: changes you make through it are sent out to OpenCPN.
 As always, nothing is added to your permanent database until *you* copy something across into it.
@@ -116,5 +69,21 @@ per-field detail if you want it:
 
 (One small display note: in the OpenCPN window a mark's *scale-max* value is shown greyed, because
 OpenCPN's own update path does not carry it.)
+
+## The OpenCPN menu: matching symbols to icons
+
+navMate marks carry navMate's own **symbols**; OpenCPN marks carry OpenCPN's own **icons** -- two
+different sets. **OpenCPN -> Symbol Map...** opens a small table where you set how the two line up:
+which OpenCPN icon each navMate symbol becomes when you push a mark out, and which navMate symbol an
+incoming OpenCPN icon becomes when you bring one in (with a single catch-all symbol for any OpenCPN
+icon you have not mapped).
+
+![ocpn_symbol_map.jpg](images/ocpn_symbol_map.jpg)
+
+
+The defaults are sensible, so most people never open it -- but it is there
+when you want a pushed mark to show a particular icon on the OpenCPN chart, or want incoming icons
+sorted to symbols of your choosing. Your changes are saved and used for every push and ingest
+afterward.
 
 **Next:** [Home](readme.md)

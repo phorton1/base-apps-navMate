@@ -17,6 +17,7 @@ routes, and tracks are stored on that card in an **FSH archive** -- a single fil
 holds them all. navMate can open these files directly, let you browse and edit what is inside,
 and save them back.
 
+![The FSH window browsing an ARCHIVE.FSH file's tracks](images/winFSH.jpg)
 
 ## Opening an FSH file
 

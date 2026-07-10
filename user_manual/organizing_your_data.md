@@ -66,9 +66,11 @@ once.
 
 ## Keeping your work safe
 
-navMate keeps a local history of your database so you can always step back. When you have made
-changes, **Database -> Commit** saves a snapshot (you are asked for a short note), and
-**Database -> Revert** rolls back to the last snapshot if you change your mind.
+navMate can write your whole database out to a plain-text backup file and read it back later.
+When your data is the way you want it, **Database -> Export to Text** saves the entire database
+to a text file you can tuck away somewhere safe; **Database -> Import from Text** restores it,
+replacing the current database with the contents of that backup. A dated export now and then is
+the simplest way to protect your work.
 
 A few conveniences worth knowing:
 

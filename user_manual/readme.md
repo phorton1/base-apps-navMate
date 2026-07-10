@@ -22,7 +22,7 @@ entirely: the thousands of waypoints, the years of tracks, the anchorages and ha
 favorite spots you have learned over decades. That knowledge does not belong to any one
 device -- and in navMate it never gets lost when you upgrade a plotter or change boats.
 
-[![navMate1.jpg](images/navMate1.jpg)](images/navMate1.png)
+<a href="images/navMate1.jpg" target="_blank"><img src="images/navMate1.jpg" width="800" alt="navMate managing a navigation database alongside live E-Series, OpenCPN, and map windows"></a>
 
 ## What navMate does well
 

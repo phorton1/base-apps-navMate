@@ -58,12 +58,12 @@ The map has a few on-screen controls:
 - **Hover for details** -- rest the pointer on any mark, route, or track and a panel at the
   upper-right shows its details from the database.
 
-In the map above, the pointer is resting on the **2008-02-03-LasHadas2Zihuatenejo** track --
-which is why it is drawn in white (a hovered track or route highlights so you can pick it out
-of a crowded screen) and why its card is open at the upper-right. The card reads the whole
-trip straight from the database: a 500-point passage that started at 06:30 UTC on
-3 February 2008 and ended at 13:30 the next day -- a 31-hour overnight run down the Mexican
-coast, recorded breadcrumb by breadcrumb.
+In the map above, the pointer is resting on the **2009-01-14-StarfishBeach2BocasMarina**
+track -- which is why it is drawn in white (a hovered track or route highlights so you can
+pick it out of a crowded screen) and why its card is open at the upper-right. The card reads
+the whole trip straight from the database: a 222-point run that started at 10:00 UTC and
+ended at 14:00 UTC on 14 January 2009 -- a four-hour daysail through the Bocas del Toro
+archipelago, from Starfish Beach to Bocas Marina, recorded breadcrumb by breadcrumb.
 
 ## Showing and hiding things
 

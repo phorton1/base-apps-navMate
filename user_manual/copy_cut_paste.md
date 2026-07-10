@@ -16,7 +16,9 @@ navMate lets you reorganize your data with the same **copy, cut, and paste** you
 everywhere else. Right-click almost anything in a tree and you get a menu of the operations
 that make sense for it.
 
-![context_menu_paste.jpg](images/context_menu_paste.jpg)
+
+![Copying a group from the database and pasting it into an ESeries groups folder](images/copy_paste.jpg)
+
 
 ## The basics
 
@@ -74,7 +76,5 @@ make that easy:
   parts of a large hierarchy at once.
 
 With the source and the destination both in view, moving data across is just copy here, paste there.
-
-**TODO:** ![copy_cut_paste-windows.jpg](images/copy_cut_paste-windows.jpg)
 
 **Next:** [Multi-Editor](winMultiEditor.md)
