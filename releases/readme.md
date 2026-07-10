@@ -20,6 +20,7 @@ history is authoritative: `git log navMate<older>..navMate<newer>`.
 
 | date | version | notes |
 | ---- | ------- | ----- |
+| 2026-07-10 | 0.9.10 | Adds OpenCPN sync (waypoints, routes, tracks) via the oESeries plugin; foreign-character support; GPX export; installer/uninstall fixes |
 | 2026-07-01 | 0.9.9 | Renames "E80" to "ESeries" throughout; user-manual and network-setup wording fixes |
 | 2026-06-29 | 0.9.8 | Fixes Save Configuration so the panelset layer is captured correctly on every E-Series plotter; plus map/UI fixes |
 | 2026-06-28 | 0.9.7 | Timed Track Recording -- date/time + water depth at each track point; plus an About E80 dialog and a Help menu |
