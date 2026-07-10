@@ -86,16 +86,18 @@ my @FIREWALL_RULES = (
 sub firewallRunLines
 	# [Run] block: per exe, delete any prior rule of this name (harmless if
 	# none match) then add the inbound allow rule.  RunHidden, during install.
-	# remoteip=10.0.0.0/8 scopes the allow to the RAYNET /8 the wizard configures,
-	# so the program is unreachable on any non-10.x network.  (The host firewall
-	# only ever governs same-LAN peers regardless -- NAT blocks the internet.)
+	# remoteip=LocalSubnet,10.0.0.0/8 scopes the allow to the local subnet (so a
+	# same-LAN OpenCPN peer is covered automatically, whatever subnet the machine
+	# is on) PLUS the RAYNET /8 the wizard configures; the program stays
+	# unreachable on any other routed network.  (The host firewall only ever
+	# governs same-LAN peers regardless -- NAT blocks the internet.)
 {
 	my $out = "; added by PreInstallApp.pm -- pre-authorize inbound RAYDP so no firewall prompt\n";
 	for my $r (@FIREWALL_RULES)
 	{
 		my ($name, $exe) = @$r;
 		$out .= qq(Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""$name"""; Flags: runhidden\n);
-		$out .= qq(Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall add rule name=""$name"" dir=in action=allow program=""{app}\\bin\\$exe"" enable=yes profile=any remoteip=10.0.0.0/8"; Flags: runhidden\n);
+		$out .= qq(Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall add rule name=""$name"" dir=in action=allow program=""{app}\\bin\\$exe"" enable=yes profile=any remoteip=LocalSubnet,10.0.0.0/8"; Flags: runhidden\n);
 	}
 	return $out;
 }
@@ -110,6 +112,21 @@ sub firewallUninstallSection
 		$out .= qq(Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""$name"""; Flags: runhidden\n);
 	}
 	return $out;
+}
+
+
+sub tempCleanupUninstallSection
+	# An [UninstallDelete] section that removes the app's derived-state root
+	# ($temp_dir = {localappdata}\phorton1\navMate: the Inline cache plus the
+	# .ini window layout).  Everything there is regenerable -- nothing the user
+	# needs kept -- and clearing it on uninstall also guarantees a stale/partial
+	# _Inline can never survive to shadow the next install's bundled blob.  The
+	# user's DATA ($data_dir in {userdocs}\phorton1\navMate) is NOT touched here;
+	# that is offered as an opt-in prompt in the [Code] section (CurUninstallStepChanged).
+{
+	return "; added by PreInstallApp.pm -- remove derived cache/ini on uninstall\n".
+		"[UninstallDelete]\n".
+		qq(Type: filesandordirs; Name: "{localappdata}\\phorton1\\navMate"\n);
 }
 
 
@@ -246,6 +263,25 @@ begin
   else if CurPageID = LicensePageID then
     WizardForm.NextButton.Enabled := LicenseCheck.Checked;
 end;
+
+// added by PreInstallApp.pm -- opt-in removal of the user's DATA folder on
+// uninstall.  Defaults to No; the [UninstallDelete] section only removes the
+// derived cache/ini, never the user's database, so the hub survives an
+// uninstall/reinstall unless the user explicitly asks to delete it here.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DataDir: String;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    DataDir := ExpandConstant('{userdocs}\\phorton1\\navMate');
+    if DirExists(DataDir) then
+    begin
+      if MsgBox('Also delete your navMate data folder -- your database and saved examples -- at:' + #13#10 + #13#10 + DataDir + #13#10 + #13#10 + 'Choose No to keep your data for a future reinstall.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+        DelTree(DataDir, True, True, True);
+    end;
+  end;
+end;
 EOC
 }
 
@@ -309,10 +345,12 @@ sub processLine
 			'Filename: {app}\bin\netWizard.exe; Description: "Run the navMate network wizard now (set up your E-Series connection)"; WorkingDir: {app}\bin; Flags: postinstall nowait skipifsilent runascurrentuser 32bit; StatusMsg: "Launching the network wizard ...";';
 	}
 
-	# Inject an [UninstallRun] section (Cava emits none) right before [Icons].
+	# Inject an [UninstallRun] section (firewall cleanup) plus an
+	# [UninstallDelete] section (derived cache/ini) right before [Icons].
 	if ($line eq '[Icons]')
 	{
-		return firewallUninstallSection()."\n".$line;
+		return firewallUninstallSection()."\n".
+			tempCleanupUninstallSection()."\n".$line;
 	}
 
 	# Drop the lines Inno 5.5.9 rejects.

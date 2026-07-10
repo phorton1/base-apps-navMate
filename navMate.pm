@@ -42,6 +42,16 @@ use navSelection;
 use navServer;
 use if is_win, 'Pub::Ray::NET::s_serial';
 use nmResources;
+
+# navMatchC.pm (pulled in by the nmFrame require chain below) resolves its
+# Inline cache directory from $temp_dir in a compile-time BEGIN block.  The
+# runtime setStandardTempDir() call further down has not executed yet at that
+# point, so establish $temp_dir HERE -- before nmFrame compiles -- or the
+# packaged build falls back to the global %TEMP% (see the $temp_dir ||
+# $ENV{TEMP} fallback in navMatchC.pm).  Mirrors the compile-time
+# setStandardResourceDir() in n_utils.pm; idempotent with the runtime call below.
+BEGIN { setStandardTempDir('navMate'); }
+
 use nmFrame;
 
 use base 'Wx::App';

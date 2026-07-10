@@ -48,6 +48,7 @@ my $commands_json :shared = '[]';	# pending hub->plugin commands ([] = none queu
 our $ocpn_dt      :shared = 0;		# client DT last received WITH an inventory
 our $navmate_dt   :shared = 0;		# navMate's token; enqueueCommands bumps it on a queued batch
 my $last_recv_ts  :shared = 0;
+my $last_seen_ts  :shared = 0;		# last plugin contact (GET poll OR POST inventory); drives isPluginConnected
 my $recv_count    :shared = 0;
 my $last_ingest_json :shared = '';	# the last ingest summary (marks_in vs distinct etc.)
 my $last_results_json :shared = '';	# the last POSTed results[] (incl diag data) for asserts
@@ -245,6 +246,7 @@ sub _iconChannelState
 sub pollView
 {
 	lock($state_lock);
+	$last_seen_ts = time();		# plugin heartbeat: every GET poll and POST inventory funnels through here
 	return {
 		ok         => JSON::PP::true,
 		protocol_version => $PROTOCOL_VERSION,   # the contract navMate speaks (self-announce)
@@ -254,6 +256,25 @@ sub pollView
 		# symbol channel (sec 7): true = include ocpn_icons[] in your next POST.
 		want_icons => ($want_icons ? JSON::PP::true : JSON::PP::false),
 	};
+}
+
+
+#------------------------------------------------------------
+# isPluginConnected() - heartbeat liveness for the OpenCPN spoke light
+#------------------------------------------------------------
+# True when the oESeries plugin has contacted /api/ocpn (a GET poll OR a POST
+# inventory -- both funnel through pollView, which stamps $last_seen_ts) within
+# $OCPN_CONNECT_TIMEOUT seconds.  The plugin polls ~1/s, so 4s tolerates a few
+# missed polls before the light drops.  Independent of the winOCPN pane being
+# open -- the plugin talks to navOCPN regardless.
+
+our $OCPN_CONNECT_TIMEOUT = 4;		# seconds since last plugin contact before "disconnected"
+
+sub isPluginConnected
+{
+	lock($state_lock);
+	return 0 if !$last_seen_ts;
+	return (time() - $last_seen_ts) <= $OCPN_CONNECT_TIMEOUT ? 1 : 0;
 }
 
 

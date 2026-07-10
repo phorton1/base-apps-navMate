@@ -125,7 +125,7 @@ sub new
 
 	my $sb = Wx::StatusBar->new($this, -1);
 	$sb->SetFieldsCount(3);
-	$sb->SetStatusWidths(130, -1, 200);
+	$sb->SetStatusWidths(165, -1, 200);
 	$this->SetStatusBar($sb);
 	$this->{statusbar} = $sb;
 
@@ -133,10 +133,14 @@ sub new
 	my $bold = Wx::Font->new($base->GetPointSize(), $base->GetFamily(),
 		$base->GetStyle(), wxFONTWEIGHT_BOLD);
 
-	$this->{st_wpmgr} = Wx::StaticText->new($sb, -1, 'WPMGR', [5,  3]);
-	$this->{st_wpmgr}->SetFont($bold);
-	$this->{st_track} = Wx::StaticText->new($sb, -1, 'TRACK', [72, 3]);
-	$this->{st_track}->SetFont($bold);
+	# Spoke-availability lights: which live spokes are currently reachable, NOT
+	# services within a spoke.  ESeries = the plotter's core DB service is present
+	# on the network; OpenCPN = the oESeries plugin is polling us (heartbeat, see
+	# navOCPN::isPluginConnected).
+	$this->{st_eseries} = Wx::StaticText->new($sb, -1, 'ESeries', [5,  3]);
+	$this->{st_eseries}->SetFont($bold);
+	$this->{st_ocpn} = Wx::StaticText->new($sb, -1, 'OpenCPN', [80, 3]);
+	$this->{st_ocpn}->SetFont($bold);
 
 	$this->{color_on}  = Wx::Colour->new(0,   110, 0);
 	$this->{color_off} = Wx::Colour->new(180, 0,   0);
@@ -216,17 +220,24 @@ sub onIdle
 	my $wpmgr_on = ($raydp && $raydp->findImplementedService('WPMGR', 1)) ? 1 : 0;
 	my $track_on = ($raydp && $raydp->findImplementedService('TRACK', 1)) ? 1 : 0;
 
-	if ($wpmgr_on != ($this->{_wpmgr_on} // -1))
+	# Spoke-availability lights.  ESeries = the plotter's core DB service (WPMGR)
+	# is present -- WPMGR gates every ESeries DB operation, so it is the spoke's
+	# reachable signal (TRACK is an optional service WITHIN the spoke and no longer
+	# gets its own light).  OpenCPN = the plugin polled within the heartbeat window.
+	my $eseries_on = $wpmgr_on;
+	my $ocpn_on    = navOCPN::isPluginConnected();
+
+	if ($eseries_on != ($this->{_eseries_on} // -1))
 	{
-		$this->{_wpmgr_on} = $wpmgr_on;
-		$this->{st_wpmgr}->SetForegroundColour($wpmgr_on ? $this->{color_on} : $this->{color_off});
-		$this->{st_wpmgr}->Refresh();
+		$this->{_eseries_on} = $eseries_on;
+		$this->{st_eseries}->SetForegroundColour($eseries_on ? $this->{color_on} : $this->{color_off});
+		$this->{st_eseries}->Refresh();
 	}
-	if ($track_on != ($this->{_track_on} // -1))
+	if ($ocpn_on != ($this->{_ocpn_on} // -1))
 	{
-		$this->{_track_on} = $track_on;
-		$this->{st_track}->SetForegroundColour($track_on ? $this->{color_on} : $this->{color_off});
-		$this->{st_track}->Refresh();
+		$this->{_ocpn_on} = $ocpn_on;
+		$this->{st_ocpn}->SetForegroundColour($ocpn_on ? $this->{color_on} : $this->{color_off});
+		$this->{st_ocpn}->Refresh();
 	}
 
 	my $wpmgr_busy    = $Pub::Ray::NET::d_WPMGR::query_in_progress // 0;

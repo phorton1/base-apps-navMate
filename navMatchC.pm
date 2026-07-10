@@ -64,7 +64,26 @@ BEGIN
 		my $src = Win32::GetFullPathName("$resource_dir/_Inline");
 		my $tmp = $temp_dir || $ENV{TEMP};
 		$INLINE_DIR = Win32::GetFullPathName("$tmp/_Inline");
-		if (-d $src && !-d $INLINE_DIR)
+
+		# (Re)populate the writable cache from the bundled read-only blob when it
+		# is MISSING or STALE.  Stale = the current build's compiled .dll (named
+		# by an MD5 of the C source, e.g. navMatchC_8dee.dll) is absent from the
+		# cache.  An interrupted earlier copy or a prior install can leave an
+		# EMPTY hash dir; the old guard copied only when the whole dir was absent,
+		# so that skeleton would shadow the good .dll and force a doomed runtime
+		# recompile (no Inline::C ships with the package).
+		my $need = !-d $INLINE_DIR;
+		if (!$need && opendir(my $dh, "$src/lib/auto"))
+		{
+			for my $pkg (readdir($dh))
+			{
+				next if $pkg =~ /^\./;
+				next if !-f "$src/lib/auto/$pkg/$pkg.dll";
+				$need = 1 if !-f "$INLINE_DIR/lib/auto/$pkg/$pkg.dll";
+			}
+			closedir($dh);
+		}
+		if (-d $src && $need)
 		{
 			system('xcopy', $src, $INLINE_DIR, '/E', '/I', '/Y', '/Q');
 		}
