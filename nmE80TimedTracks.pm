@@ -301,9 +301,9 @@ sub _askToggle
 
     Wx::StaticText->new($dlg, -1, "Connected ESeries:  v$version", [20,15]);
     Wx::StaticText->new($dlg, -1,
-        "When timed-track recording is ON, the ESeries plotter stamps each recorded\n"
-        . "track point with the wall-clock date/time and true depth.  When\n"
-        . "OFF, it records stock tracks (position and depth only, no time).",
+        "When timed-track recording is ON, the ESeries plotter stamps each\n" .
+        "recorded track point with the wall-clock date/time and true depth.\n" .
+        "When OFF, it records stock tracks (position and depth only, no time).",
         [20,42], [400,70]);
 
     my $cur_ctrl = Wx::StaticText->new($dlg, -1,
