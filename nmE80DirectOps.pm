@@ -23,7 +23,7 @@ use threads;
 use threads::shared;
 use JSON::PP qw(decode_json);
 use Wx qw(:everything);
-use Pub::Utils qw(display getAppFrame is_win);
+use Pub::Utils qw(display error getAppFrame is_win);
 use Pub::WX::Dialogs;
 use Pub::Ray::NET::a_defs qw(%KNOWN_SERVER_IPS);
 use Pub::Ray::NET::c_RAYDP;
@@ -494,15 +494,51 @@ sub _launch
 
     display($dbg, 0, "nmE80DirectOps::_launch($op,$ip,".($folder // '-').")");
 
-    threads->create(sub {
-        my $ok =
-            ($op eq 'save')    ? saveE80Config($ip, $folder, $progress) :
-            ($op eq 'restore') ? restoreE80Config($ip, $folder, $progress) :
-            ($op eq 'grab')    ? grabE80Screen($ip, $folder, $progress) :
-                                 clearE80Config($ip, $progress);
-        $progress->{workers} = 0;    # success -> dialog auto-closes; failure already set {error} -> terminal
+    # DIAGNOSTIC (2026-07-13): threads->create() has been observed returning undef here for
+    # 'grab'.  threads.xs reports the real OS reason via warn(), so trap warnings across the
+    # call -- $! is stale (ENOTTY from Win32::Console) and $@ is empty, so the warning text is
+    # the only place the truth appears.
+    my @warnings;
+    my $thread;
+    {
+        local $SIG{__WARN__} = sub { push @warnings, $_[0] };
+        $! = 0;
+        $thread = eval { threads->create(sub {
+            my $ok =
+                ($op eq 'save')    ? saveE80Config($ip, $folder, $progress) :
+                ($op eq 'restore') ? restoreE80Config($ip, $folder, $progress) :
+                ($op eq 'grab')    ? grabE80Screen($ip, $folder, $progress) :
+                                     clearE80Config($ip, $progress);
+            $progress->{workers} = 0;    # success -> dialog auto-closes; failure already set {error} -> terminal
+            _release();
+        }) };
+    }
+
+    if (!$thread)
+    {
+        my $eval_err = $@;
+        my $errno    = 0 + $!;
+        my $errstr   = "$!";
+
+        # the trapped warning is the prize -- print it FIRST, before anything that could
+        # wedge.  (An earlier version called threads->get_stack_size()/list() here and the
+        # process stopped dead mid-line, so do NOT re-enter the thread subsystem on this path.)
+        for my $w (@warnings)
+        {
+            chomp($w);
+            error("threads->create($op) WARN: $w");
+        }
+        error("threads->create($op) returned undef -- no warning captured") if !@warnings;
+        error("  eval_err='".($eval_err // '')."'  errno=$errno ($errstr)");
+
+        my $why = $eval_err || (@warnings ? $warnings[0] : '') || 'no reason given';
+        $progress->{error}   = "Could not start the worker thread: $why";
+        $progress->{workers} = 0;    # terminal -> let the ProgressDialog close rather than hang
         _release();
-    })->detach();
+        return;
+    }
+
+    $thread->detach();
 }
 
 

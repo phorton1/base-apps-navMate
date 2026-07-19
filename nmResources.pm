@@ -35,7 +35,6 @@ BEGIN
 		$WIN_MONITOR
 		$WIN_FILESYS
 		$WIN_OCPN
-		$CMD_DOWNLOAD
 
 		$COMMAND_OPEN_MAP
 		$COMMAND_CLEAR_MAP
@@ -90,8 +89,6 @@ our $WIN_MONITOR				= 10013;
 our $WIN_FSH					= 10014;
 our $WIN_FILESYS				= 10015;
 our $WIN_OCPN					= 10016;
-
-our $CMD_DOWNLOAD				= 10100;
 
 our $COMMAND_OPEN_MAP			= 10021;
 our $COMMAND_CLEAR_MAP			= 10022;
@@ -153,7 +150,6 @@ my $command_data = {
 	$WIN_FSH					=> ['FSH',					'FSH file browser'],
 	$WIN_FILESYS				=> ['FileSys',				'ESeries removable media file system'],
 	$WIN_OCPN					=> ['OpenCPN',				'Live OpenCPN (oESeries plugin) contents'],
-	$CMD_DOWNLOAD				=> ['Download',				'Download selected items'],
 	$COMMAND_NEW_FSH			=> ['New',					'Create a new empty untitled FSH in memory'],
 	$COMMAND_OPEN_FSH_FILE		=> ['Open File...',			'Load an FSH archive file into the FSH browser'],
 	$COMMAND_SAVE_FSH_FILE		=> ['Save File',			'Save FSH data back to the current file (round-trip rewrite)'],
@@ -259,9 +255,8 @@ my $e80_menu = [
 	$COMMAND_E80_ABOUT,
 ];
 
-my $filesys_context_menu = [
-	$CMD_DOWNLOAD,
-];
+# winFILESYS owns its own context menu (ids, labels, and handlers);
+# the app contributes nothing to it.
 
 my $fsh_menu = [
 	$COMMAND_NEW_FSH,
@@ -307,7 +302,6 @@ $resources = { %$resources,
 	ocpn_menu                => $ocpn_menu,
 	utils_menu               => $utils_menu,
 	help_menu                => $help_menu,
-	filesys_context_menu     => $filesys_context_menu,
 };
 
 

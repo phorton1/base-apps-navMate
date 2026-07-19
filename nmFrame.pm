@@ -334,7 +334,7 @@ sub createPane
 	elsif ($id == $WIN_MONITOR)  { $pane = winMonitor->new($this, $book, $id, $data); }
 	elsif ($id == $WIN_FSH)      { $pane = winFSH->new($this, $book, $id, $data); }
 	elsif ($id == $WIN_OCPN)     { $pane = winOCPN->new($this, $book, $id, $data); }
-	elsif ($id == $WIN_FILESYS)  { $pane = winFILESYS->new($this, $book, $id, $data, $CMD_DOWNLOAD); }
+	elsif ($id == $WIN_FILESYS)  { $pane = winFILESYS->new($this, $book, $id, $data); }
 	else { return $this->SUPER::createPane($id, $book, $data); }
 	# app-wide: the mouse wheel must not silently change combo selections
 	nmResources::disableComboWheel($pane) if $pane;
