@@ -58,7 +58,15 @@ my $WINDOW_OFF      = 0x110;          # per-layer window block at +0x110 + N*0x1
 my $DISP_WM1_OFF    = 0x008;          # CRTC: low16 = panel width-1  (E80 0x27f=639). Cross-check only --
 my $DISP_HM1_OFF    = 0x014;          # CRTC: high16 = panel height-1 (E80 0x1df=479). semantics inferred.
 my @COLORKEY_OFF    = (0x1a0, 0x1a4, 0x1a8, 0x1ac, 0x1b0, 0x1b4); # per-layer colorkey reg
-my @CLUT_OFF        = (0x400, 0x800, 0x1000, 0x1400);         # CLUT banks 0..3 (256 x 0x00RRGGBB)
+my @BLEND_OFF       = (0x184, 0x188, 0x18c, 0x190, 0x194, 0x198); # per-layer blend coefficient reg.
+# A CLUT entry's alpha byte is only a FLAG (0 = opaque, non-zero = this entry blends); it does NOT
+# carry the blend AMOUNT. The amount is this per-layer register: observed form 0x0001c0NN, low byte
+# NN = coefficient = fraction/255 of the layer BENEATH shown through the layer's alpha-flagged entries
+# (the same for every flagged entry on that layer). The native aerial opacity control drives NN --
+# calibrated live on L2 (reg 0x18c): opacity 100% -> NN=0xff (fills fully reveal the photo beneath),
+# 50% -> NN=0x96, 0% -> opaque. Reading the low byte (& 0xff) is what matters; the 0x0001c0 high part
+# is fixed config. The old "alpha 0x80 == 50%" reading was wrong -- it ignored this register.
+my @CLUT_OFF        = (0x400, 0x800, 0x1000, 0x1400);         # CLUT banks 0..3 (256 x 0xAARRGGBB; A=per-entry alpha = blend FLAG, 0=opaque)
 # control reg fields: bit31 = 16bpp (else 8bpp); bits16-23 = pitch-in-tiles (8bpp<<6 / 16bpp<<5 = px);
 #                     low 12 bits = height - 1
 # colorkey reg:       bit31 = colorkey enable; low 24 bits = key (8bpp uses low byte = palette index)
@@ -229,6 +237,10 @@ sub _decodeSnapshot
 
 sub compositeE80Snapshot
     # ($snapshot) -> rgb24 $image, or undef. INTERNAL. Pure transform (no device access).
+    # Composites the layers bottom->top the way the GDC2 does at scanout: a colorkey pixel is
+    # skipped (layer beneath shows); an 8bpp pixel whose CLUT entry carries a non-zero alpha is
+    # BLENDED with the layer beneath (this is the aerial-photo-under-chart effect -- chart fill
+    # colours are flagged ~0x80, symbols/text 0x00); everything else replaces opaquely.
 {
     my ($snapshot) = @_;
     return undef if !$snapshot;
@@ -246,7 +258,8 @@ sub compositeE80Snapshot
         my $buf    = $l->{buf};
         my $clut   = $snapshot->{clut}[$n & 3];             # 4 HW CLUT banks; bank = layer & 3
         my $keyidx = $l->{ckey} & 0xff;                     # 8bpp color key = palette index
-        my $key16  = $l->{ckey} & 0xffff;                   # 16bpp color key = RGB565 value
+        my $key16  = $l->{ckey} & 0xffff;                   # 16bpp color key = RGB555 value
+        my $bfrac  = ($l->{blend} // 0) / 255;              # per-layer blend coefficient -> fraction of the layer BENEATH shown through alpha-flagged entries (native opacity reg)
         my $rows   = $l->{dh} > $l->{hctrl} ? $l->{hctrl} : $l->{dh};
 
         display($dbg_composite, 1, sprintf("layer %d: %dbpp %dx%d at (%d,%d) pitch %dpx",
@@ -263,21 +276,36 @@ sub compositeE80Snapshot
                 next if $sx < 0 || $sx >= $SW;
                 my $boff = ($rowbase + $c) * $bpb;
                 next if $boff + $bpb > length($buf);
-                my ($R, $G, $B);
+                my ($R, $G, $B, $a);
                 if ($bpb == 1)
                 {
                     my $idx = ord(substr($buf, $boff, 1));
                     next if $idx == $keyidx;                # color-keyed -> layer beneath shows
                     my $v = $clut->[$idx] || 0;
+                    $a = ($v >> 24) & 0xff;                 # palette alpha = blend FLAG only (0 = opaque, nonzero = blend); the blend AMOUNT is the per-layer coefficient $bfrac
                     ($R, $G, $B) = (($v >> 16) & 0xff, ($v >> 8) & 0xff, $v & 0xff);
                 }
                 else
                 {
                     my $v = unpack('v', substr($buf, $boff, 2));
                     next if ($v & 0xffff) == $key16;        # color-keyed -> layer beneath shows
-                    ($R, $G, $B) = _dec565($v);
+                    ($R, $G, $B) = _dec555($v);             # E80/E120 16bpp = X1R5G5B5, not 565
+                    $a = 0;                                 # 16bpp planes are opaque
                 }
-                substr($canvas[$sy], $sx * 3, 3) = pack('C3', $R, $G, $B);
+                my $poff = $sx * 3;
+                if ($a == 0)                                # opaque -> replace
+                {
+                    substr($canvas[$sy], $poff, 3) = pack('C3', $R, $G, $B);
+                }
+                else                                        # blend: the per-layer coefficient (NOT the entry alpha) sets how much of the layer beneath shows
+                {
+                    my $f = $bfrac;                         # native opacity reg: 0xff -> beneath fully revealed; the entry's 0x80 alpha was only the blend flag
+                    my ($dR, $dG, $dB) = unpack('C3', substr($canvas[$sy], $poff, 3));
+                    substr($canvas[$sy], $poff, 3) = pack('C3',
+                        int($R * (1 - $f) + $dR * $f + 0.5),
+                        int($G * (1 - $f) + $dG * $f + 0.5),
+                        int($B * (1 - $f) + $dB * $f + 0.5));
+                }
             }
         }
     }
@@ -389,7 +417,7 @@ sub _parseRegblock
     my $enable = $r32->($ENABLE_OFF);
     my $zorder = $r32->($ZORDER_OFF);
 
-    my @clut;                                           # 4 banks x 256 entries of 0x00RRGGBB
+    my @clut;                                           # 4 banks x 256 entries of 0xAARRGGBB (high byte = alpha)
     for my $b (0 .. 3)
     {
         $clut[$b] = [ unpack('V256', substr($reg, $CLUT_OFF[$b], 256 * 4)) ];
@@ -431,6 +459,7 @@ sub _parseRegblock
             dw    => $dw,
             dh    => $dh,
             ckey  => $r32->($COLORKEY_OFF[$n]) & 0xffffff,   # bit31(enable) masked off; low bits = key
+            blend => $r32->($BLEND_OFF[$n]) & 0xff,          # blend coefficient: fraction/255 of the layer BENEATH shown through this layer's alpha-flagged CLUT entries
         };
     }
 
@@ -537,12 +566,14 @@ sub _readN
 }
 
 
-sub _dec565
-    # (u16) -> (R,G,B) bytes, expanding RGB565 to 8 bits per channel.
+sub _dec555
+    # (u16) -> (R,G,B) bytes, expanding X1R5G5B5 to 8 bits per channel. The E80/E120 GDC2 16bpp
+    # format is X1R5G5B5 (bit15 unused), PROVEN for the aerial/photo plane. The composite-video
+    # HW layer is ASSUMED 555 (same controller) but never validated -- no live source to check.
 {
     my ($v) = @_;
-    my ($r, $g, $b) = (($v >> 11) & 0x1f, ($v >> 5) & 0x3f, $v & 0x1f);
-    return (($r << 3) | ($r >> 2), ($g << 2) | ($g >> 4), ($b << 3) | ($b >> 2));
+    my ($r, $g, $b) = (($v >> 10) & 0x1f, ($v >> 5) & 0x1f, $v & 0x1f);
+    return (($r << 3) | ($r >> 2), ($g << 3) | ($g >> 2), ($b << 3) | ($b >> 2));
 }
 
 

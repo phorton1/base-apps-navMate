@@ -58,8 +58,8 @@ our $CB_H    = 24;		# checkbox row height
 our $RAYMARINE_URL  = 'https://www.raymarine.com/en-us/download/e-series-classic-software';
 our $BUILDER_RE     = qr/^[A-Za-z0-9.-]{1,15}$/;	# letters/digits/dash/dot, 1-15, no spaces
 our $DEFAULT_BUILDER = 'navMate';
-our $OUT_LABEL      = 'mod003';			# output is E_App_Upg_Uni.mod003.pkg (FIXED; user never names it)
-our $OUT_VERSION    = '5.73';			# the combined mod001..mod003 app version
+our $OUT_LABEL      = 'mod004';			# output is E_App_Upg_Uni.mod004.pkg (FIXED; user never names it)
+our $OUT_VERSION    = '5.74';			# the combined mod001..mod004 app version
 our $OUT_BASENAME   = "E_App_Upg_Uni.$OUT_LABEL.pkg";
 
 # Mod-record location -- the build's ONLY runtime data dependency (the disclaimer

@@ -1,7 +1,7 @@
 #---------------------------------------------
 # em_build.pm
 #---------------------------------------------
-# Run the build pipeline (extract -> mod001 -> mod002 -> mod003 -> build) and show coarse
+# Run the build pipeline (extract -> mod001 -> mod002 -> mod003 -> mod004 -> build) and show coarse
 # progress.  The work is synchronous and fast; it is kicked off via CallAfter so
 # the panel paints first, and each step repaints between e80Firmware calls.
 
@@ -36,7 +36,7 @@ sub onEnter
 	my ($this) = @_;
 	$this->{status}->SetLabel("Preparing ...");
 	$this->{detail}->SetLabel('');
-	$this->{gauge}->SetRange(4);
+	$this->{gauge}->SetRange(5);
 	$this->{gauge}->SetValue(0);
 	$this->showButton('next', 0);
 	$this->showButton('back', 0);
@@ -85,7 +85,7 @@ sub _run
 	if ($out)
 	{
 		$model->{out_path} = $out;
-		$this->{gauge}->SetValue(4);
+		$this->{gauge}->SetValue(5);
 		$this->{status}->SetLabel("Build complete.");
 		$this->{detail}->SetLabel(
 			"Your modified firmware was built successfully.\n\n".
