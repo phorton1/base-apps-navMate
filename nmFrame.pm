@@ -87,6 +87,7 @@ sub new
 	EVT_MENU($this, $COMMAND_E80_TIMED_TRACKS,	\&onCommand);
 	EVT_MENU($this, $COMMAND_E80_ABOUT,			\&onCommand);
 	EVT_MENU($this, $COMMAND_RUN_NET_WIZARD,	\&onCommand);
+	EVT_MENU($this, $COMMAND_RUN_E80MOD,		\&onCommand);
 	EVT_MENU($this, $COMMAND_REFRESH_DB,		\&onCommand);
 	EVT_MENU($this, $COMMAND_EXPORT_DB_TEXT,	\&onCommand);
 	EVT_MENU($this, $COMMAND_IMPORT_DB_TEXT,	\&onCommand);
