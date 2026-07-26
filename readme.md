@@ -76,6 +76,10 @@ navMate is free software, released under the
 [GNU General Public License v3](LICENSE.TXT) or any later version.
 See [LICENSE.TXT](LICENSE.TXT) or <https://www.gnu.org/licenses/> for details.
 
+The `mods/` folder is licensed separately, under the
+[MIT License](mods/LICENSE.TXT) -- so that firmware extensions written against its
+ABI header carry no copyleft obligation. See [mods/readme.md](mods/readme.md).
+
 ## Please Also See
 
 - [**Pub::Ray (base-Pub-Ray)**](https://github.com/phorton1/base-Pub-Ray) -- the
