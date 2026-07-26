@@ -14,8 +14,8 @@
 #     value nonzero     -> write stock non-timed tracks
 #   read_item returns 0 for both "explicitly 0" and "item not present", so a unit
 #   that never had the fid minted gets timed tracks by default. navMate carries a
-#   purpose-built UI that sets/clears this one fid (scripts/_db_create.pl mints it,
-#   scripts/_db_set.pl flips it); the mod itself only READS it.
+#   purpose-built UI that sets/clears this one fid (a small tool mints it, another
+#   flips it); the mod itself only READS it.
 #
 # Mechanism -- ride the existing storage/serve/round-trip machinery, length-preserving:
 #   [A] retarget the `bl addPoint` in all three track emit sites to `bl mod003_stub`.

@@ -1,0 +1,828 @@
+# #####################################################################
+# mod005 -- generated from mods/mod005.c (firmware half).
+# Firmware-only mod (no COE half).
+# BUILD: pkg6   (the build number; set by // @pkg in the .c)
+# Per-section edit blocks carry the objdump -S source interleave as # comments
+# (the apply parser reads only the leading hex of each data line).
+# #####################################################################
+
+# =====================================================================
+# .run11 @ 0x00293e14 (1380/1476 B) -- coe_load, icache_sync, coe_scan, fwcrumb
+# =====================================================================
+edit 00293e14 0x00293e14 1380 09956185e8102568a528731621457ad069130e005ccde89394389d52e678fead
+    coe_load, icache_sync, coe_scan, fwcrumb
+new
+# ---- coe_load  @ 0x00293e14 ----
+#   }
+#   /* coe_load -- read a COE off the card into heap, verify, relocate, apply its edit table,
+#   * and call its coe_init entry. Returns base on success (for the registry), else 0. */
+#   void* coe_load(const char* path)                       /* global: keep the symbol name for @place */
+#   {
+    f0432de9   # 293e14 push {r4, r5, r6, r7, r8, r9, lr}
+    0040a0e1   # 293e18 mov r4, r0
+    44d04de2   # 293e1c sub sp, sp, #68 ; 0x44
+#   coe_hdr_t h; void* fcb; u32* rel=0; u8* base=0; u32 got,i,s;
+#   FWCRUMB(0x50);                                        /* coe_load entered */
+    5000a0e3   # 293e20 mov r0, #80 ; 0x50
+    430100eb   # 293e24 bl 294338 <fwcrumb>
+#   fcb = RM_MALLOC(0x180); if(!fcb) return 0;
+    d8729fe5   # 293e28 ldr r7, [pc, #728] ; 294108 <coe_load+0x2f4>
+    060da0e3   # 293e2c mov r0, #384 ; 0x180
+    0fe0a0e1   # 293e30 mov lr, pc
+    17ff2fe1   # 293e34 bx r7
+    006050e2   # 293e38 subs r6, r0, #0
+    0100001a   # 293e3c bne 293e48 <coe_load+0x34>
+#   return base;
+#   if (fcb) { FX_CLOSE(fcb); RM_FREE(fcb); }
+#   if (base) RM_FREE(base);
+#   if (rel)  RM_FREE(rel);
+#   return 0;
+    0040a0e3   # 293e40 mov r4, #0
+    8a0000ea   # 293e44 b 294074 <coe_load+0x260>
+#   if (FX_OPEN(FX_MEDIA(), fcb, path, 0)) { RM_FREE(fcb); return 0; }
+    bc329fe5   # 293e48 ldr r3, [pc, #700] ; 29410c <coe_load+0x2f8>
+    0420a0e1   # 293e4c mov r2, r4
+    400a93e5   # 293e50 ldr r0, [r3, #2624] ; 0xa40
+    0610a0e1   # 293e54 mov r1, r6
+    0030a0e3   # 293e58 mov r3, #0
+    a40080e2   # 293e5c add r0, r0, #164 ; 0xa4
+    a8429fe5   # 293e60 ldr r4, [pc, #680] ; 294110 <coe_load+0x2fc>
+    0fe0a0e1   # 293e64 mov lr, pc
+    14ff2fe1   # 293e68 bx r4
+    000050e3   # 293e6c cmp r0, #0
+    9c529fe5   # 293e70 ldr r5, [pc, #668] ; 294114 <coe_load+0x300>
+    0600a011   # 293e74 movne r0, r6
+    9c00001a   # 293e78 bne 2940f0 <coe_load+0x2dc>
+#   FWCRUMB(0x60);                                        /* FX_OPEN ok */
+    6000a0e3   # 293e7c mov r0, #96 ; 0x60
+    2c0100eb   # 293e80 bl 294338 <fwcrumb>
+#   if (FX_READ(fcb,&h,sizeof(h),&got) || got!=sizeof(h)) goto fail;
+    8c429fe5   # 293e84 ldr r4, [pc, #652] ; 294118 <coe_load+0x304>
+    04308de2   # 293e88 add r3, sp, #4
+    3820a0e3   # 293e8c mov r2, #56 ; 0x38
+    08108de2   # 293e90 add r1, sp, #8
+    0600a0e1   # 293e94 mov r0, r6
+    0fe0a0e1   # 293e98 mov lr, pc
+    14ff2fe1   # 293e9c bx r4
+    000050e3   # 293ea0 cmp r0, #0
+    70929fe5   # 293ea4 ldr r9, [pc, #624] ; 29411c <coe_load+0x308>
+    7e00001a   # 293ea8 bne 2940a8 <coe_load+0x294>
+    04309de5   # 293eac ldr r3, [sp, #4]
+    380053e3   # 293eb0 cmp r3, #56 ; 0x38
+    7b00001a   # 293eb4 bne 2940a8 <coe_load+0x294>
+#   if (h.magic!=COE_MAGIC || h.format!=COE_FORMAT) goto fail;
+    60329fe5   # 293eb8 ldr r3, [pc, #608] ; 294120 <coe_load+0x30c>
+    08209de5   # 293ebc ldr r2, [sp, #8]
+    030052e1   # 293ec0 cmp r2, r3
+    7700001a   # 293ec4 bne 2940a8 <coe_load+0x294>
+    0c309de5   # 293ec8 ldr r3, [sp, #12]
+    020053e3   # 293ecc cmp r3, #2
+    7400001a   # 293ed0 bne 2940a8 <coe_load+0x294>
+#   FWCRUMB(0x70);                                        /* header read + magic ok */
+    7000a0e3   # 293ed4 mov r0, #112 ; 0x70
+    160100eb   # 293ed8 bl 294338 <fwcrumb>
+#   if (!h.code_len || !h.nreloc) goto fail;
+    14309de5   # 293edc ldr r3, [sp, #20]
+    000053e3   # 293ee0 cmp r3, #0
+    6f00000a   # 293ee4 beq 2940a8 <coe_load+0x294>
+    1c009de5   # 293ee8 ldr r0, [sp, #28]
+    000050e3   # 293eec cmp r0, #0
+    6c00000a   # 293ef0 beq 2940a8 <coe_load+0x294>
+#   rel = RM_MALLOC(h.nreloc*4); if(!rel) goto fail;
+    0001a0e1   # 293ef4 lsl r0, r0, #2
+    0fe0a0e1   # 293ef8 mov lr, pc
+    17ff2fe1   # 293efc bx r7
+    007050e2   # 293f00 subs r7, r0, #0
+    6700000a   # 293f04 beq 2940a8 <coe_load+0x294>
+#   if (FX_READ(fcb,rel,h.nreloc*4,&got) || got!=h.nreloc*4) goto fail;
+    1c209de5   # 293f08 ldr r2, [sp, #28]
+    04308de2   # 293f0c add r3, sp, #4
+    0221a0e1   # 293f10 lsl r2, r2, #2
+    0710a0e1   # 293f14 mov r1, r7
+    0600a0e1   # 293f18 mov r0, r6
+    0fe0a0e1   # 293f1c mov lr, pc
+    14ff2fe1   # 293f20 bx r4
+    000050e3   # 293f24 cmp r0, #0
+    7400001a   # 293f28 bne 294100 <coe_load+0x2ec>
+    1c209de5   # 293f2c ldr r2, [sp, #28]
+    04309de5   # 293f30 ldr r3, [sp, #4]
+    020153e1   # 293f34 cmp r3, r2, lsl #2
+    7000001a   # 293f38 bne 294100 <coe_load+0x2ec>
+#   FWCRUMB(0x80);                                        /* reloc table read ok */
+    8000a0e3   # 293f3c mov r0, #128 ; 0x80
+    fc0000eb   # 293f40 bl 294338 <fwcrumb>
+#   base = RM_MALLOC(h.code_len); if(!base) goto fail;
+    14009de5   # 293f44 ldr r0, [sp, #20]
+    b8319fe5   # 293f48 ldr r3, [pc, #440] ; 294108 <coe_load+0x2f4>
+    0fe0a0e1   # 293f4c mov lr, pc
+    13ff2fe1   # 293f50 bx r3
+    004050e2   # 293f54 subs r4, r0, #0
+    5400000a   # 293f58 beq 2940b0 <coe_load+0x29c>
+#   if (FX_READ(fcb,base,h.code_len,&got) || got!=h.code_len) goto fail;
+    b4819fe5   # 293f5c ldr r8, [pc, #436] ; 294118 <coe_load+0x304>
+    04308de2   # 293f60 add r3, sp, #4
+    14209de5   # 293f64 ldr r2, [sp, #20]
+    0410a0e1   # 293f68 mov r1, r4
+    0600a0e1   # 293f6c mov r0, r6
+    0fe0a0e1   # 293f70 mov lr, pc
+    18ff2fe1   # 293f74 bx r8
+    008050e2   # 293f78 subs r8, r0, #0
+    4b00001a   # 293f7c bne 2940b0 <coe_load+0x29c>
+    14209de5   # 293f80 ldr r2, [sp, #20]
+    04309de5   # 293f84 ldr r3, [sp, #4]
+    030052e1   # 293f88 cmp r2, r3
+    4700001a   # 293f8c bne 2940b0 <coe_load+0x29c>
+#   FWCRUMB(0x90);                                        /* code body read ok */
+    9000a0e3   # 293f90 mov r0, #144 ; 0x90
+    e70000eb   # 293f94 bl 294338 <fwcrumb>
+#   FX_CLOSE(fcb); RM_FREE(fcb); fcb=0;
+    0600a0e1   # 293f98 mov r0, r6
+    0fe0a0e1   # 293f9c mov lr, pc
+    19ff2fe1   # 293fa0 bx r9
+    0600a0e1   # 293fa4 mov r0, r6
+    043085e2   # 293fa8 add r3, r5, #4
+    0fe0a0e1   # 293fac mov lr, pc
+    13ff2fe1   # 293fb0 bx r3
+#   for (s=0,i=0;i<h.code_len;i++) s=(((s<<1)|(s>>31))+base[i])&0xffffffff;
+    0430a0e1   # 293fb4 mov r3, r4
+    0800a0e1   # 293fb8 mov r0, r8
+    14209de5   # 293fbc ldr r2, [sp, #20]
+    022084e0   # 293fc0 add r2, r4, r2
+    030052e1   # 293fc4 cmp r2, r3
+    2d00001a   # 293fc8 bne 294084 <coe_load+0x270>
+#   if (s!=h.code_sum) goto fail;
+    20309de5   # 293fcc ldr r3, [sp, #32]
+    000053e1   # 293fd0 cmp r3, r0
+    3e00001a   # 293fd4 bne 2940d4 <coe_load+0x2c0>
+#   FWCRUMB(0xA0);                                        /* code_sum verified */
+    a000a0e3   # 293fd8 mov r0, #160 ; 0xa0
+    d50000eb   # 293fdc bl 294338 <fwcrumb>
+#   for (i=0;i<h.nreloc;i++) *(u32*)(base+rel[i]) += (u32)base;
+    0030a0e3   # 293fe0 mov r3, #0
+    1c209de5   # 293fe4 ldr r2, [sp, #28]
+    030052e1   # 293fe8 cmp r2, r3
+    2700008a   # 293fec bhi 294090 <coe_load+0x27c>
+#   RM_FREE(rel); rel=0;
+    0700a0e1   # 293ff0 mov r0, r7
+    045085e2   # 293ff4 add r5, r5, #4
+    0fe0a0e1   # 293ff8 mov lr, pc
+    15ff2fe1   # 293ffc bx r5
+#   FWCRUMB(0xB0);                                        /* relocated -- the LL now applies the COE's edits */
+    b000a0e3   # 294000 mov r0, #176 ; 0xb0
+    cb0000eb   # 294004 bl 294338 <fwcrumb>
+#   u32 applied = (u32) ll_apply_edits((const coe_edit_t*)(base+h.edits_off), h.nedits);
+    28009de5   # 294008 ldr r0, [sp, #40] ; 0x28
+    2c109de5   # 29400c ldr r1, [sp, #44] ; 0x2c
+    000084e0   # 294010 add r0, r4, r0
+    4b0100eb   # 294014 bl 294548 <ll_apply_edits>
+#   if (r[FWLL_SIGW]==FWLL_SIG && r[FWLL_EN]) { r[FWLL_MASK]=0x03; r[FWLL_APPL]=applied; } }
+    04319fe5   # 294018 ldr r3, [pc, #260] ; 294124 <coe_load+0x310>
+    04219fe5   # 29401c ldr r2, [pc, #260] ; 294128 <coe_load+0x314>
+    001093e5   # 294020 ldr r1, [r3]
+    020051e1   # 294024 cmp r1, r2
+    0400001a   # 294028 bne 294040 <coe_load+0x22c>
+    042093e5   # 29402c ldr r2, [r3, #4]
+    000052e3   # 294030 cmp r2, #0
+    0320a013   # 294034 movne r2, #3
+    0c208315   # 294038 strne r2, [r3, #12]
+    10008315   # 29403c strne r0, [r3, #16]
+#   if (h.slot_addr) COE_SET_STATE((coe_slot_t*)h.slot_addr, COE_LOADED);  /* LL drives 0->1; COE drives higher */
+    38309de5   # 294040 ldr r3, [sp, #56] ; 0x38
+#   icache_sync((u32)base, h.code_len);       /* Harvard-cache: publish the loaded+relocated code to the I-side */
+    0400a0e1   # 294044 mov r0, r4
+#   if (h.slot_addr) COE_SET_STATE((coe_slot_t*)h.slot_addr, COE_LOADED);  /* LL drives 0->1; COE drives higher */
+    000053e3   # 294048 cmp r3, #0
+    0120a013   # 29404c movne r2, #1
+    0420c315   # 294050 strbne r2, [r3, #4]
+#   icache_sync((u32)base, h.code_len);       /* Harvard-cache: publish the loaded+relocated code to the I-side */
+    14109de5   # 294054 ldr r1, [sp, #20]
+    330000eb   # 294058 bl 29412c <icache_sync>
+#   ((int(*)(void))(base + h.entry_off))();   /* coe_init: publishes ctx, drives INITED->RUNNING */
+    18309de5   # 29405c ldr r3, [sp, #24]
+    033084e0   # 294060 add r3, r4, r3
+    0fe0a0e1   # 294064 mov lr, pc
+    13ff2fe1   # 294068 bx r3
+#   FWCRUMB(0xC0);                                        /* coe_init returned */
+    c000a0e3   # 29406c mov r0, #192 ; 0xc0
+    b00000eb   # 294070 bl 294338 <fwcrumb>
+#   }
+    0400a0e1   # 294074 mov r0, r4
+    44d08de2   # 294078 add sp, sp, #68 ; 0x44
+    f043bde8   # 29407c pop {r4, r5, r6, r7, r8, r9, lr}
+    1eff2fe1   # 294080 bx lr
+#   for (s=0,i=0;i<h.code_len;i++) s=(((s<<1)|(s>>31))+base[i])&0xffffffff;
+    0110d3e4   # 294084 ldrb r1, [r3], #1
+    e00f81e0   # 294088 add r0, r1, r0, ror #31
+    ccffffea   # 29408c b 293fc4 <coe_load+0x1b0>
+#   for (i=0;i<h.nreloc;i++) *(u32*)(base+rel[i]) += (u32)base;
+    031197e7   # 294090 ldr r1, [r7, r3, lsl #2]
+    013083e2   # 294094 add r3, r3, #1
+    012094e7   # 294098 ldr r2, [r4, r1]
+    022084e0   # 29409c add r2, r4, r2
+    012084e7   # 2940a0 str r2, [r4, r1]
+    ceffffea   # 2940a4 b 293fe4 <coe_load+0x1d0>
+#   coe_hdr_t h; void* fcb; u32* rel=0; u8* base=0; u32 got,i,s;
+    0040a0e3   # 2940a8 mov r4, #0
+    0470a0e1   # 2940ac mov r7, r4
+#   if (fcb) { FX_CLOSE(fcb); RM_FREE(fcb); }
+    0600a0e1   # 2940b0 mov r0, r6
+    0fe0a0e1   # 2940b4 mov lr, pc
+    19ff2fe1   # 2940b8 bx r9
+    0600a0e1   # 2940bc mov r0, r6
+    043085e2   # 2940c0 add r3, r5, #4
+    0fe0a0e1   # 2940c4 mov lr, pc
+    13ff2fe1   # 2940c8 bx r3
+#   if (base) RM_FREE(base);
+    000054e3   # 2940cc cmp r4, #0
+    0300000a   # 2940d0 beq 2940e4 <coe_load+0x2d0>
+    0400a0e1   # 2940d4 mov r0, r4
+    043085e2   # 2940d8 add r3, r5, #4
+    0fe0a0e1   # 2940dc mov lr, pc
+    13ff2fe1   # 2940e0 bx r3
+#   if (rel)  RM_FREE(rel);
+    000057e3   # 2940e4 cmp r7, #0
+    54ffff0a   # 2940e8 beq 293e40 <coe_load+0x2c>
+    0700a0e1   # 2940ec mov r0, r7
+    045085e2   # 2940f0 add r5, r5, #4
+    0fe0a0e1   # 2940f4 mov lr, pc
+    15ff2fe1   # 2940f8 bx r5
+    4fffffea   # 2940fc b 293e40 <coe_load+0x2c>
+#   coe_hdr_t h; void* fcb; u32* rel=0; u8* base=0; u32 got,i,s;
+    0040a0e3   # 294100 mov r4, #0
+    e9ffffea   # 294104 b 2940b0 <coe_load+0x29c>
+    34942a00   # 294108 .word 0x002a9434
+    00905d00   # 29410c .word 0x005d9000
+    e0642600   # 294110 .word 0x002664e0
+    e0941700   # 294114 .word 0x001794e0
+    00692600   # 294118 .word 0x00266900
+    a0602600   # 29411c .word 0x002660a0
+    434f4531   # 294120 .word 0x31454f43
+    0000a107   # 294124 .word 0x07a10000
+    46574c4c   # 294128 .word 0x4c4c5746
+# ---- icache_sync  @ 0x0029412c ----
+#   __asm__ volatile(
+    011080e0   # 29412c add r1, r0, r1
+    1f00c0e3   # 294130 bic r0, r0, #31
+    3a0f07ee   # 294134 mcr 15, 0, r0, cr7, cr10, {1}
+    350f07ee   # 294138 mcr 15, 0, r0, cr7, cr5, {1}
+    200080e2   # 29413c add r0, r0, #32
+    010050e1   # 294140 cmp r0, r1
+    faffff3a   # 294144 bcc 294134 <icache_sync+0x8>
+    0000a0e3   # 294148 mov r0, #0
+    9a0f07ee   # 29414c mcr 15, 0, r0, cr7, cr10, {4}
+    1eff2fe1   # 294150 bx lr
+# ---- coe_scan  @ 0x00294154 ----
+#   { u32 h=2166136261u,i; for(i=0;i<n;i++){ h^=nm[i]; h=(h*16777619u)&0xffffffff; } return h; }
+#   /* one scan pass: enumerate SCAN_DIR, load every *.COE not already in reg[]. */
+#   void coe_scan(u32* reg, int* nreg)                      /* global: no constprop-clone -> stable @place name */
+#   {
+#   if (!FS_READY()) return;                             /* MEDI = FAT parsed -> the root is enumerable */
+    c0319fe5   # 294154 ldr r3, [pc, #448] ; 29431c <coe_scan+0x1c8>
+    dc2d93e5   # 294158 ldr r2, [r3, #3548] ; 0xddc
+    bc319fe5   # 29415c ldr r3, [pc, #444] ; 294320 <coe_scan+0x1cc>
+    030052e1   # 294160 cmp r2, r3
+    1eff2f11   # 294164 bxne lr
+#   {
+    f04f2de9   # 294168 push {r4, r5, r6, r7, r8, r9, sl, fp, lr}
+    0080a0e1   # 29416c mov r8, r0
+    64d04de2   # 294170 sub sp, sp, #100 ; 0x64
+#   FWCRUMB(0x40);                                        /* coe_scan entered (card enumerate) */
+    4000a0e3   # 294174 mov r0, #64 ; 0x40
+    0160a0e1   # 294178 mov r6, r1
+    6d0000eb   # 29417c bl 294338 <fwcrumb>
+#   u8* oent=RM_MALLOC(FX_DIRENT_SZ); if(!oent) return;
+    120ea0e3   # 294180 mov r0, #288 ; 0x120
+    98319fe5   # 294184 ldr r3, [pc, #408] ; 294324 <coe_scan+0x1d0>
+    0fe0a0e1   # 294188 mov lr, pc
+    13ff2fe1   # 29418c bx r3
+    004050e2   # 294190 subs r4, r0, #0
+    0d00000a   # 294194 beq 2941d0 <coe_scan+0x7c>
+#   for (int idx=0; *nreg<MAX_COE && idx<FX_DIRENT_MAX; idx++) {
+    0030a0e3   # 294198 mov r3, #0
+    84919fe5   # 29419c ldr r9, [pc, #388] ; 294328 <coe_scan+0x1d4>
+#   if (FX_DIRREAD(FX_MEDIA(),0,&idx,oent)) break;   /* dent=0 -> enumerate the CF ROOT directory */
+    84a19fe5   # 2941a0 ldr sl, [pc, #388] ; 29432c <coe_scan+0x1d8>
+#   for (int idx=0; *nreg<MAX_COE && idx<FX_DIRENT_MAX; idx++) {
+    0c308de5   # 2941a4 str r3, [sp, #12]
+    003096e5   # 2941a8 ldr r3, [r6]
+    070053e3   # 2941ac cmp r3, #7
+    020000ca   # 2941b0 bgt 2941c0 <coe_scan+0x6c>
+    0c309de5   # 2941b4 ldr r3, [sp, #12]
+    090053e1   # 2941b8 cmp r3, r9
+    060000da   # 2941bc ble 2941dc <coe_scan+0x88>
+#   char path[80]; u32 j=0; path[j++]='\\';        /* "\NAME.COE" at the CF root */
+#   for (u32 k=0;k<n;k++) path[j++]=(char)oent[k];
+#   path[j]=0;
+#   if (coe_load(path)) reg[(*nreg)++]=hh;          /* record on success */
+#   }
+#   RM_FREE(oent);
+    0400a0e1   # 2941c0 mov r0, r4
+    64319fe5   # 2941c4 ldr r3, [pc, #356] ; 294330 <coe_scan+0x1dc>
+    0fe0a0e1   # 2941c8 mov lr, pc
+    13ff2fe1   # 2941cc bx r3
+#   }
+    64d08de2   # 2941d0 add sp, sp, #100 ; 0x64
+    f04fbde8   # 2941d4 pop {r4, r5, r6, r7, r8, r9, sl, fp, lr}
+    1eff2fe1   # 2941d8 bx lr
+#   if (FX_DIRREAD(FX_MEDIA(),0,&idx,oent)) break;   /* dent=0 -> enumerate the CF ROOT directory */
+    50319fe5   # 2941dc ldr r3, [pc, #336] ; 294334 <coe_scan+0x1e0>
+    0c208de2   # 2941e0 add r2, sp, #12
+    400a93e5   # 2941e4 ldr r0, [r3, #2624] ; 0xa40
+    0010a0e3   # 2941e8 mov r1, #0
+    0430a0e1   # 2941ec mov r3, r4
+    a40080e2   # 2941f0 add r0, r0, #164 ; 0xa4
+    0fe0a0e1   # 2941f4 mov lr, pc
+    1aff2fe1   # 2941f8 bx sl
+    007050e2   # 2941fc subs r7, r0, #0
+    eeffff1a   # 294200 bne 2941c0 <coe_scan+0x6c>
+#   if (oent[0]==0) break;
+    0030d4e5   # 294204 ldrb r3, [r4]
+    000053e3   # 294208 cmp r3, #0
+    ebffff0a   # 29420c beq 2941c0 <coe_scan+0x6c>
+#   if (oent[0]==0xE5) continue;
+    e50053e3   # 294210 cmp r3, #229 ; 0xe5
+    0300000a   # 294214 beq 294228 <coe_scan+0xd4>
+#   if (oent[0x104]&0x10) continue;                 /* subdir */
+    0431d4e5   # 294218 ldrb r3, [r4, #260] ; 0x104
+    100013e3   # 29421c tst r3, #16
+#   u32 n=0; while(n<64 && oent[n]) n++;
+    0750a001   # 294220 moveq r5, r7
+#   if (oent[0x104]&0x10) continue;                 /* subdir */
+    0600000a   # 294224 beq 294244 <coe_scan+0xf0>
+#   for (int idx=0; *nreg<MAX_COE && idx<FX_DIRENT_MAX; idx++) {
+    0c309de5   # 294228 ldr r3, [sp, #12]
+    013083e2   # 29422c add r3, r3, #1
+    0c308de5   # 294230 str r3, [sp, #12]
+    dbffffea   # 294234 b 2941a8 <coe_scan+0x54>
+#   u32 n=0; while(n<64 && oent[n]) n++;
+    015085e2   # 294238 add r5, r5, #1
+    400055e3   # 29423c cmp r5, #64 ; 0x40
+    0400000a   # 294240 beq 294258 <coe_scan+0x104>
+    0530d4e7   # 294244 ldrb r3, [r4, r5]
+    000053e3   # 294248 cmp r3, #0
+    f9ffff1a   # 29424c bne 294238 <coe_scan+0xe4>
+#   if (n<5) continue;
+    040055e3   # 294250 cmp r5, #4
+    f3ffff9a   # 294254 bls 294228 <coe_scan+0xd4>
+#   if (oent[n-4]!='.'||oent[n-3]!='C'||oent[n-2]!='O'||oent[n-1]!='E') continue;
+    053084e0   # 294258 add r3, r4, r5
+    042053e5   # 29425c ldrb r2, [r3, #-4]
+    2e0052e3   # 294260 cmp r2, #46 ; 0x2e
+    efffff1a   # 294264 bne 294228 <coe_scan+0xd4>
+    032053e5   # 294268 ldrb r2, [r3, #-3]
+    430052e3   # 29426c cmp r2, #67 ; 0x43
+    ecffff1a   # 294270 bne 294228 <coe_scan+0xd4>
+    022053e5   # 294274 ldrb r2, [r3, #-2]
+    4f0052e3   # 294278 cmp r2, #79 ; 0x4f
+    e9ffff1a   # 29427c bne 294228 <coe_scan+0xd4>
+    013053e5   # 294280 ldrb r3, [r3, #-1]
+    450053e3   # 294284 cmp r3, #69 ; 0x45
+    e6ffff1a   # 294288 bne 294228 <coe_scan+0xd4>
+    003096e5   # 29428c ldr r3, [r6]
+#   u32 hh=namehash(oent,n); int seen=0;
+    0510a0e1   # 294290 mov r1, r5
+    0400a0e1   # 294294 mov r0, r4
+    04308de5   # 294298 str r3, [sp, #4]
+    ca0000eb   # 29429c bl 2945cc <namehash>
+    00b0a0e1   # 2942a0 mov fp, r0
+#   for (int k=0;k<*nreg;k++) if(reg[k]==hh){ seen=1; break; }
+    04309de5   # 2942a4 ldr r3, [sp, #4]
+    030057e1   # 2942a8 cmp r7, r3
+    150000ba   # 2942ac blt 294308 <coe_scan+0x1b4>
+#   char path[80]; u32 j=0; path[j++]='\\';        /* "\NAME.COE" at the CF root */
+    5c30a0e3   # 2942b0 mov r3, #92 ; 0x5c
+    60008de2   # 2942b4 add r0, sp, #96 ; 0x60
+    503060e5   # 2942b8 strb r3, [r0, #-80]! ; 0xffffffb0
+#   for (u32 k=0;k<n;k++) path[j++]=(char)oent[k];
+    0030a0e3   # 2942bc mov r3, #0
+    03c0d4e7   # 2942c0 ldrb ip, [r4, r3]
+    031080e0   # 2942c4 add r1, r0, r3
+    022083e2   # 2942c8 add r2, r3, #2
+    013083e2   # 2942cc add r3, r3, #1
+    050053e1   # 2942d0 cmp r3, r5
+    01c0c1e5   # 2942d4 strb ip, [r1, #1]
+    f8ffff3a   # 2942d8 bcc 2942c0 <coe_scan+0x16c>
+#   path[j]=0;
+    60308de2   # 2942dc add r3, sp, #96 ; 0x60
+    023083e0   # 2942e0 add r3, r3, r2
+    0020a0e3   # 2942e4 mov r2, #0
+    502043e5   # 2942e8 strb r2, [r3, #-80] ; 0xffffffb0
+#   if (coe_load(path)) reg[(*nreg)++]=hh;          /* record on success */
+    c8feffeb   # 2942ec bl 293e14 <coe_load>
+    000050e3   # 2942f0 cmp r0, #0
+    00309615   # 2942f4 ldrne r3, [r6]
+    01208312   # 2942f8 addne r2, r3, #1
+    00208615   # 2942fc strne r2, [r6]
+    03b18817   # 294300 strne fp, [r8, r3, lsl #2]
+    c7ffffea   # 294304 b 294228 <coe_scan+0xd4>
+#   for (int k=0;k<*nreg;k++) if(reg[k]==hh){ seen=1; break; }
+    072198e7   # 294308 ldr r2, [r8, r7, lsl #2]
+    0b0052e1   # 29430c cmp r2, fp
+    c4ffff0a   # 294310 beq 294228 <coe_scan+0xd4>
+    017087e2   # 294314 add r7, r7, #1
+    e2ffffea   # 294318 b 2942a8 <coe_scan+0x154>
+    00b04e02   # 29431c .word 0x024eb000
+    4944454d   # 294320 .word 0x4d454449
+    34942a00   # 294324 .word 0x002a9434
+    ff010000   # 294328 .word 0x000001ff
+    887e2600   # 29432c .word 0x00267e88
+    e4941700   # 294330 .word 0x001794e4
+    00905d00   # 294334 .word 0x005d9000
+# ---- fwcrumb  @ 0x00294338 ----
+#   if (r[FWLL_SIGW] != FWLL_SIG) {                       /* cold-init (DRAM not zeroed at boot) */
+    30309fe5   # 294338 ldr r3, [pc, #48] ; 294370 <fwcrumb+0x38>
+    30209fe5   # 29433c ldr r2, [pc, #48] ; 294374 <fwcrumb+0x3c>
+    001093e5   # 294340 ldr r1, [r3]
+    020051e1   # 294344 cmp r1, r2
+#   r[FWLL_SIGW]=FWLL_SIG; r[FWLL_EN]=FWLL_DEFAULT_ON; r[FWLL_MASK]=0; r[FWLL_APPL]=0;
+    00208315   # 294348 strne r2, [r3]
+    0020a013   # 29434c movne r2, #0
+    04208315   # 294350 strne r2, [r3, #4]
+    0c208315   # 294354 strne r2, [r3, #12]
+    10208315   # 294358 strne r2, [r3, #16]
+#   if (r[FWLL_EN]) r[FWLL_CODE] = 0xFC000000u | code;
+    042093e5   # 29435c ldr r2, [r3, #4]
+    000052e3   # 294360 cmp r2, #0
+    3f038013   # 294364 orrne r0, r0, #-67108864 ; 0xfc000000
+    08008315   # 294368 strne r0, [r3, #8]
+#   }
+    1eff2fe1   # 29436c bx lr
+    0000a107   # 294370 .word 0x07a10000
+    46574c4c   # 294374 .word 0x4c4c5746
+end
+
+# =====================================================================
+# .run12 @ 0x002944d0 (368/436 B) -- text_poke_n, ll_apply_edits, rsum, namehash, notifyState_detour, notifyState_trampoline
+# =====================================================================
+edit 002944d0 0x002944d0 368 db4baeca0b36f5375b659977334a557f57dba3da9164fb570b7bae3ccf1ba278
+    text_poke_n, ll_apply_edits, rsum, namehash, notifyState_detour, notifyState_trampoline
+new
+# ---- text_poke_n  @ 0x002944d0 ----
+#   __asm__ volatile(
+    f0402de9   # 2944d0 push {r4, r5, r6, r7, lr}
+    00400fe1   # 2944d4 mrs r4, CPSR
+    c05084e3   # 2944d8 orr r5, r4, #192 ; 0xc0
+    05f021e1   # 2944dc msr CPSR_c, r5
+    105f13ee   # 2944e0 mrc 15, 0, r5, cr3, cr0, {0}
+    0360c5e3   # 2944e4 bic r6, r5, #3
+    036086e3   # 2944e8 orr r6, r6, #3
+    106f03ee   # 2944ec mcr 15, 0, r6, cr3, cr0, {0}
+    0070a0e1   # 2944f0 mov r7, r0
+    0260a0e1   # 2944f4 mov r6, r2
+    043091e4   # 2944f8 ldr r3, [r1], #4
+    043080e4   # 2944fc str r3, [r0], #4
+    046056e2   # 294500 subs r6, r6, #4
+    fbffff1a   # 294504 bne 2944f8 <text_poke_n+0x28>
+    022087e0   # 294508 add r2, r7, r2
+    1f00c7e3   # 29450c bic r0, r7, #31
+    3a0f07ee   # 294510 mcr 15, 0, r0, cr7, cr10, {1}
+    200080e2   # 294514 add r0, r0, #32
+    020050e1   # 294518 cmp r0, r2
+    fbffff3a   # 29451c bcc 294510 <text_poke_n+0x40>
+    0000a0e3   # 294520 mov r0, #0
+    9a0f07ee   # 294524 mcr 15, 0, r0, cr7, cr10, {4}
+    1f00c7e3   # 294528 bic r0, r7, #31
+    350f07ee   # 29452c mcr 15, 0, r0, cr7, cr5, {1}
+    200080e2   # 294530 add r0, r0, #32
+    020050e1   # 294534 cmp r0, r2
+    fbffff3a   # 294538 bcc 29452c <text_poke_n+0x5c>
+    105f03ee   # 29453c mcr 15, 0, r5, cr3, cr0, {0}
+    04f021e1   # 294540 msr CPSR_c, r4
+    f080bde8   # 294544 pop {r4, r5, r6, r7, pc}
+# ---- ll_apply_edits  @ 0x00294548 ----
+#   {
+    f0472de9   # 294548 push {r4, r5, r6, r7, r8, r9, sl, lr}
+#   u32 i, applied = 0;
+    0050a0e3   # 29454c mov r5, #0
+#   {
+    0190a0e1   # 294550 mov r9, r1
+    0040a0e1   # 294554 mov r4, r0
+#   for (i = 0; i < nedits; i++) {
+    0560a0e1   # 294558 mov r6, r5
+    090056e1   # 29455c cmp r6, r9
+    0200001a   # 294560 bne 294570 <ll_apply_edits+0x28>
+#   }
+    0500a0e1   # 294564 mov r0, r5
+    f047bde8   # 294568 pop {r4, r5, r6, r7, r8, r9, sl, lr}
+    1eff2fe1   # 29456c bx lr
+#   if (rsum((const u8*)e->dst, e->len) != e->orig_sum) continue;   /* not stock -> skip, SAFE */
+    800194e9   # 294570 ldmib r4, {r7, r8}
+    0810a0e1   # 294574 mov r1, r8
+    0700a0e1   # 294578 mov r0, r7
+    0a0000eb   # 29457c bl 2945ac <rsum>
+    0c3094e5   # 294580 ldr r3, [r4, #12]
+    030050e1   # 294584 cmp r0, r3
+    0400001a   # 294588 bne 2945a0 <ll_apply_edits+0x58>
+#   text_poke_n(e->dst, e->src, e->len);
+    0820a0e1   # 29458c mov r2, r8
+    001094e5   # 294590 ldr r1, [r4]
+    0700a0e1   # 294594 mov r0, r7
+    ccffffeb   # 294598 bl 2944d0 <text_poke_n>
+#   applied++;
+    015085e2   # 29459c add r5, r5, #1
+#   for (i = 0; i < nedits; i++) {
+    016086e2   # 2945a0 add r6, r6, #1
+    104084e2   # 2945a4 add r4, r4, #16
+    ebffffea   # 2945a8 b 29455c <ll_apply_edits+0x14>
+# ---- rsum  @ 0x002945ac ----
+#   { u32 s=0,i; for(i=0;i<n;i++) s=(((s<<1)|(s>>31))+p[i])&0xffffffff; return s; }
+    0030a0e1   # 2945ac mov r3, r0
+    011080e0   # 2945b0 add r1, r0, r1
+    0000a0e3   # 2945b4 mov r0, #0
+    010053e1   # 2945b8 cmp r3, r1
+    1eff2f01   # 2945bc bxeq lr
+    0120d3e4   # 2945c0 ldrb r2, [r3], #1
+    e00f82e0   # 2945c4 add r0, r2, r0, ror #31
+    faffffea   # 2945c8 b 2945b8 <rsum+0xc>
+# ---- namehash  @ 0x002945cc ----
+#   { u32 h=2166136261u,i; for(i=0;i<n;i++){ h^=nm[i]; h=(h*16777619u)&0xffffffff; } return h; }
+    04e02de5   # 2945cc push {lr}  ; (str lr, [sp, #-4]!)
+    28209fe5   # 2945d0 ldr r2, [pc, #40] ; 294600 <namehash+0x34>
+    28e09fe5   # 2945d4 ldr lr, [pc, #40] ; 294604 <namehash+0x38>
+    011080e0   # 2945d8 add r1, r0, r1
+    010050e1   # 2945dc cmp r0, r1
+    0200001a   # 2945e0 bne 2945f0 <namehash+0x24>
+    0e00a0e1   # 2945e4 mov r0, lr
+    04e09de4   # 2945e8 pop {lr}  ; (ldr lr, [sp], #4)
+    1eff2fe1   # 2945ec bx lr
+    01c0d0e4   # 2945f0 ldrb ip, [r0], #1
+    0c302ee0   # 2945f4 eor r3, lr, ip
+    92030ee0   # 2945f8 mul lr, r2, r3
+    f6ffffea   # 2945fc b 2945dc <namehash+0x10>
+    93010001   # 294600 .word 0x01000193
+    c59d1c81   # 294604 .word 0x811c9dc5
+# ---- notifyState_detour  @ 0x00294608 ----
+#   * site), so it displaces ONE instruction; the trampoline replays it, then continues
+#   * at head+4. The native notify preserves r4/r5 (it saves them), so driver/kind held
+#   * there survive the call. */
+#   __attribute__((naked)) void notifyState_detour(void)
+#   {
+#   __asm__ volatile(
+    70402de9   # 294608 push {r4, r5, r6, lr}
+    0040a0e1   # 29460c mov r4, r0
+    0150a0e1   # 294610 mov r5, r1
+    040000eb   # 294614 bl 29462c <notifyState_trampoline>
+    0400a0e1   # 294618 mov r0, r4
+    0510a0e1   # 29461c mov r1, r5
+    b54100eb   # 294620 bl 2a4cfc <ll_on_notify>
+    7040bde8   # 294624 pop {r4, r5, r6, lr}
+    1eff2fe1   # 294628 bx lr
+# ---- notifyState_trampoline  @ 0x0029462c ----
+#   "bx lr\n"
+#   );
+#   }
+#   __attribute__((naked)) void notifyState_trampoline(void)
+#   {
+#   __asm__ volatile(
+    f0442de9   # 29462c push {r4, r5, r6, r7, sl, lr}
+    5dc8a0e3   # 294630 mov ip, #6094848 ; 0x5d0000
+    9acc8ce3   # 294634 orr ip, ip, #39424 ; 0x9a00
+    d4c08ce3   # 294638 orr ip, ip, #212 ; 0xd4
+    1cff2fe1   # 29463c bx ip
+end
+
+# =====================================================================
+# .run19 @ 0x002a4cb0 (176/236 B) -- ll_on_paint, ll_on_notify, drawLayerByKind_detour, drawLayerByKind_trampoline
+# =====================================================================
+edit 002a4cb0 0x002a4cb0 176 a0c2dc9c74f72e643f1c6c27dc487fc70e05343b1558328bbb0de20f18607ff2
+    ll_on_paint, ll_on_notify, drawLayerByKind_detour, drawLayerByKind_trampoline
+new
+# ---- ll_on_paint  @ 0x002a4cb0 ----
+#   if (FS_READY() && !LL_SPAWNED) {
+    38309fe5   # 2a4cb0 ldr r3, [pc, #56] ; 2a4cf0 <ll_on_paint+0x40>
+    dc2d93e5   # 2a4cb4 ldr r2, [r3, #3548] ; 0xddc
+    34309fe5   # 2a4cb8 ldr r3, [pc, #52] ; 2a4cf4 <ll_on_paint+0x44>
+    030052e1   # 2a4cbc cmp r2, r3
+    1eff2f11   # 2a4cc0 bxne lr
+    2c309fe5   # 2a4cc4 ldr r3, [pc, #44] ; 2a4cf8 <ll_on_paint+0x48>
+    d520d3e5   # 2a4cc8 ldrb r2, [r3, #213] ; 0xd5
+    000052e3   # 2a4ccc cmp r2, #0
+    1eff2f11   # 2a4cd0 bxne lr
+#   LL_SPAWNED = 1;
+    0120a0e3   # 2a4cd4 mov r2, #1
+#   {
+    10402de9   # 2a4cd8 push {r4, lr}
+#   FWCRUMB(0x10);                                    /* first card-present paint: spawning loader */
+    1000a0e3   # 2a4cdc mov r0, #16
+#   LL_SPAWNED = 1;
+    d520c3e5   # 2a4ce0 strb r2, [r3, #213] ; 0xd5
+#   FWCRUMB(0x10);                                    /* first card-present paint: spawning loader */
+    93bdffeb   # 2a4ce4 bl 294338 <fwcrumb>
+#   }
+    1040bde8   # 2a4ce8 pop {r4, lr}
+#   ll_spawn_loader();
+    810500ea   # 2a4cec b 2a62f8 <ll_spawn_loader>
+    00b04e02   # 2a4cf0 .word 0x024eb000
+    4944454d   # 2a4cf4 .word 0x4d454449
+    00b24b04   # 2a4cf8 .word 0x044bb200
+# ---- ll_on_notify  @ 0x002a4cfc ----
+#   if (kind != 0) return;                               /* mounts only */
+    000051e3   # 2a4cfc cmp r1, #0
+    1eff2f11   # 2a4d00 bxne lr
+#   if (!LL_SPAWNED) { LL_SPAWNED = 1; ll_spawn_loader(); }  /* cold insert (no card at boot): spawn once */
+    14309fe5   # 2a4d04 ldr r3, [pc, #20] ; 2a4d20 <ll_on_notify+0x24>
+    d520d3e5   # 2a4d08 ldrb r2, [r3, #213] ; 0xd5
+    000052e3   # 2a4d0c cmp r2, #0
+    1eff2f11   # 2a4d10 bxne lr
+    0120a0e3   # 2a4d14 mov r2, #1
+    d520c3e5   # 2a4d18 strb r2, [r3, #213] ; 0xd5
+    750500ea   # 2a4d1c b 2a62f8 <ll_spawn_loader>
+    00b24b04   # 2a4d20 .word 0x044bb200
+# ---- drawLayerByKind_detour  @ 0x002a4d24 ----
+#   * r2/r3 (native sets both before reading, and never reads them at entry), so r0/r1 (this,kind) and
+#   * lr (the caller's return) pass through untouched. Latch-free: LL_PAINTED just gets re-set 1 each
+#   * paint (idempotent), so no read-modify-write and no race with the mount thread's LL_SPAWNED byte. */
+#   __attribute__((naked)) void drawLayerByKind_detour(void)
+#   {
+#   __asm__ volatile(
+    0123a0e3   # 2a4d24 mov r2, #67108864 ; 0x4000000
+    4b2882e3   # 2a4d28 orr r2, r2, #4915200 ; 0x4b0000
+    b22c82e3   # 2a4d2c orr r2, r2, #45568 ; 0xb200
+    d42082e3   # 2a4d30 orr r2, r2, #212 ; 0xd4
+    0130a0e3   # 2a4d34 mov r3, #1
+    0230c2e5   # 2a4d38 strb r3, [r2, #2]
+    0f502de9   # 2a4d3c push {r0, r1, r2, r3, ip, lr}
+    daffffeb   # 2a4d40 bl 2a4cb0 <ll_on_paint>
+    0f50bde8   # 2a4d44 pop {r0, r1, r2, r3, ip, lr}
+    ffffffea   # 2a4d48 b 2a4d4c <drawLayerByKind_trampoline>
+# ---- drawLayerByKind_trampoline  @ 0x002a4d4c ----
+#   "b drawLayerByKind_trampoline\n"  /* tail into native; lr still = original caller */
+#   );
+#   }
+#   __attribute__((naked)) void drawLayerByKind_trampoline(void)
+#   {
+#   __asm__ volatile(
+    30402de9   # 2a4d4c push {r4, r5, lr}
+    6dc8a0e3   # 2a4d50 mov ip, #7143424 ; 0x6d0000
+    9acc8ce3   # 2a4d54 orr ip, ip, #39424 ; 0x9a00
+    1cc08ce3   # 2a4d58 orr ip, ip, #28
+    1cff2fe1   # 2a4d5c bx ip
+end
+
+# =====================================================================
+# .run20 @ 0x002a621c (324/404 B) -- coe_scan_once, ll_spawn_loader
+# =====================================================================
+edit 002a621c 0x002a621c 324 056afc04532097fa8dccef492b0bef4691bcbda0c0a6cb1fe5a18fc5306316b3
+    coe_scan_once, ll_spawn_loader
+new
+# ---- coe_scan_once  @ 0x002a621c ----
+#   u32 reg[MAX_COE]; int nreg=0;                         /* immortal-thread stack -> persists across scans */
+    0030a0e3   # 2a621c mov r3, #0
+#   {
+    f0432de9   # 2a6220 push {r4, r5, r6, r7, r8, r9, lr}
+#   for (int i=0; i<200 && !LL_PAINTED; i++)
+    bc609fe5   # 2a6224 ldr r6, [pc, #188] ; 2a62e8 <coe_scan_once+0xcc>
+#   {
+    2cd04de2   # 2a6228 sub sp, sp, #44 ; 0x2c
+#   FWCRUMB(0x20);                                        /* loader thread entered (before paint-wait) */
+    2000a0e3   # 2a622c mov r0, #32
+#   u32 reg[MAX_COE]; int nreg=0;                         /* immortal-thread stack -> persists across scans */
+    04308de5   # 2a6230 str r3, [sp, #4]
+#   FWCRUMB(0x20);                                        /* loader thread entered (before paint-wait) */
+    c840a0e3   # 2a6234 mov r4, #200 ; 0xc8
+    3eb8ffeb   # 2a6238 bl 294338 <fwcrumb>
+    0650a0e1   # 2a623c mov r5, r6
+#   for (int i=0; i<200 && !LL_PAINTED; i++)
+    d630d6e5   # 2a6240 ldrb r3, [r6, #214] ; 0xd6
+    000053e3   # 2a6244 cmp r3, #0
+    0500001a   # 2a6248 bne 2a6264 <coe_scan_once+0x48>
+#   RM_THREADSLEEP(100);
+    6400a0e3   # 2a624c mov r0, #100 ; 0x64
+    94309fe5   # 2a6250 ldr r3, [pc, #148] ; 2a62ec <coe_scan_once+0xd0>
+    0fe0a0e1   # 2a6254 mov lr, pc
+    13ff2fe1   # 2a6258 bx r3
+#   for (int i=0; i<200 && !LL_PAINTED; i++)
+    014054e2   # 2a625c subs r4, r4, #1
+    f6ffff1a   # 2a6260 bne 2a6240 <coe_scan_once+0x24>
+#   FWCRUMB(LL_PAINTED ? 0x30 : 0x31);                    /* 0x30 = paint seen; 0x31 = wait TIMED OUT */
+    d630d5e5   # 2a6264 ldrb r3, [r5, #214] ; 0xd6
+#   u32 last = FS_READY() ? 1u : 0u;
+    80709fe5   # 2a6268 ldr r7, [pc, #128] ; 2a62f0 <coe_scan_once+0xd4>
+#   FWCRUMB(LL_PAINTED ? 0x30 : 0x31);                    /* 0x30 = paint seen; 0x31 = wait TIMED OUT */
+    000053e3   # 2a626c cmp r3, #0
+    3000a013   # 2a6270 movne r0, #48 ; 0x30
+    3100a003   # 2a6274 moveq r0, #49 ; 0x31
+    2eb8ffeb   # 2a6278 bl 294338 <fwcrumb>
+    0780a0e1   # 2a627c mov r8, r7
+#   u32 last = FS_READY() ? 1u : 0u;
+    6c609fe5   # 2a6280 ldr r6, [pc, #108] ; 2a62f4 <coe_scan_once+0xd8>
+#   LL_RESCAN = 0;                                    /* clear before scanning -> a request during the scan re-fires */
+    0030a0e3   # 2a6284 mov r3, #0
+#   coe_scan(reg,&nreg);                              /* dedup'd: loads only *.COE not already in reg[] */
+    04108de2   # 2a6288 add r1, sp, #4
+#   LL_RESCAN = 0;                                    /* clear before scanning -> a request during the scan re-fires */
+    d730c5e5   # 2a628c strb r3, [r5, #215] ; 0xd7
+#   coe_scan(reg,&nreg);                              /* dedup'd: loads only *.COE not already in reg[] */
+    08008de2   # 2a6290 add r0, sp, #8
+    aeb7ffeb   # 2a6294 bl 294154 <coe_scan>
+#   u32 last = FS_READY() ? 1u : 0u;
+    dc4d96e5   # 2a6298 ldr r4, [r6, #3548] ; 0xddc
+#   RM_THREADSLEEP(1000);
+    48909fe5   # 2a629c ldr r9, [pc, #72] ; 2a62ec <coe_scan_once+0xd0>
+#   u32 last = FS_READY() ? 1u : 0u;
+    071044e0   # 2a62a0 sub r1, r4, r7
+    004071e2   # 2a62a4 rsbs r4, r1, #0
+    0140a4e0   # 2a62a8 adc r4, r4, r1
+#   while (!LL_RESCAN) {
+    d730d5e5   # 2a62ac ldrb r3, [r5, #215] ; 0xd7
+    000053e3   # 2a62b0 cmp r3, #0
+    f2ffff1a   # 2a62b4 bne 2a6284 <coe_scan_once+0x68>
+#   RM_THREADSLEEP(1000);
+    fa0fa0e3   # 2a62b8 mov r0, #1000 ; 0x3e8
+    0fe0a0e1   # 2a62bc mov lr, pc
+    19ff2fe1   # 2a62c0 bx r9
+#   u32 now = FS_READY() ? 1u : 0u;
+    dc3d96e5   # 2a62c4 ldr r3, [r6, #3548] ; 0xddc
+    082043e0   # 2a62c8 sub r2, r3, r8
+    003072e2   # 2a62cc rsbs r3, r2, #0
+    0230a3e0   # 2a62d0 adc r3, r3, r2
+#   if (!last && now) break;                      /* FS-ready rising edge -> re-scan */
+    012024e2   # 2a62d4 eor r2, r4, #1
+    020013e1   # 2a62d8 tst r3, r2
+#   u32 now = FS_READY() ? 1u : 0u;
+    0340a0e1   # 2a62dc mov r4, r3
+#   if (!last && now) break;                      /* FS-ready rising edge -> re-scan */
+    f1ffff0a   # 2a62e0 beq 2a62ac <coe_scan_once+0x90>
+    e6ffffea   # 2a62e4 b 2a6284 <coe_scan_once+0x68>
+    00b24b04   # 2a62e8 .word 0x044bb200
+    94f51600   # 2a62ec .word 0x0016f594
+    4944454d   # 2a62f0 .word 0x4d454449
+    00b04e02   # 2a62f4 .word 0x024eb000
+# ---- ll_spawn_loader  @ 0x002a62f8 ----
+#   {
+    1f402de9   # 2a62f8 push {r0, r1, r2, r3, r4, lr}
+#   void* tcb = RM_MALLOC(0x104);
+    48309fe5   # 2a62fc ldr r3, [pc, #72] ; 2a634c <ll_spawn_loader+0x54>
+    410fa0e3   # 2a6300 mov r0, #260 ; 0x104
+    0fe0a0e1   # 2a6304 mov lr, pc
+    13ff2fe1   # 2a6308 bx r3
+#   *(void**)LL_TCB_SLOT = tcb;                          /* slot0.spare = 4-byte handle (not the TCB) */
+    3c309fe5   # 2a630c ldr r3, [pc, #60] ; 2a6350 <ll_spawn_loader+0x58>
+#   RM_THREADCREATE((void*)coe_scan_once, 0, 0x2000, 0, tcb, THREAD_NAME, 0x99);
+    3c209fe5   # 2a6310 ldr r2, [pc, #60] ; 2a6354 <ll_spawn_loader+0x5c>
+#   *(void**)LL_TCB_SLOT = tcb;                          /* slot0.spare = 4-byte handle (not the TCB) */
+    d80283e5   # 2a6314 str r0, [r3, #728] ; 0x2d8
+#   RM_THREADCREATE((void*)coe_scan_once, 0, 0x2000, 0, tcb, THREAD_NAME, 0x99);
+    9930a0e3   # 2a6318 mov r3, #153 ; 0x99
+    0c008de9   # 2a631c stmib sp, {r2, r3}
+    0030a0e3   # 2a6320 mov r3, #0
+    00008de5   # 2a6324 str r0, [sp]
+    022aa0e3   # 2a6328 mov r2, #8192 ; 0x2000
+    0310a0e1   # 2a632c mov r1, r3
+    20409fe5   # 2a6330 ldr r4, [pc, #32] ; 2a6358 <ll_spawn_loader+0x60>
+    20009fe5   # 2a6334 ldr r0, [pc, #32] ; 2a635c <ll_spawn_loader+0x64>
+    0fe0a0e1   # 2a6338 mov lr, pc
+    14ff2fe1   # 2a633c bx r4
+#   }
+    10d08de2   # 2a6340 add sp, sp, #16
+    1040bde8   # 2a6344 pop {r4, lr}
+    1eff2fe1   # 2a6348 bx lr
+    34942a00   # 2a634c .word 0x002a9434
+    00b04b04   # 2a6350 .word 0x044bb000
+    d4260c01   # 2a6354 .word 0x010c26d4
+    88e21600   # 2a6358 .word 0x0016e288
+    1c622a00   # 2a635c .word 0x002a621c
+end
+
+# =====================================================================
+# .place_005d9ad0 @ 0x005d9ad0 (4 B) -- notifyState_splice
+# =====================================================================
+edit 005d9ad0 0x005d9ad0 4 43652a9d4b8490412dc0823e95530b4ec6fed47d550ee830af2014f1322af288
+    notifyState_splice
+new
+# ---- notifyState_splice  @ 0x005d9ad0 ----
+#   __attribute__((naked)) void notifyState_splice(void){ __asm__ volatile("b notifyState_detour\n"); }
+    cceaf2ea   # 5d9ad0 b 294608 <notifyState_detour>
+end
+
+# =====================================================================
+# .place_006d9a18 @ 0x006d9a18 (4 B) -- drawLayerByKind_splice
+# =====================================================================
+edit 006d9a18 0x006d9a18 4 6a38f8e4c569066d67dddeb003f2558b854735616e92ff6d039e8f3c698ae126
+    drawLayerByKind_splice
+new
+# ---- drawLayerByKind_splice  @ 0x006d9a18 ----
+#   "orr ip, ip, #0x9a00\n"
+#   "orr ip, ip, #0x1c\n"             /* ip = 0x006d9a1c = drawLayerByKind head+4 */
+#   "bx ip\n"
+#   );
+#   }
+#   __attribute__((naked)) void drawLayerByKind_splice(void){ __asm__ volatile("b drawLayerByKind_detour\n"); }
+    c12cefea   # 6d9a18 b 2a4d24 <drawLayerByKind_detour>
+end
+
+# =====================================================================
+# File Version (runtime self-check) -- GENERATED from // @version -> 575 (v5.75 DOB)
+# =====================================================================
+edit 0017a924 0x0017a924 4 519597d0d3aea345823e15523a65e9544f657368a647c0ce9c3492f773cb93b3
+    version self-check -> 575 (v5.75 DOB)
+new
+    3f1081e2   # 17a924 add r1, r1, #0x3f   ; r1 = 0x23f (575)
+end
+
+edit 0017a93c 0x0017a93c 4 b9b8d945dc4b7395526c370d2143fce340bcc4dbf0415126c1456b59ee41c8bb
+    version self-check -> 575 (v5.75 DOB)
+new
+    3f0080e2   # 17a93c add r0, r0, #0x3f   ; r0 = 0x23f (575)
+end
+
