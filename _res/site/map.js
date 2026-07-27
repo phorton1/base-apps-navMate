@@ -58,7 +58,7 @@ const WP_TYPE_POI       = 8;
 
 function googleLayer(lyrs) {
     return L.tileLayer(
-        'https://mt{s}.google.com/vt/lyrs=' + lyrs + '&x={x}&y={y}&z={z}&key=AIzaSyCApJ-27s7aNpIplcjaIbMsRcvWz42ZjR4',
+        'https://mt{s}.google.com/vt/lyrs=' + lyrs + '&x={x}&y={y}&z={z}',
         {
             subdomains: ['0','1','2','3'],
             attribution: '&copy; Google',
