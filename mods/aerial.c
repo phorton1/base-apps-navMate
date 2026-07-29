@@ -70,7 +70,7 @@
  * ==================================================================== */
 // @coe_name AERIAL                 // -> AERIAL.COE (the card file mod4a's scanning LL loads)
 // @base mod005                     // the mod image aerial hashes its hook sites against (the builder resolves this token)
-// @coe_version 10                // COE build stamp -> header +0x1c
+// @coe_version 11                // COE build stamp -> header +0x1c
 // @slot 4                        // aerial's 12-B .bss contract slot = D2[4] @0x044bb300 (LL sets STATE=LOADED)
 //
 // --- SELF-HOOKING EDITS: each detour body below is copied onto its firmware site by an
@@ -266,6 +266,14 @@ typedef struct {
     /* THE FUSED PYRAMID: every .RCT on the card merged into one zdir over the union zmin..zmax.
      * Each block carries its own file handle, so nothing here is per-region scratch any more. */
     zoomdir_t* zdir; u32 zmin,zmax; void* blob;
+    /* THE REGION SET's authored level: the MIN zoom_author (hdr+0x0a) over every file on the card,
+     * 0 if no file declares one. Set-wide by contract -- the files on a card are a SET, and each
+     * carries the set's properties redundantly because the set has no file of its own. MIN (not
+     * MAX) because a level finer than some file's data leaves that file with no coverage outline
+     * at all, so its imagery would draw but never be revealed; coarser only blunts the outline.
+     * zauthor_split records that they disagreed, which is a card-authoring error we absorb but
+     * report (see the hbuddy stamp in chartset_load). */
+    u32 zauthor, zauthor_split;
     u16* backbuf;                             /* scr_w*scr_h offscreen composite (alloc once) */
     s32 last_e0,last_n0,last_e1,last_n1;      /* last-composed view bounds (recompose gate) */
     u32 drawing;                              /* tiles placed by the IN-PROGRESS compose */
@@ -990,6 +998,11 @@ static void mask_lock_drop(aerial_ctx_t* c){ c->mask_lock=0; }
 static void build_mask(aerial_ctx_t* c,wslot_t* s,u32 pd,u8* rc){
     s32* bn=rc_bounds(rc); if(!bn) return;
     u32 z=c->mask_z ? c->mask_z : MASK_Z;                /* live knob; 0 = never initialised */
+    if(c->zauthor && z>c->zauthor) z=c->zauthor;         /* THE CARD CLAMPS THE KNOB: never cut the
+                                                          * contour finer than the level the producer
+                                                          * actually quantized the polygon at -- past
+                                                          * it the bitmaps describe tile population,
+                                                          * not shape. 0 = nothing declared -> MASK_Z */
     if(z>c->zmax) z=c->zmax;                             /* clamp to what this card actually has */
     if(z<c->zmin) z=c->zmin;
     if(s->mask_ok && s->mask_gen==c->card_gen && s->mask_built_z==z &&
@@ -1182,11 +1195,15 @@ static aerial_ctx_t* ctx_alloc(void){
     mzero(c,sizeof(aerial_ctx_t)); CTX=c; return c; }
 
 /* --- THE FUSED CHARTSET: scan \RASTER for *.RCT, merge them all into ONE pyramid ---------
- * INDEX.RCI is retired. The workflow is "drop .RCT files on the card" -- a FILESYSTEM act -- so
- * the set must be filesystem-defined: any subset is a valid set. A manifest can only be correct
- * by discipline and fails silently both ways (present-but-unlisted is invisible;
- * listed-but-absent is skipped with no diagnostic). The RCI's bounding boxes were already dead
- * data -- every bbox is derived from the file's own blocks.
+ * THE FILESYSTEM DEFINES THE SET. The workflow is "drop .RCT files on the card" -- a FILESYSTEM
+ * act -- so the set of regions IS the set of files present, and any subset is a valid set.
+ * There is nothing to keep in sync and nothing that needs keeping: every geographic bound a
+ * side table could carry is derived from the files' own blocks anyway (cov_* in pass C).
+ *
+ * The files on a card are a SET, not independents. zoom_min and zoom_author are properties of
+ * the set carried redundantly by each member -- which is precisely what lets the set be defined
+ * by which files are present, and lets pass A CHECK their agreement rather than trust a
+ * declaration. A file authored for a different set is detectable; a missing list entry is not.
  *
  * The big buffers (backbuf, cache px, blob) are owned by enable/disable, NOT here. */
 
@@ -1199,7 +1216,7 @@ static void free_chartset(aerial_ctx_t* c){
         RM_FREE(c->zdir); c->zdir=0; }
     for(u32 i=0;i<c->nfiles;i++)
         if(c->fhs[i]){ FX_CLOSE(c->fhs[i]); RM_FREE(c->fhs[i]); c->fhs[i]=0; }
-    c->nfiles=0; c->zmin=0; c->zmax=0;
+    c->nfiles=0; c->zmin=0; c->zmax=0; c->zauthor=0; c->zauthor_split=0;
     for(u32 i=0;i<CACHE_SLOTS;i++) c->cache[i].used=0;   /* invalidate, keep px buffers */
     c->active=0; }
 
@@ -1235,12 +1252,22 @@ done:
     RM_FREE(oent); RM_FREE(dent);
     return (int)c->nfiles; }
 
-/* Read one file's 128-byte header -> its zmin/zmax. 0 on failure. */
-static int rct_hdr_range(void* fh,u32* zmin,u32* zmax){
+/* Read one file's 128-byte header -> its zmin/zmax/zauthor. 0 on failure.
+ *
+ * THE MAGIC IS CHECKED. scan_rct_files() selects on the ".RCT" filename ALONE, so without this
+ * the zoom-range test below is a heuristic applied to whatever bytes the file happens to start
+ * with -- a truncated copy, a rename, or anything else dropped in \RASTER passes it by accident
+ * often enough to matter, and the blocks parsed from it are then garbage offsets we seek to.
+ *
+ * zoom_author (hdr+0x0a) is the level at which the producer quantized the coverage polygon.
+ * 0 = NOT DECLARED (the byte was reserved-zero before the field existed), and the caller
+ * substitutes MASK_Z -- that fallback is what keeps already-built cards working. */
+static int rct_hdr_range(void* fh,u32* zmin,u32* zmax,u32* zauth){
     u32 got; u8 hdr[128];
     if(FX_SEEK(fh,0)) return 0;
     if(FX_READ(fh,hdr,128,&got)||got!=128) return 0;
-    *zmin=hdr[0x0c]; *zmax=hdr[0x0d];
+    if(hdr[0]!='R'||hdr[1]!='C'||hdr[2]!='T'||hdr[3]!='1') return 0;   /* not one of ours */
+    *zmin=hdr[0x0c]; *zmax=hdr[0x0d]; *zauth=hdr[0x0a];
     return (*zmax>=*zmin && *zmax<32) ? 1 : 0; }
 
 /* Card-mount: build the ONE fused pyramid from every .RCT on the card.
@@ -1253,20 +1280,22 @@ static int chartset_load(aerial_ctx_t* c){
     if(c->active) return 1;
     if(!scan_rct_files(c)) return 0;
     u32 got;
-    /* --- pass A: the union zoom range --- */
-    u32 lo=0xffffffff, hi=0;
-    for(u32 f=0;f<c->nfiles;f++){ u32 a,b;
-        if(!rct_hdr_range(c->fhs[f],&a,&b)) continue;
-        if(a<lo) lo=a; if(b>hi) hi=b; }
+    /* --- pass A: the union zoom range + the SET's authored level --- */
+    u32 lo=0xffffffff, hi=0, au=0, au_split=0;
+    for(u32 f=0;f<c->nfiles;f++){ u32 a,b,v;
+        if(!rct_hdr_range(c->fhs[f],&a,&b,&v)) continue;
+        if(a<lo) lo=a; if(b>hi) hi=b;
+        /* MIN over the declared ones; files that declare nothing abstain rather than force 0. */
+        if(v){ if(!au) au=v; else if(v!=au){ au_split=1; if(v<au) au=v; } } }
     if(lo>hi) goto fail;
-    c->zmin=lo; c->zmax=hi;
+    c->zmin=lo; c->zmax=hi; c->zauthor=au; c->zauthor_split=au_split;
     u32 nz=hi-lo+1;
     c->zdir=RM_MALLOC(nz*sizeof(zoomdir_t)); if(!c->zdir) goto fail;
     mzero(c->zdir,nz*sizeof(zoomdir_t));
     for(u32 zi=0;zi<nz;zi++) c->zdir[zi].zoom=(u8)(lo+zi);
     /* --- pass B: per-zoom block counts across ALL files --- */
-    for(u32 f=0;f<c->nfiles;f++){ u32 a,b;
-        if(!rct_hdr_range(c->fhs[f],&a,&b)) continue;
+    for(u32 f=0;f<c->nfiles;f++){ u32 a,b,v;
+        if(!rct_hdr_range(c->fhs[f],&a,&b,&v)) continue;
         for(u32 zi=0;zi<=b-a;zi++){ u32 ze[8];
             if(FX_SEEK(c->fhs[f],128+zi*32)) goto fail;
             if(FX_READ(c->fhs[f],ze,32,&got)||got!=32) goto fail;
@@ -1279,8 +1308,8 @@ static int chartset_load(aerial_ctx_t* c){
         zd->nblk=0; }                                    /* refilled as a cursor in pass C */
     /* --- pass C: merge the blocks --- */
     s32 e0=0x7fffffff, e1=(s32)0x80000000, n0=0x7fffffff, n1=(s32)0x80000000;
-    for(u32 f=0;f<c->nfiles;f++){ u32 a,b; void* fh=c->fhs[f];
-        if(!rct_hdr_range(fh,&a,&b)) continue;
+    for(u32 f=0;f<c->nfiles;f++){ u32 a,b,v; void* fh=c->fhs[f];
+        if(!rct_hdr_range(fh,&a,&b,&v)) continue;
         for(u32 zi=0;zi<=b-a;zi++){ u32 ze[8];
             if(FX_SEEK(fh,128+zi*32)) goto fail;
             if(FX_READ(fh,ze,32,&got)||got!=32) goto fail;
@@ -1314,7 +1343,8 @@ static int chartset_load(aerial_ctx_t* c){
     /* hbuddy liveness: stamp the fused chartset {zmin,zmax,nfiles} into HBUDDY.COE's ring on every
      * activation (no-op when HBUDDY.COE is absent). This is the one deliberate ring write the release
      * build keeps -- it exercises the inter-COE log path and reads back as "aerial fused this card". */
-    { u32 w[3]={c->zmin, c->zmax, c->nfiles}; hbuddy_log(0x0AE1u, w, 3); }
+    { u32 w[5]={c->zmin, c->zmax, c->nfiles, c->zauthor, c->zauthor_split};
+      hbuddy_log(0x0AE1u, w, 5); }
     c->active=1; return 1;
 fail:
     free_chartset(c); return 0; }
