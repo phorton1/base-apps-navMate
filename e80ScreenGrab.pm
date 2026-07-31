@@ -69,7 +69,9 @@ my @BLEND_OFF       = (0x184, 0x188, 0x18c, 0x190, 0x194, 0x198); # per-layer bl
 my @CLUT_OFF        = (0x400, 0x800, 0x1000, 0x1400);         # CLUT banks 0..3 (256 x 0xAARRGGBB; A=per-entry alpha = blend FLAG, 0=opaque)
 # control reg fields: bit31 = 16bpp (else 8bpp); bits16-23 = pitch-in-tiles (8bpp<<6 / 16bpp<<5 = px);
 #                     low 12 bits = height - 1
-# colorkey reg:       bit31 = colorkey enable; low 24 bits = key (8bpp uses low byte = palette index)
+# colorkey reg:       low 24 bits = the key (8bpp uses low byte = palette index). bit31 is NOT an
+#                     enable -- the key is compared with it clear; setting it makes BLACK a second
+#                     transparent value (measured: it discards black text, leaving fills intact)
 
 
 
@@ -475,7 +477,22 @@ sub _parseRegblock
     display($dbg_wire, 0, sprintf("_parseRegblock: derived screen %dx%d (CRTC +0x08/+0x14 read %dx%d)",
         $sw, $sh, ($r32->($DISP_WM1_OFF) & 0xffff) + 1, (($r32->($DISP_HM1_OFF) >> 16) & 0xffff) + 1));
 
-    my @order = reverse grep { $layers[$_]{en} } 0 .. 5;    # bottom -> top (proven reference order)
+    # Draw order, bottom -> top, HONORING the hardware z-order register: six 3-bit fields,
+    # nibble-spaced (field i = bits [4i+2 .. 4i]), field0 = frontmost .. field5 = backmost.
+    # Reversing it gives back-to-front, then the disabled layers drop out. A stock display
+    # reads 0x00543210 (front..back 0,1,2,3,4,5), for which this yields exactly the index
+    # heuristic it replaces -- so ordinary grabs are unchanged. It matters only when
+    # something has reordered the stack, e.g. a spare layer floated to the top.
+    # Guard: if the register is not a clean permutation of 0..5 (an uninitialized or
+    # unreadable regblock), fall back to the index heuristic rather than emit garbage.
+    my @ftb = map { ($zorder >> (4 * $_)) & 7 } 0 .. 5;
+    my %seen;
+    my $zvalid = 6 == grep { $_ <= 5 && !$seen{$_}++ } @ftb;
+    my @order = $zvalid ? (grep { $layers[$_]{en} } reverse @ftb)
+                        : (reverse grep { $layers[$_]{en} } 0 .. 5);
+    display($dbg_wire, 0, sprintf("_parseRegblock: zorder 0x%08x %s -> draw order (bottom->top) %s",
+        $zorder, ($zvalid ? "front..back @ftb" : "INVALID, using index fallback"),
+        join(',', @order)));
     return {
         enable => $enable, zorder => $zorder, clut => \@clut, layers => \@layers,
         order  => \@order, screen => { w => $sw, h => $sh },

@@ -70,7 +70,7 @@
  * ==================================================================== */
 // @coe_name AERIAL                 // -> AERIAL.COE (the card file mod4a's scanning LL loads)
 // @base mod005                     // the mod image aerial hashes its hook sites against (the builder resolves this token)
-// @coe_version 11                // COE build stamp -> header +0x1c
+// @coe_version 13                // COE build stamp -> header +0x1c (AERIAL_VER_STR must match)
 // @slot 4                        // aerial's 12-B .bss contract slot = D2[4] @0x044bb300 (LL sets STATE=LOADED)
 //
 // --- SELF-HOOKING EDITS: each detour body below is copied onto its firmware site by an
@@ -85,6 +85,9 @@
 #include "coe_common.h"                        /* shared contract: coe_slot_t, STATE enum, COE_SET_STATE */
 #include "hbuddy.h"                             /* HBUDDY.COE library contract: hbuddy_arm/stage/log/reset/freeze
                                                 * -- guarded wrappers, no-op when HBUDDY.COE is absent (*.off) */
+#include "utils.h"                              /* UTILS.COE library contract: the on-glass output surface
+                                                * (utils_text/extent/fill/erase) -- guarded wrappers, no-op when
+                                                * UTILS.COE is absent, so the attribution banner is additive */
 #include "e569.h"                              /* firmware v5.69 ABI: rm_malloc/free, FileX file+dir, threads,
                                                 * RayLib events, layer lookup/surface, markAerialDirty, POST_UI_MSG
                                                 * + 0x67, merc<->latlon, L3_BASE/SCR_*, CORAL_CTR */
@@ -225,6 +228,37 @@ typedef struct {
     u32 reveal_tries;
 } wslot_t;
 #define MAX_FILES 16   /* card-scoped .RCT set (a 2GB helm card holds ~10); heap-cheap */
+
+/* ---- THE ATTRIBUTION BANNER -------------------------------------------------------
+ * A .RCT may carry a free-form credit blob for its imagery (raster_chart_format.md:
+ * header +0x38 offset / +0x3c length, LF-separated 7-bit ASCII, at the end of the file).
+ * We show it once per card mount, over the chart, on UTILS.COE's overlay plane.
+ *
+ * LAYOUT LIVES HERE, NOT IN UTILS. utils owns the MECHANISM (a plane, a font, clipped
+ * draws); aerial owns the ARRANGEMENT, because aerial owns the CONTENT pipeline -- it is
+ * the thing that opens .RCT files and knows what an attribution blob is. utils has no
+ * business knowing that a chart file exists.
+ *
+ * The blob is a PER-FILE property, not a set-wide one: different regions on one card may
+ * come from different imagery sources and need not agree (unlike zoom_min / zoom_author).
+ * So the set's attribution is the UNION of the distinct lines across every file.
+ *
+ * BOUNDS. attrib_length is a file-supplied u32 that must never reach the allocator
+ * unchecked: it is clamped to ATTRIB_MAX, the read must be complete, and every byte must
+ * be in the permitted set. Any failure means "no attribution" -- failing to a blank
+ * credit is always correct, and a corrupt file must not be able to drive an allocation. */
+#define ATTRIB_MAX    1024u  /* the format spec's consumer clamp on a declared blob length */
+#define ATTRIB_BUF    1024u  /* our accumulated distinct-line store (NUL-separated) */
+#define ATTRIB_LINES     8u  /* distinct source lines we will hold across the whole set */
+#define BANNER_LINES    16u  /* display lines after word wrap (a source line may split). Generous
+                              * on purpose: at the small face this is ~220 px of a 480 px panel,
+                              * and CLIPPING A CREDIT is the one unacceptable outcome here. */
+#define BANNER_MS     8000u  /* dwell, then utils' own thread takes it back down. 4 s was too
+                              * brief to notice and read at boot, where it competes with the
+                              * startup disclaimer for attention (bench-observed). */
+#define BANNER_TOP      20u  /* y of the box -- it typically appears over the boot disclaimer */
+#define BANNER_TBAR     24u  /* title-bar height */
+#define AERIAL_VER_STR "v13" /* shown in the banner title; keep in step with @coe_version */
 /* ==== THE ABI CONTRACT -- the only part of the ctx anything outside the COE brain may touch ====
  * Lives at the HEAD of aerial_ctx_t, deliberately. The COE's own detours run at their fixed .text
  * splice sites and read these with `ldr rX,[rY,#imm12]`, whose displacement range is 0..4095; at the
@@ -343,6 +377,17 @@ typedef struct {
      * kept here purely so teardown can close them. */
     u32 nfiles;
     void* fhs[MAX_FILES];
+    /* ---- the card's attribution, collected at mount (see the banner block above).
+     * attrib_buf holds the distinct source lines back to back, NUL-separated; attrib[]
+     * points into it. wrap[] points into the SAME buffer after the word-wrap pass, which
+     * breaks lines in place by overwriting the chosen spaces with NULs -- so the display
+     * lines cost no second allocation. banner_pending is the one-shot: set at mount,
+     * consumed by the render thread once UTILS.COE is actually up (it may load after us,
+     * and it may never load at all). */
+    char* attrib_buf; u32 attrib_used;
+    char* attrib[ATTRIB_LINES]; u32 nattrib;
+    char* wrap[BANNER_LINES];   u32 nwrap;
+    u32 banner_pending;
     /* Union merc bbox over every block of every file. Not used by the tile path (draw_level
      * derives its range from the VIEW), but it is the cheap "does the view touch any coverage
      * at all" reject that the Phase 2 reveal skip needs. */
@@ -1217,6 +1262,9 @@ static void free_chartset(aerial_ctx_t* c){
     for(u32 i=0;i<c->nfiles;i++)
         if(c->fhs[i]){ FX_CLOSE(c->fhs[i]); RM_FREE(c->fhs[i]); c->fhs[i]=0; }
     c->nfiles=0; c->zmin=0; c->zmax=0; c->zauthor=0; c->zauthor_split=0;
+    /* attribution: drop the CONTENT (it belonged to the card that just went away) but keep
+     * the 1 KB buffer, same anti-fragmentation doctrine as the big buffers. */
+    c->nattrib=0; c->nwrap=0; c->attrib_used=0; c->banner_pending=0;
     for(u32 i=0;i<CACHE_SLOTS;i++) c->cache[i].used=0;   /* invalidate, keep px buffers */
     c->active=0; }
 
@@ -1269,6 +1317,50 @@ static int rct_hdr_range(void* fh,u32* zmin,u32* zmax,u32* zauth){
     if(hdr[0]!='R'||hdr[1]!='C'||hdr[2]!='T'||hdr[3]!='1') return 0;   /* not one of ours */
     *zmin=hdr[0x0c]; *zmax=hdr[0x0d]; *zauth=hdr[0x0a];
     return (*zmax>=*zmin && *zmax<32) ? 1 : 0; }
+
+/* --- the attribution blob: collect the DISTINCT credit lines across the whole card ----
+ * Called once per mount, after the files are open. Every rejection path below is the
+ * spec's own: 0 = not declared, an over-long declaration, a short read, or any byte
+ * outside {0x20..0x7e, LF} all mean "this file has no attribution", and the fused set
+ * simply carries one line fewer. Failing to a blank credit is always correct. */
+static u32 rd32le(const u8* p){ return (u32)p[0]|((u32)p[1]<<8)|((u32)p[2]<<16)|((u32)p[3]<<24); }
+static u32 slen(const char* s){ u32 n=0; while(s[n]) n++; return n; }
+
+static void load_attrib(aerial_ctx_t* c){
+    c->nattrib=0; c->nwrap=0; c->attrib_used=0;
+    if(!c->attrib_buf){ c->attrib_buf=RM_MALLOC(ATTRIB_BUF); if(!c->attrib_buf) return; }
+    u8* raw=RM_MALLOC(ATTRIB_MAX); if(!raw) return;      /* one scratch for the whole pass */
+    for(u32 f=0; f<c->nfiles && c->nattrib<ATTRIB_LINES; f++){
+        void* fh=c->fhs[f]; u32 got; u8 hdr[128];
+        if(FX_SEEK(fh,0)) continue;
+        if(FX_READ(fh,hdr,128,&got)||got!=128) continue;
+        u32 ao=rd32le(hdr+0x38), al=rd32le(hdr+0x3c);
+        if(!ao || !al || al>ATTRIB_MAX) continue;        /* not declared, or refuses the clamp */
+        if(FX_SEEK(fh,ao)) continue;
+        if(FX_READ(fh,raw,al,&got)||got!=al) continue;   /* short read -> no attribution */
+        u32 bad=0;
+        for(u32 i=0;i<al;i++){ u8 ch=raw[i]; if(ch!=0x0a && (ch<0x20||ch>0x7e)){ bad=1; break; } }
+        if(bad) continue;                                /* out-of-set byte -> no attribution */
+        u32 i=0;
+        while(i<al && c->nattrib<ATTRIB_LINES){
+            u32 j=i; while(j<al && raw[j]!=0x0a) j++;    /* one LF-separated source line */
+            u32 n=j-i;
+            while(n && raw[i+n-1]==' ') n--;             /* trailing blanks are not content */
+            if(n){
+                u32 dup=0;                               /* DISTINCT across the set: files on one
+                                                          * card usually carry the same credit */
+                for(u32 k=0;k<c->nattrib && !dup;k++){
+                    const char* a=c->attrib[k];
+                    if(slen(a)!=n) continue;
+                    u32 m=0; while(m<n && a[m]==(char)raw[i+m]) m++;
+                    dup=(m==n); }
+                if(!dup && c->attrib_used+n+1u<=ATTRIB_BUF){
+                    char* d=c->attrib_buf+c->attrib_used;
+                    for(u32 m=0;m<n;m++) d[m]=(char)raw[i+m];
+                    d[n]=0; c->attrib_used+=n+1u;
+                    c->attrib[c->nattrib++]=d; } }
+            i=j+1u; } }
+    RM_FREE(raw); }
 
 /* Card-mount: build the ONE fused pyramid from every .RCT on the card.
  * Three passes over the (small) headers and zoom tables, because the merged per-zoom block
@@ -1345,6 +1437,8 @@ static int chartset_load(aerial_ctx_t* c){
      * build keeps -- it exercises the inter-COE log path and reads back as "aerial fused this card". */
     { u32 w[5]={c->zmin, c->zmax, c->nfiles, c->zauthor, c->zauthor_split};
       hbuddy_log(0x0AE1u, w, 5); }
+    load_attrib(c);             /* the card's credits; empty is a normal outcome */
+    c->banner_pending=1;        /* one-shot -- the render thread shows it once utils is up */
     c->active=1; return 1;
 fail:
     free_chartset(c); return 0; }
@@ -1537,6 +1631,84 @@ static int ao_state(void){
     return obj[0x511] ? 1 : 0;                /* AERIAL OVERLAY on/off */
 }
 
+/* ====================================================================
+ * THE ATTRIBUTION BANNER -- our announcement plus the card's imagery credits, drawn on
+ * UTILS.COE's overlay plane for a few seconds at each card mount.
+ *
+ * Everything here is guarded: with UTILS.COE absent every utils_* call is a no-op, the
+ * measurements come back 0, and the whole function quietly draws nothing. That is the
+ * intended behaviour, not a degraded one -- the banner is additive.
+ * ==================================================================== */
+#define BANNER_CREDIT "(c) 2026 Patrick Horton"
+#define BANNER_TITLE  "Aerial Photo Overlay " AERIAL_VER_STR
+
+/* Break one source line into display lines no wider than maxpx, IN PLACE: the space
+ * chosen as a break becomes a NUL, so each display line is just a pointer into
+ * attrib_buf and the wrap costs no second allocation.
+ *
+ * WRAPPING IS MANDATORY, not cosmetic. The blob is variable text we do not control (the
+ * real Bocas card carries a 71-character source credit), so the choice is between
+ * wrapping it and clipping it -- and clipping an attribution is the one outcome that is
+ * not acceptable. A single word wider than the box is accepted whole and clipped by
+ * utils rather than broken mid-word. */
+static void wrap_line(aerial_ctx_t* c,char* s,s32 maxpx){
+    while(*s && c->nwrap<BANNER_LINES){
+        char* p=s; char* fit=0;         /* fit = end of the widest prefix that still fits */
+        for(;;){
+            while(*p==' ') p++;
+            if(!*p) break;
+            while(*p && *p!=' ') p++;                  /* p = just past one word */
+            char save=*p; *p=0;
+            s32 w=(s32)utils_extent(UF_SMALL,s);       /* measure the prefix as it would draw */
+            *p=save;
+            if(w>maxpx && fit) break;                  /* overflowed -> take the previous break */
+            fit=p;
+            if(w>maxpx) break;                         /* first word alone overflows -> accept it */
+            if(!*p) break; }
+        if(!fit) return;
+        c->wrap[c->nwrap++]=s;
+        if(!*fit) return;                              /* consumed the whole source line */
+        *fit=0; s=fit+1; } }
+
+/* Centered text within [x0, x0+w). */
+static void bctr(s32 x0,s32 w,s32 y,u8 font,u16 col,const char* s){
+    s32 t=(s32)utils_extent(font,s);
+    s32 dx=(w-t)>0 ? ((w-t)>>1) : 0;
+    utils_text((int)(x0+dx),(int)y,font,col,s); }
+
+/* Draw the banner and hand it to utils' own thread to take back down. The box GROWS to
+ * its content: the number of credit lines is a property of the card, not of us. */
+static void banner_show(aerial_ctx_t* c){
+    s32 ls=(s32)utils_line_space(UF_SMALL);
+    if(ls<=0) return;                                  /* utils not actually up -> nothing to do */
+    s32 sw=(s32)SCR_W(), sh=(s32)SCR_H();
+    s32 maxc=sw-80; if(maxc<160) maxc=160;             /* content budget, leaving a screen margin */
+    c->nwrap=0;
+    for(u32 i=0;i<c->nattrib;i++) wrap_line(c,c->attrib[i],maxc);
+    s32 longest=(s32)utils_extent(UF_BIG_B,BANNER_TITLE);
+    for(u32 i=0;i<c->nwrap;i++){ s32 t=(s32)utils_extent(UF_SMALL,c->wrap[i]); if(t>longest) longest=t; }
+    { s32 t=(s32)utils_extent(UF_SMALL,BANNER_CREDIT); if(t>longest) longest=t; }
+    s32 W=longest+28;
+    if(W<300) W=300;
+    if(W>maxc+28) W=maxc+28;
+    if(W>sw) W=sw;
+    s32 H=(s32)BANNER_TBAR+8+ls*(s32)c->nwrap+10+ls+6;
+    if(H>sh) H=sh;
+    s32 X=(sw-W)>0 ? ((sw-W)>>1) : 0;
+    s32 Y=(s32)BANNER_TOP; if(Y+H>sh) Y=0;
+    u16 grey=UTILS_RGB(132,132,132);
+    utils_fill(X,Y,W,H,UTILS_WHITE);                                   /* the card */
+    utils_fill(X,Y,W,2,grey);        utils_fill(X,Y+H-2,W,2,grey);     /* 2 px border */
+    utils_fill(X,Y,2,H,grey);        utils_fill(X+W-2,Y,2,H,grey);
+    utils_fill(X+2,Y+2,W-4,(s32)BANNER_TBAR-1,grey);                   /* title strip */
+    bctr(X,W,Y+5,UF_BIG_B,UTILS_BLACK,BANNER_TITLE);
+    s32 y=Y+(s32)BANNER_TBAR+8;
+    for(u32 i=0;i<c->nwrap;i++){ bctr(X,W,y,UF_SMALL,UTILS_BLACK,c->wrap[i]); y+=ls; }
+    bctr(X,W,Y+H-6-ls,UF_SMALL,UTILS_BLACK,BANNER_CREDIT);
+    /* The dwell belongs to the REGION, not to us: utils erases this rectangle back to its
+     * color key when the time is up, so the banner comes down whatever we are doing. */
+    utils_erase(X,Y,W,H,BANNER_MS); }
+
 /* Card/AO poller: a card pull or an AO-off fires NO repaint, so nothing would wake the
  * event-driven renderer to tear the photo down. This tiny thread polls presence + AO every
  * ~150 ms and, on a change, signals the render group so the renderer reconciles at once. It
@@ -1556,6 +1728,11 @@ void card_poll_thread(void){
          * covers the self-latching-stall case (active=0 with nothing to wake us) that the old retry
          * also guarded. */
         if(c->enabled && card && ao!=0 && !c->active) sig=1;
+        /* BANNER WAKE. UTILS.COE is an independent card file: it may load after us, or
+         * never. So the mount does not draw the banner -- it arms a one-shot, and this
+         * poll is what notices the surface has come up and wakes the render thread to
+         * draw it. Self-terminating: banner_pending clears on the draw. */
+        if(c->banner_pending && utils_ready()) sig=1;
         /* STUCK-DIRTY SWEEP. The render loop clears win[].dirty BEFORE composing, so a compose
          * that bails leaves the window dirty with its bounds uncommitted -- and then the loop goes
          * straight back to blocking on the wake group. If the view happened to stop moving at that
@@ -1664,6 +1841,10 @@ void render_thread(void){
             for(u32 i=0;i<RC_SLOTS;i++) c->win[i].dirty=1;     /* new card -> everything restales */
         }
         if(!c->active) continue;
+        /* The banner, once per mount, from THIS thread: it has the stack for the wrap pass
+         * and the poller stays a pure notifier. If UTILS.COE never comes up the one-shot
+         * simply stays armed until the card is torn down, and nothing is drawn. */
+        if(c->banner_pending && utils_ready()){ c->banner_pending=0; banner_show(c); }
         for(u32 i=0;i<RC_SLOTS;i++){                            /* compose ONLY what is dirty */
             wslot_t* s=&c->win[i];
             if(!s->used || !s->dirty) continue;

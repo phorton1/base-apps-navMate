@@ -401,14 +401,96 @@
 #define CORAL_CTR   (*(volatile uint32_t*)0xd7ff0400)
 
 /* ============================================================================
- * 11. Graphics memory -- pinned address, signature NOT fully pinned
+ * 11. Display planes -- taking one for our own overlay surface
  *
- * Provided for a COE that needs a hardware surface of its own; confirm the calling
- * convention before use.
+ * The GDC2 presents six display planes; the E-Series enables three (chrome L0,
+ * application L2, photo L3). A COE can take a spare one and own it outright.
+ * ============================================================================ */
+
+/* PEG_SCREEN() -- the one PegCoralScreen singleton, set by Peg_initialize at boot.
+ *   [emp] chart-window INDEPENDENT: it reads back identical to the older
+ *   RC-registry chase (rc -> pd -> pd+0xe8) but needs no chart window to exist, so
+ *   an overlay COE can take its plane at load time regardless of the current page.
+ *   screen+0x38 / screen+0x3c are the panel width / height the firmware itself uses. */
+#define PEG_SCREEN()  (*(void* volatile*)0x01867730)
+#define PEG_SCREEN_W  0x38u
+#define PEG_SCREEN_H  0x3cu
+
+/* PegCoralScreen_bindLayerBitmap  [RTTI]+[ren] -- allocate a plane's backing bitmap and
+ * program the plane, through the firmware's own path.
+ *   void* bindLayerBitmap(void* screen, uint32_t layerIdx, uint32_t w, uint32_t h,
+ *                         uint32_t winW, uint32_t winH, uint32_t bpp, uint32_t colorKey);
+ *   winW/winH : 0 is accepted (window defaults to the bitmap); origin is (0,0).
+ *   bpp       : 16 -> RGB555 (X1R5G5B5), no CLUT involved.
+ *   returns   : nonzero on success.
+ *   side effects: CoralVram_alloc's the bitmap itself (kind 2), programs base + geometry
+ *     + color key, and FLUSHES the GDC2 command FIFO. For layerIdx != 0 it also builds a
+ *     PEG wrapper object.
+ *   TEARDOWN = the same call with w or h = 0: frees the bitmap and the wrapper, zeroes
+ *     the descriptor. [emp] it does NOT clear the hardware enable, so the plane keeps
+ *     scanning freed VRAM -- HIDE BEFORE YOU FREE. (An always-on plane never faces this.)
+ *   LANDMINE [emp]: poking the plane registers directly INSTEAD of calling this leaves
+ *     the geometry unlatched and the plane scans HORIZONTALLY ROTATED, with a stray line
+ *     across the top. The register VALUES come out byte-identical either way -- only the
+ *     FIFO latch differs -- so the fault is invisible until you look at asymmetric
+ *     content. Always validate plane programming with an asymmetric test pattern; a box
+ *     will lie to you. There is no poke-side workaround; this call is required. */
+#define BIND_LAYER_BITMAP ((void*(*)(void* screen,uint32_t layerIdx,uint32_t w,uint32_t h,uint32_t winW,uint32_t winH,uint32_t bpp,uint32_t colorKey))0x00b15610)
+
+/* PegCoralScreen_setLayerVisible  [RTTI]+[ren] -- show / hide a plane (device vtable +0xc4).
+ *   void setLayerVisible(void* screen, uint32_t layerIdx, uint32_t enable);
+ *   Wraps GDC2_enableLayer/disableLayer, takes the Coral mutex, and MAINTAINS THE RAM
+ *   ENABLE SHADOW (*0x00b474fc + 0x128) that the firmware rebuilds the enable register
+ *   from -- which is why this beats poking the enable register.
+ *   GOTCHA [emp]: EDGE-TRIGGERED on descriptor +0x208. If descriptor and hardware are
+ *     out of step it compares equal and SILENTLY DOES NOTHING -- exactly when you most
+ *     want it to work. A force-off path must write the enable register directly. */
+#define SET_LAYER_VISIBLE ((void(*)(void* screen,uint32_t layerIdx,uint32_t enable))0x00b15a20)
+
+/* GDC2_setLayerWindow  [ren] -- position/size a plane's window on the panel.
+ *   void setLayerWindow(uint32_t layerIdx, uint32_t x, uint32_t y, uint32_t w, uint32_t h);
+ *   Writes the register block directly, takes effect immediately. Accepts 5 or 0x15
+ *   for L5. Only needed to move a plane off (0,0). */
+#define SET_LAYER_WINDOW ((void(*)(uint32_t layerIdx,uint32_t x,uint32_t y,uint32_t w,uint32_t h))0x00b47c64)
+
+/* Per-plane descriptor block: screen + layerIdx*0x4c. The two fields a buffer writer
+ * needs, both filled by bindLayerBitmap: */
+#define LAYER_DESC(screen,idx)  ((u8*)(screen) + (idx)*0x4cu)
+#define LDESC_BITMAP  0x1e0u    /* CPU-addressable VRAM base of the plane's bitmap */
+#define LDESC_PITCH   0x228u    /* row pitch in PIXELS (16bpp: (w+0x1f) & ~0x1f)   */
+#define LDESC_VISIBLE 0x208u    /* setLayerVisible's shadow -- the edge it triggers on */
+
+/* GDC2 plane registers. Z-ORDER [emp] is SINGLE-WRITER: GDC2_setZOrder has exactly one
+ * xref (CoralCompositor_init at display setup) and is never re-run, not even on a page
+ * change -- so a float-to-top poke STICKS until a display re-init or a reboot. The
+ * ENABLE register is a different story: it is rebuilt from the RAM shadow whenever the
+ * firmware reprograms any layer, so go through SET_LAYER_VISIBLE rather than poking it.
+ * The COLOR KEY register needs no enabling -- write the key colour and it is compared
+ * (its bit31 is a separate feature, documented at GDC2_COLORKEY_BLACK_TOO below). */
+#define GDC2_ENABLE_REG    (*(volatile uint32_t*)0xd7fd0100)
+#define GDC2_ZORDER_REG    (*(volatile uint32_t*)0xd7fd0180)
+#define GDC2_ZORDER_STOCK  0x00543210u   /* front..back [0,1,2,3,4,5] -- L5 is BACKMOST */
+#define GDC2_ZORDER_L5_TOP 0x00432105u   /* front..back [5,0,1,2,3,4] -- L5 to the front */
+#define GDC2_COLORKEY_REG(n) (*(volatile uint32_t*)(0xd7fd01a0u + (n)*4u))
+
+/* [emp] BIT31 IS NOT AN ENABLE. The key comparison runs with it CLEAR -- a plane whose key
+ * register holds a bare colour value already renders that colour transparent (measured: the
+ * key band vanished with bit31 clear). What bit31 adds is a SECOND transparent value:
+ * BLACK, 0x0000. Set it, and every black pixel on the plane becomes see-through as well.
+ *
+ * LANDMINE [emp]: that silently eats black TEXT and any black artwork, while leaving every
+ * other colour untouched -- so a filled card and its title bar survive and only the letters
+ * vanish, showing the layers behind through the glyph strokes. The buffer reads back
+ * perfect, because the pixels are correct and are being discarded at scan-out. It looks
+ * like corruption that varies with position, since what shows through changes across the
+ * screen, and it defeats every value-based or geometry-based explanation. Leave bit31 CLEAR
+ * unless transparent black is genuinely wanted. */
+#define GDC2_COLORKEY_BLACK_TOO 0x80000000u
+
+/* Raw pool allocation, for a COE that wants a surface bindLayerBitmap does not give it:
  *   CoralVram_alloc          @0x00b14960  [ren] VRAM pool alloc (separate from
  *       rm_malloc); 4 pools at screenObj+0x1b40[k], screenObj = *(PD+0xe8).
  *   CoralScreen_allocSurface @0x00b154dc  [ren] allocate a 16-byte surface
- *       descriptor (= device-vtable +0xac). Layout as in section 5.
- * ============================================================================ */
+ *       descriptor (= device-vtable +0xac). Layout as in section 5. */
 
 #endif /* E569_H */
