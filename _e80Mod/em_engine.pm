@@ -22,7 +22,7 @@ sub build_modified
 	#   progress => optional shared/plain hash e80Firmware mutates ({error} on fail)
 	#   step     => optional sub->($label, $done, $total) the UI paints between steps
 	#
-	# Stacks mod001..mod004 onto the extracted image (the combined v5.74
+	# Stacks mod001..mod005 onto the extracted image (the combined v5.75
 	# product), then repackages.  Any failure returns undef with the reason left
 	# in $progress->{error} (and logged by e80Firmware via Pub::Utils error()).
 {
@@ -37,7 +37,7 @@ sub build_modified
 	# up front so a missing/unshipped record yields a precise "modification data
 	# missing" reason (our shipping problem) rather than e80Firmware's generic
 	# per-region failure, which em_build would otherwise blame on the firmware.
-	for my $n (1, 2, 3, 4)
+	for my $n (1 .. 5)
 	{
 		my $rec = mod_record($n);
 		if (!-f $rec)
@@ -47,26 +47,20 @@ sub build_modified
 		}
 	}
 
-	# progress is reported as a COMPLETED-step count (0..6) so the long final
-	# re-gzip/build sits visibly at 5/6 while it runs, rather than the bar jumping
+	# progress is reported as a COMPLETED-step count (0..7) so the long final
+	# re-gzip/build sits visibly at 6/7 while it runs, rather than the bar jumping
 	# straight to full.
-	$step->("Reading firmware image ...", 0, 6);
+	$step->("Reading firmware image ...", 0, 7);
 	my $img = extract_app_image($pkg, $progress);
 	return undef if !defined $img;
 
-	$step->("Applying modification 1 of 4 ...", 1, 6);
-	return undef if !apply_mod_record(mod_record(1), \$img, $progress);
+	for my $n (1 .. 5)
+	{
+		$step->("Applying modification $n of 5 ...", $n, 7);
+		return undef if !apply_mod_record(mod_record($n), \$img, $progress);
+	}
 
-	$step->("Applying modification 2 of 4 ...", 2, 6);
-	return undef if !apply_mod_record(mod_record(2), \$img, $progress);
-
-	$step->("Applying modification 3 of 4 ...", 3, 6);
-	return undef if !apply_mod_record(mod_record(3), \$img, $progress);
-
-	$step->("Applying modification 4 of 4 ...", 4, 6);
-	return undef if !apply_mod_record(mod_record(4), \$img, $progress);
-
-	$step->("Building modified package ...", 5, 6);
+	$step->("Building modified package ...", 6, 7);
 	my $out = build_mod_pkg(
 		stock    => $pkg,
 		image    => \$img,

@@ -14,11 +14,11 @@
 
 
 **Important Note:** *navMate has been tested with **v5.52** of the Raymarine firmware, and
-exhaustivly tested with the only still available Raymarine
+exhaustively tested with the only still available Raymarine
 [**v5.69 firmware**](https://www.raymarine.com/en-us/download/e-series-classic-software) and the
-[**custom v5.73 firmware**](custom_firmware.md) you can produce from navMate.
-**navMate may not work with earlier versions of Raymaine firmware**, and
-so, if you're on firmware older than 5.52, we recommend upgrading your plotter to 5.69 or 5.73 if you wish to use it with navMate.*
+[**custom v5.75 firmware**](custom_firmware.md) you can produce from navMate.
+**navMate may not work with earlier versions of Raymarine firmware**, and
+so, if you're on firmware older than 5.52, we recommend upgrading your plotter to 5.69 or 5.75 if you wish to use it with navMate.*
 
 
 Once your computer and plotter are connected ([previous chapter](connecting_eseries.md)), the **ESeries
@@ -123,6 +123,27 @@ tracks right now, and lets you turn it on or off. The setting lives on the plott
 leave it.
 
 ![timed_track_dlg.jpg](images/timed_track_dlg.jpg)
+
+
+## Additional Features
+
+The features below are not used by navMate per-se. They are additional capabilities your **plotter**
+gains from the custom firmware -- things the unit does on its own, out on the water, with no computer
+connected at all.
+
+### Aerial Imagery
+
+Your plotter can draw **satellite and aerial photography underneath the chart**, geo-registered below
+your boat, the cursor, and your waypoints. Official charts are surveyed, authoritative, and frequently
+wrong about the last hundred metres -- the reef that grew, the sandbar that moved, the unmarked pass
+that every local uses and no chart shows. A photograph shows what is actually there.
+
+For a great many of the places worth taking a boat, aerial photography has simply never been available
+at all. This lets you build your own coverage for exactly the places **you** care about, at the level
+of detail **you** choose, and carry it aboard on an ordinary CF card -- where it works whether or not
+there is any internet within a hundred miles.
+
+**Click [here](aerial_imagery.md) to learn about [Aerial Imagery](aerial_imagery.md)**
 
 
 **Next:** [OpenCPN](opencpn.md)

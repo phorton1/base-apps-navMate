@@ -10,8 +10,8 @@ as a standalone Windows exe. The full build method is arcane and effectively unp
 but **all** source (navMate, `Pub::`, and `Pub::Ray`) is here on GitHub and is guaranteed
 free of malware or adware.
 
-> **Early access (0.9.x).** navMate is functional and in active use; it's pre-1.0, so expect
-> ongoing changes between releases.
+> **1.0.0 is the first official release.** The `0.9.x` entries below were pre-releases, published
+> for early access and not retained.
 
 This is a release LOG, not a changelog. For what changed between any two releases the git
 history is authoritative: `git log navMate<older>..navMate<newer>`.
@@ -20,6 +20,7 @@ history is authoritative: `git log navMate<older>..navMate<newer>`.
 
 | date | version | notes |
 | ---- | ------- | ----- |
+| 2026-08-06 | 1.0.0 | First official release. Custom firmware v5.75 adds runtime code extensions, including aerial imagery: satellite photography drawn under the charts on the plotter, built with chartMaker |
 | 2026-07-10 | 0.9.10 | Adds OpenCPN sync (waypoints, routes, tracks) via the oESeries plugin; foreign-character support; GPX export; installer/uninstall fixes |
 | 2026-07-01 | 0.9.9 | Renames "E80" to "ESeries" throughout; user-manual and network-setup wording fixes |
 | 2026-06-29 | 0.9.8 | Fixes Save Configuration so the panelset layer is captured correctly on every E-Series plotter; plus map/UI fixes |
@@ -29,6 +30,17 @@ history is authoritative: `git log navMate<older>..navMate<newer>`.
 
 Each release is the same tag `navMate<version>` stamped across the five repos it was built
 from, so it is fully reproducible; the tags in git are the authoritative provenance.
+
+### navMate1.0.0 -- 2026-08-06
+
+The first official release.
+
+- **Custom firmware v5.75** -- adds mod005, which lets the plotter load code extensions from a CF
+  card at startup.
+- **Aerial imagery** -- with `AERIAL.COE` and `.RCT` files built in chartMaker, the plotter draws
+  your own satellite and aerial photography underneath the charts, geo-registered below the boat,
+  cursor, and waypoints.
+- Adds the **Aerial Imagery** chapter to the User Manual.
 
 ### navMate0.9.9 -- 2026-07-01 (pre-release)
 
@@ -108,14 +120,10 @@ Perl               a3c6c457  (private)
 
 <!-- Entry template (newest first, added when a release is cut):
 
-### navMate0.9.5 -- YYYY-MM-DD (pre-release)
+### navMate<version> -- YYYY-MM-DD
 
 <one terse line of highlights>
 
-built from:
-    navMate            <sha>
-    Pub                <sha>
-    Pub::Ray           <sha>
-    base_dist/navMate  <sha>  (private)
-    Perl               <sha>  (private)
+No SHA block: the `navMate<version>` tag in each of the five repos is the provenance.
+(0.9.x entries are marked "(pre-release)"; releases from 1.0.0 on are not.)
 -->

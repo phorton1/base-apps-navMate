@@ -171,8 +171,26 @@ standard dirs plus the per-environment prefs file. `$Cava::Packager::PACKAGED` i
 
 ## Version scheme
 
-`0.9.x`: `0.9` = pre-release, `.x` = build/cycle. Set it in the Cava GUI (the trailing
-field auto-bumps on build). Current: **0.9.3**.
+`x.y.z.n` -- **x** = major revision, **y** = release number within the revision, **z** = minor
+release number, **n** = a monotonically increasing build number across ALL versions (it never
+resets). Set it in the Cava GUI (the trailing field auto-bumps on build).
+
+There is deliberately no formalism about what earns an x, y, or z increment -- no semver
+contract, no rule to look up. Each one is a judgment call made per release. Only **n** is
+mechanical.
+
+**Gotcha: `n` auto-increments DURING the build, so the value you set beforehand is one less
+than what ships.** Set 44 in the GUI, build, and the artifact is `1.0.0.45` -- the cpkgproj
+field has already advanced to 45 ready for the next build. Do not read the cpkgproj (or your
+own memory of what you typed) as the shipped version. The authoritative value is the built
+exe's own resource:
+
+```
+(Get-Item <installer>.exe).VersionInfo.ProductVersion
+```
+
+No "current version" is recorded here -- it would be stale after every build. 1.0.0 shipped
+as `1.0.0.45`.
 
 
 ## Build procedure
@@ -275,12 +293,13 @@ automate):
 4. Install the built exe and smoke-test (wizard launch paths + the seeded db).
 5. **Commit nothing to the five repos between steps 2 and 6** -- else the tag will not pin
    what actually shipped.
-6. All five now clean: in each repo `git tag navMate<ver> && git push origin navMate<ver>`,
-   noting each HEAD SHA.
-7. Append the entry to `releases/readme.md` (SHAs from step 6; tool versions from Toolchain)
-   and commit it in the navMate repo.
+6. All five now clean: in each repo `git tag navMate<ver> && git push origin navMate<ver>`.
+   The tags ARE the provenance -- no SHAs are transcribed anywhere.
+7. Append the entry to `releases/readme.md` (table row + optional prose highlights, no SHA
+   block) and commit it in the navMate repo.
 8. `gh release create navMate<ver> <installer.exe> --title "navMate <ver>" --notes-file
-   <notes> --draft --prerelease`; review the draft on GitHub, then publish.
+   <notes> --draft`; review the draft on GitHub, then publish. (`--prerelease` was used
+   throughout 0.9.x; from 1.0.0 on it is omitted -- see the 1.0.0 line below.)
 9. **Download the asset from GitHub and re-test** -- the only step that proves the uploaded
    asset is intact and installs from the hosted copy.
 
@@ -288,17 +307,36 @@ automate):
 step 8. It is already installed + authed (see Toolchain); re-verify anytime with `gh auth status` +
 `gh release list -R phorton1/base-apps-navMate` (an empty list still proves auth + repo access).
 
-**Pre-release / the 1.0.0 line.** Every `0.9.x` release is marked GitHub **pre-release**
-(`--prerelease`) with a not-guaranteed disclaimer and is throwaway (deleted at 1.0.0). A
-pre-release is excluded from `.../releases/latest`, so during 0.9.x the storefront Download
-points at the `/releases` PAGE (the click-through surfaces the disclaimer), not at
-`latest/download/<asset>`. **1.0.0** is the first official release and the contract line:
-after it releases are permanent, the db schema becomes a backward-compat commitment, and the
-Download button graduates to one-click `latest/download`.
+**Pre-release / the 1.0.0 line.** Every `0.9.x` release was marked GitHub **pre-release**
+(`--prerelease`) with a not-guaranteed disclaimer, and a pre-release is excluded from
+`.../releases/latest`. **1.0.0** is the first official release: it ships WITHOUT `--prerelease`
+and is therefore the first release `/releases/latest` resolves to.
+
+**Permanence and schema compatibility are gated on DOWNLOADS, not on the version number.** A
+release may be deleted, and the db schema may change incompatibly, for as long as nobody has
+actually downloaded the installer. This is a rule with a test -- check it, do not assume:
+
+```
+gh api repos/phorton1/base-apps-navMate/releases \
+  --jq '.[] | .tag_name as $t | .assets[] | "\($t) \(.name) downloads=\(.download_count)"'
+```
+
+Once a release shows a nonzero count it is permanent, and its schema becomes a backward-compat
+commitment. (Every count was 0 when 1.0.0 was cut, so the 0.9.x releases were free to delete.)
+
+**The storefront Download link stays on the `/releases` PAGE -- deliberately.** During 0.9.x it
+had to, since pre-releases are excluded from `/latest`. That blocker is gone at 1.0.0, but the
+page link is KEPT on purpose: `latest/download/<asset>` requires the exact asset filename, the
+filename embeds the version (`navMate-msw-x86-1-0-0.exe`), so a direct link would need
+hand-editing on every release and would 404 silently the first time that is forgotten. The page
+also surfaces the disclaimer via click-through and shows the release notes. **Do not "fix"
+`readme.md` to point at `latest/download`.**
 
 **The release log (`apps/navMate/releases/readme.md`).** A release LOG, not a changelog: one
-terse row per release (date | version | notes) plus a small auto-captured provenance block
-(the five SHAs + tool versions). Committed in the public repo so the provenance OUTLIVES the
-deleted 0.9.x pre-releases. The installer exe is NOT committed (it is the Release asset) --
-only text lives here. No changelog is maintained: every release is tagged in every repo, so
-`git log navMate<old>..navMate<new>` reconstructs the changes on demand.
+terse row per release (date | version | notes), optionally followed by a short prose section of
+highlights. **No SHA block** -- the `navMate<version>` tag stamped across the five repos is the
+authoritative provenance, and git/GitHub hold the tags. (Releases 0.9.5 through 0.9.8 carry a
+`Built from` block; it was dropped at 0.9.9 and is not to be reinstated.) The installer exe is
+NOT committed (it is the Release asset) -- only text lives here. No changelog is maintained:
+every release is tagged in every repo, so `git log navMate<old>..navMate<new>` reconstructs the
+changes on demand.

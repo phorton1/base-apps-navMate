@@ -88,6 +88,11 @@ ABI header carry no copyleft obligation. See [mods/readme.md](mods/readme.md).
   [**docs/e80_firmware**](https://github.com/phorton1/base-Pub-Ray/blob/master/docs/e80_firmware/readme.md)
   folder, which documents the E-Series firmware internals behind navMate's custom-firmware
   features.
+- [**chartMaker (base-apps-chartMaker)**](https://github.com/phorton1/base-apps-chartMaker) -- a
+  companion desktop application that builds offline satellite chartsets from an imagery source you
+  choose: `.mbtiles` for OpenCPN, and the `.RCT` files that the custom firmware's aerial imagery
+  feature draws underneath the charts on an E-Series plotter. See navMate's
+  [**Aerial Imagery**](user_manual/aerial_imagery.md) chapter.
 
 ---
 
